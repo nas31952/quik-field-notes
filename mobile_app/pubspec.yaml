@@ -1,0 +1,33 @@
+name: quik_field_notes
+description: Quik Field Notes - Cross-platform mobile field scouting companion for Android & iOS.
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_map: ^6.0.1
+  latlong2: ^0.9.0
+  geolocator: ^10.1.0
+  speech_to_text: ^6.3.0
+  camera: ^0.10.5+5
+  image_picker: ^1.0.4
+  archive: ^3.4.9
+  path_provider: ^2.1.1
+  share_plus: ^7.2.1
+  intl: ^0.18.1
+  shared_preferences: ^2.2.2
+  cached_network_image: ^3.3.0
+  permission_handler: ^11.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+
+flutter:
+  uses-material-design: true
+

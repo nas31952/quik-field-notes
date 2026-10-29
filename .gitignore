@@ -1,0 +1,59 @@
+# Build outputs & caches
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.exe
+*.apk
+*.ipa
+map_cache/
+test_output/
+*.tmp
+*.log
+.system_generated/
+
+# Test files & temporary assets
+*.shp
+*.shx
+*.dbf
+*.docx
+*.png
+*.csv
+
+# Desktop Suite Files (Keep Local Only)
+scouting_photo_enhancer.py
+*remoteness_analyzer.py
+ai_scout_assistant.py
+boundary_manager.py
+gpx_track_analyzer.py
+help_guide.py
+maps_manager.py
+photo_map_viewer.py
+report_analyzer_engine.py
+report_docx_generator.py
+report_profiles.py
+report_template_modes.py
+scouting_journal_manager.py
+scouting_package_manager.py
+section_prompts_dialog.py
+terrain_chart_generator.py
+test_journal_and_package.py
+test_report_strategies.py
+clean_mobile_app.py
+build_quik_field_notes_html.py
+build_exe.bat
+USER_MANUAL.md
+profiles/
+
+# Flutter build artifacts
+mobile_app/build/
+mobile_app/.dart_tool/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+mobile_app/android/local.properties
+mobile_app/ios/Flutter/Generated.xcconfig
+
+# OS artifacts
+.DS_Store
+Thumbs.db
