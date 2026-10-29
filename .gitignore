@@ -1,0 +1,34 @@
+# Build outputs & caches
+__pycache__/
+*.pyc
+build/
+dist/
+*.spec
+*.exe
+*.apk
+*.ipa
+map_cache/
+test_output/
+*.tmp
+*.log
+.system_generated/
+
+# Test files & temporary assets
+*.shp
+*.shx
+*.dbf
+*.docx
+*.png
+*.csv
+
+# Flutter build artifacts
+mobile_app/build/
+mobile_app/.dart_tool/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+mobile_app/android/local.properties
+mobile_app/ios/Flutter/Generated.xcconfig
+
+# OS artifacts
+.DS_Store
+Thumbs.db
