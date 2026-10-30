@@ -51,25 +51,27 @@ jobs:
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
         with:
-          tag_name: v2.1.0-${{ github.run_number }}
-          name: "Quik Field Notes Mobile v2.1.0 (Build #${{ github.run_number }})"
+          tag_name: v2.2.0-${{ github.run_number }}
+          name: "Quik Field Notes Mobile v2.2.0 (Build #${{ github.run_number }})"
           body: |
-            ### 📱 Quik Field Notes Mobile — Automated Cloud Release
+            ### 📱 Quik Field Notes Mobile v2.2.0 — Automated Cloud Release
             **Powered by Nasrullah Khan**
             
             #### 📥 Download Links:
             - **Android Universal APK**: Download `Quik_Field_Notes_Universal.apk` from the Assets below.
               *(Compatible with Samsung Galaxy Note 8, Android 7/8/9, and all modern Androids up to Android 15)*
             
-            #### 🌟 Features:
-            - QField-inspired Full-Screen GIS Mapping (Satellite, Topo & OSM with offline cache)
-            - Heading & North Arrow with Bearing Navigation
-            - Local Map Layer Overlay Manager (Shapefiles, GPX, KML, GeoJSON with opacity sliders)
-            - Tap to Add Waypoint with Voice Dictation
-            - Digitizing Layer: Draw lines & polygons with touch/stylus and field comments
-            - Project Manager with "No Project" fallback
-            - Customizable Waypoint Categories with custom colors
-            - Multi-Format Export: .scoutpkg, Field Notes CSV, GPX, GeoJSON, Photos
+            #### 🌟 What's New in v2.2.0:
+            - **100% Identical Interface on Android (Galaxy Note 8) & iPhone**
+            - **Free Two-Finger Map Rotation**: Twist canvas in any direction to suit terrain perspective
+            - **North Arrow Snap**: Tap the compass button to instantly fix/snap orientation back to True North (0°)
+            - **Medium-Sized High-Visibility Buttons & Keypads**: Sized for easy touch and readability with weak eyesight or in bright sunlight
+            - **Local Map Layer Overlays**: Load ESRI Shapefiles (.zip), GPX, KML, and GeoJSON with live opacity sliders
+            - **Tap to Add Waypoint**: Tap anywhere on canvas to drop waypoint with voice dictation
+            - **Interactive Digitizing**: Draw lines and polygons with touch/stylus and field comments
+            - **Dynamic Project Manager**: Create/switch projects with "No Project" fallback
+            - **Customizable Waypoint Categories**: Custom colors and icons
+            - **Multi-Format Export**: .scoutpkg, Field Notes CSV, GPX, GeoJSON, Photos
           files: |
             Quik_Field_Notes_Universal.apk
         env:

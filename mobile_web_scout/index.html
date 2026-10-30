@@ -9,30 +9,29 @@
 <link rel="manifest" href="manifest.json">
 <title>Quik Field Notes</title>
 
-<!-- Leaflet GIS Map CSS & JS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- JSZip for instant .scoutpkg archive and multi-file export -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-<!-- shpjs for client-side ESRI Shapefile (.zip) rendering -->
-<script src="https://unpkg.com/shpjs@latest/dist/shp.js"></script>
+<!-- Local Offline Vendor Libraries with CDN Fallbacks -->
+<link rel="stylesheet" href="vendor/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
+<script src="vendor/leaflet.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';"></script>
+<script src="vendor/leaflet-rotate.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js';"></script>
+<script src="vendor/jszip.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';"></script>
+<script src="vendor/shp.js" onerror="this.onerror=null;this.src='https://unpkg.com/shpjs@latest/dist/shp.js';"></script>
 
 <style>
 :root {
   --bg-dark: #0A0F1D;
   --surface: #1E293B;
-  --surface-glass: rgba(30, 41, 59, 0.94);
-  --border-glass: rgba(56, 189, 248, 0.25);
+  --surface-glass: rgba(15, 23, 42, 0.95);
+  --border-glass: rgba(56, 189, 248, 0.35);
   --accent: #38BDF8;
   --accent-glow: #0284C7;
   --accent-neon: #00F0FF;
   --success: #10B981;
   --danger: #EF4444;
   --warning: #F59E0B;
-  --text-main: #F8FAFC;
-  --text-muted: #94A3B8;
-  --safe-bottom: env(safe-area-inset-bottom, 12px);
-  --safe-top: env(safe-area-inset-top, 12px);
+  --text-main: #FFFFFF;
+  --text-muted: #CBD5E1;
+  --safe-bottom: env(safe-area-inset-bottom, 14px);
+  --safe-top: env(safe-area-inset-top, 14px);
 }
 
 * {
@@ -50,6 +49,7 @@ body, html {
   overflow: hidden;
   background: var(--bg-dark);
   color: var(--text-main);
+  font-size: 15px;
 }
 
 /* Full Screen GIS Canvas */
@@ -61,76 +61,78 @@ body, html {
   left: 0;
   z-index: 1;
   background: #0B132B;
+  touch-action: none;
 }
 
-/* Compass & Heading Widget (Small & unobtrusive) */
+/* Compass & Heading Widget (Medium Size, High Visibility) */
 .compass-widget {
   position: absolute;
-  top: calc(var(--safe-top) + 52px);
+  top: calc(var(--safe-top) + 60px);
   right: 14px;
   z-index: 1000;
-  width: 44px;
-  height: 44px;
+  width: 54px;
+  height: 54px;
   background: var(--surface-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 2px solid var(--border-glass);
   border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
   cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.15s ease, border-color 0.2s ease;
 }
 .compass-widget:active {
   transform: scale(0.92);
   border-color: var(--accent-neon);
 }
 .compass-arrow {
-  width: 18px;
-  height: 18px;
-  transition: transform 0.15s ease-out;
+  width: 24px;
+  height: 24px;
+  transition: transform 0.12s ease-out;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 .compass-deg {
-  font-size: 8px;
-  font-weight: 700;
-  color: var(--text-muted);
+  font-size: 9px;
+  font-weight: 800;
+  color: #FFFFFF;
   margin-top: -1px;
 }
 .compass-mode-badge {
   position: absolute;
-  bottom: -6px;
+  bottom: -7px;
   background: #0284C7;
-  color: #fff;
-  font-size: 7px;
+  color: #FFFFFF;
+  font-size: 8px;
   font-weight: 800;
-  padding: 1px 4px;
+  padding: 2px 5px;
   border-radius: 4px;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 
 /* Navigation Banner */
 #navBanner {
   position: absolute;
-  top: calc(var(--safe-top) + 52px);
+  top: calc(var(--safe-top) + 60px);
   left: 14px;
-  right: 66px;
+  right: 76px;
   z-index: 1000;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(56, 189, 248, 0.4);
-  border-radius: 12px;
-  padding: 8px 12px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  padding: 10px 14px;
   display: none;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
   animation: slideDown 0.25s ease;
 }
 @keyframes slideDown {
@@ -138,17 +140,17 @@ body, html {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Top HUD Header */
+/* Top HUD Header (Medium Field Scale) */
 .top-hud {
   position: absolute;
-  top: var(--safe-top);
-  left: 10px;
-  right: 10px;
+  top: calc(var(--safe-top) + 4px);
+  left: 12px;
+  right: 12px;
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 10px;
   pointer-events: none;
 }
 .top-hud > * {
@@ -157,54 +159,58 @@ body, html {
 
 .hud-pill {
   background: var(--surface-glass);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1px solid var(--border-glass);
-  border-radius: 20px;
-  padding: 6px 12px;
-  font-size: 11px;
-  font-weight: 600;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 24px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  height: 44px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  gap: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
   white-space: nowrap;
   max-width: 48%;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  color: #FFFFFF;
 }
 .hud-pill:active {
-  background: rgba(56, 189, 248, 0.15);
+  background: rgba(56, 189, 248, 0.25);
+  border-color: var(--accent-neon);
 }
 
 .hud-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .btn-icon-hud {
-  width: 36px;
-  height: 36px;
+  width: 46px;
+  height: 46px;
   border-radius: 50%;
   background: var(--surface-glass);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border-glass);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
   color: var(--text-main);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+  font-size: 22px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .btn-icon-hud:active {
   transform: scale(0.92);
-  background: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.3);
+  border-color: var(--accent-neon);
 }
 
-/* Bottom Action Dock (Clean, sleek touch targets) */
+/* Bottom Action Dock (Medium Size, Large Touch Targets) */
 .bottom-dock {
   position: absolute;
   bottom: calc(var(--safe-bottom) + 8px);
@@ -215,12 +221,13 @@ body, html {
   align-items: center;
   justify-content: space-around;
   background: var(--surface-glass);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-glass);
-  border-radius: 24px;
-  padding: 8px 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 26px;
+  padding: 10px 12px;
+  height: 76px;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.7);
 }
 
 .dock-btn {
@@ -228,20 +235,21 @@ body, html {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 10px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 12px;
+  padding: 6px 8px;
+  border-radius: 14px;
   transition: all 0.15s ease;
-  min-width: 52px;
+  min-width: 62px;
+  min-height: 54px;
 }
 .dock-btn .btn-icon {
-  font-size: 20px;
+  font-size: 26px;
   transition: transform 0.15s ease;
 }
 .dock-btn:active {
@@ -252,25 +260,28 @@ body, html {
   color: var(--accent-neon);
 }
 .dock-btn.active .btn-icon {
-  transform: scale(1.1);
+  transform: scale(1.15);
 }
 
-/* Primary Central Capture Action */
+/* Primary Central Capture Action (Dictate) */
 .dock-btn-primary {
   background: linear-gradient(135deg, #0284C7, #00F0FF);
   color: #0A0F1D !important;
-  font-weight: 700;
-  border-radius: 18px;
-  padding: 6px 12px;
-  box-shadow: 0 4px 16px rgba(0, 240, 255, 0.4);
-  transform: translateY(-4px);
+  font-weight: 800;
+  font-size: 13px;
+  border-radius: 20px;
+  padding: 8px 16px;
+  min-width: 76px;
+  height: 58px;
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
+  transform: translateY(-6px);
 }
 .dock-btn-primary .btn-icon {
-  font-size: 22px;
+  font-size: 28px;
   color: #0A0F1D;
 }
 .dock-btn-primary:active {
-  transform: translateY(-2px) scale(0.94);
+  transform: translateY(-3px) scale(0.94);
 }
 
 /* Precision Center Crosshair */
@@ -281,17 +292,17 @@ body, html {
   transform: translate(-50%, -50%);
   z-index: 500;
   pointer-events: none;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   opacity: 0.85;
 }
 .crosshair-reticle {
-  width: 28px;
-  height: 28px;
-  border: 1.5px solid var(--accent);
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--accent);
   border-radius: 50%;
   position: relative;
 }
@@ -299,9 +310,9 @@ body, html {
   content: '';
   position: absolute;
   top: 50%;
-  left: -8px;
-  right: -8px;
-  height: 1.5px;
+  left: -10px;
+  right: -10px;
+  height: 2px;
   background: var(--accent);
   transform: translateY(-50%);
 }
@@ -309,31 +320,31 @@ body, html {
   content: '';
   position: absolute;
   left: 50%;
-  top: -8px;
-  bottom: -8px;
-  width: 1.5px;
+  top: -10px;
+  bottom: -10px;
+  width: 2px;
   background: var(--accent);
   transform: translateX(-50%);
 }
 .crosshair-center-dot {
   position: absolute;
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
   background: #00F0FF;
   border-radius: 50%;
-  box-shadow: 0 0 6px #00F0FF;
+  box-shadow: 0 0 8px #00F0FF;
 }
 
-/* Modals & Dialogs */
+/* Modals & Dialogs (Medium Field Scale) */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 2000;
   display: none;
   align-items: center;
@@ -348,158 +359,163 @@ body, html {
 
 .modal-content {
   background: #0F172A;
-  border: 1px solid var(--border-glass);
-  border-radius: 20px;
+  border: 1.5px solid var(--border-glass);
+  border-radius: 22px;
   width: 100%;
-  max-width: 480px;
-  max-height: 88vh;
+  max-width: 500px;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 12px 48px rgba(0,0,0,0.8);
+  box-shadow: 0 16px 54px rgba(0,0,0,0.85);
   animation: popUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes popUp {
-  from { opacity: 0; transform: scale(0.92) translateY(10px); }
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .modal-header {
-  padding: 14px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: space-between;
 }
 .modal-title {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   color: var(--text-main);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .modal-close {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 20px;
+  font-size: 26px;
   cursor: pointer;
-  padding: 4px;
+  padding: 6px;
+  line-height: 1;
 }
 
 .modal-body {
-  padding: 16px 18px;
+  padding: 18px 20px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   flex: 1;
 }
 
 .modal-footer {
-  padding: 12px 18px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 10px;
-  background: rgba(15, 23, 42, 0.6);
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.8);
 }
 
 /* Tabs inside Settings Modal */
 .tab-bar {
   display: flex;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(15, 23, 42, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.95);
 }
 .tab-btn {
   flex: 1;
-  padding: 10px 4px;
+  padding: 12px 6px;
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   text-align: center;
-  border-bottom: 2px solid transparent;
+  border-bottom: 3px solid transparent;
   transition: all 0.15s ease;
 }
 .tab-btn.active {
   color: var(--accent-neon);
   border-bottom-color: var(--accent-neon);
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(56, 189, 248, 0.12);
 }
 
-/* Form Controls */
+/* Form Controls (High Legibility for Weak Eyes) */
 .form-group {
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 .form-label {
   display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #38BDF8;
+  margin-bottom: 8px;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
 }
 .form-input, .form-select, .form-textarea {
   width: 100%;
-  background: rgba(30, 41, 59, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--text-main);
-  font-size: 13px;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 500;
   outline: none;
   transition: border-color 0.2s;
 }
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   border-color: var(--accent);
+  background: rgba(30, 41, 59, 1);
 }
 .form-textarea {
   resize: vertical;
-  min-height: 72px;
+  min-height: 84px;
 }
 
 /* Category Badges & Chips */
 .chip-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+  margin-top: 8px;
 }
 .chip-badge {
-  padding: 5px 10px;
-  border-radius: 14px;
-  font-size: 11px;
-  font-weight: 600;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--text-main);
+  padding: 8px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   transition: all 0.15s ease;
 }
 .chip-badge.active {
-  border-color: var(--accent);
-  background: rgba(56, 189, 248, 0.25);
+  border-color: var(--accent-neon);
+  background: rgba(56, 189, 248, 0.35);
   color: #00F0FF;
 }
 
-/* Buttons */
+/* Buttons (Medium Field Scale) */
 .btn {
-  padding: 8px 16px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
   border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
   transition: transform 0.15s, opacity 0.15s;
 }
 .btn:active {
@@ -508,14 +524,15 @@ body, html {
 .btn-primary {
   background: linear-gradient(135deg, #0284C7, #00F0FF);
   color: #0A0F1D;
+  font-weight: 800;
 }
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
 }
 .btn-danger {
-  background: rgba(239, 68, 68, 0.2);
-  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.25);
+  border: 1.5px solid rgba(239, 68, 68, 0.5);
   color: #FCA5A5;
 }
 
@@ -524,51 +541,51 @@ body, html {
   position: absolute;
   z-index: 1500;
   background: var(--surface-glass);
-  backdrop-filter: blur(14px);
-  border: 1px solid var(--border-glass);
-  border-radius: 14px;
-  padding: 6px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
   display: none;
   flex-direction: column;
-  gap: 4px;
-  min-width: 140px;
+  gap: 6px;
+  min-width: 170px;
 }
 .popover-btn {
   background: none;
   border: none;
-  color: var(--text-main);
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 600;
+  color: #FFFFFF;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 700;
   text-align: left;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .popover-btn:active {
-  background: rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.25);
   color: var(--accent-neon);
 }
 
 /* Digitizing Active Toolbar */
 #drawToolbar {
   position: absolute;
-  bottom: calc(var(--safe-bottom) + 82px);
+  bottom: calc(var(--safe-bottom) + 90px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 240, 255, 0.5);
-  border-radius: 16px;
-  padding: 8px 14px;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(18px);
+  border: 1.5px solid var(--accent-neon);
+  border-radius: 18px;
+  padding: 10px 16px;
   display: none;
   align-items: center;
-  gap: 10px;
-  box-shadow: 0 8px 30px rgba(0, 240, 255, 0.25);
+  gap: 12px;
+  box-shadow: 0 10px 36px rgba(0, 240, 255, 0.35);
   white-space: nowrap;
 }
 
@@ -576,12 +593,12 @@ body, html {
 .layer-row {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
 }
 .layer-header-row {
   display: flex;
@@ -591,13 +608,15 @@ body, html {
 .layer-slider-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  color: var(--text-muted);
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #FFFFFF;
 }
 .layer-slider-row input[type=range] {
   flex: 1;
   accent-color: var(--accent);
+  height: 8px;
 }
 
 /* Discreet, Small Map Symbols */
@@ -609,8 +628,8 @@ body, html {
   box-shadow: 0 0 6px rgba(0,0,0,0.6);
 }
 .small-photo-marker {
-  width: 16px !important;
-  height: 16px !important;
+  width: 18px !important;
+  height: 18px !important;
   border-radius: 4px;
   background: #38BDF8;
   border: 1.5px solid #FFFFFF;
@@ -618,7 +637,7 @@ body, html {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   box-shadow: 0 0 8px rgba(0,0,0,0.6);
 }
@@ -640,64 +659,64 @@ body, html {
 <div class="top-hud">
   <!-- Dynamic Project Pill -->
   <div class="hud-pill" onclick="openProjectSettings()" title="Click to Switch Project">
-    <span style="color: #38BDF8;">📁</span>
-    <span id="hudProjectName" style="color: #F8FAFC;">No Project</span>
+    <span style="color: #38BDF8; font-size: 16px;">📁</span>
+    <span id="hudProjectName" style="color: #FFFFFF;">No Project</span>
   </div>
 
   <!-- GNSS Satellite Status -->
   <div class="hud-pill" onclick="centerOnGps()" title="Tap to Center on GNSS">
-    <span id="gnssDot" style="width: 8px; height: 8px; border-radius: 50%; background: #EAB308; display: inline-block;"></span>
+    <span id="gnssDot" style="width: 10px; height: 10px; border-radius: 50%; background: #EAB308; display: inline-block;"></span>
     <span id="gnssBadge">GNSS: Searching...</span>
   </div>
 
   <!-- Top Right Action Buttons -->
   <div class="hud-actions">
-    <!-- Map Tile Layers Switcher -->
     <button class="btn-icon-hud" onclick="cycleMapLayer()" title="Switch Map Background">🗺️</button>
-    <!-- Settings Drawer Button -->
     <button class="btn-icon-hud" onclick="openSettingsModal()" title="Settings & Layers">⚙️</button>
   </div>
 </div>
 
-<!-- Compass & North Arrow Widget (Small, non-crowded) -->
-<div class="compass-widget" onclick="toggleCompassOrientation()" title="Tap to Toggle North-Up / Heading Mode">
+<!-- Compass & North Arrow Widget (Free touch rotate canvas + North-Fix Button) -->
+<div class="compass-widget" onclick="onCompassClicked()" title="Tap to Snap/Fix Map to True North">
   <div class="compass-arrow" id="compassArrow">
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-      <path d="M12 2L17 21L12 17L7 21L12 2Z" fill="#EF4444" stroke="#F8FAFC" stroke-width="1.5" stroke-linejoin="round"/>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <!-- High-contrast True North Arrow with vibrant red needle and white border -->
+      <path d="M12 2L18 21L12 16.5L6 21L12 2Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="12" cy="12" r="2" fill="#FFFFFF"/>
     </svg>
   </div>
   <div class="compass-deg" id="compassDeg">0°</div>
-  <div class="compass-mode-badge" id="compassModeBadge">N-UP</div>
+  <div class="compass-mode-badge" id="compassModeBadge" onclick="event.stopPropagation(); toggleCompassOrientation();">NORTH</div>
 </div>
 
 <!-- Navigation Target Banner -->
 <div id="navBanner">
-  <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
-    <span style="font-size: 16px;">🧭</span>
-    <div style="font-size: 11px;">
-      <div id="navTargetName" style="color: #00F0FF; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Target</div>
-      <div style="color: #94A3B8;">Dist: <b id="navDist" style="color:#FFF;">--</b> | Brg: <b id="navBrg" style="color:#FFF;">--</b></div>
+  <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+    <span style="font-size: 20px;">🧭</span>
+    <div style="font-size: 13px;">
+      <div id="navTargetName" style="color: #00F0FF; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Target</div>
+      <div style="color: #CBD5E1;">Dist: <b id="navDist" style="color:#FFF;">--</b> | Brg: <b id="navBrg" style="color:#FFF;">--</b></div>
     </div>
   </div>
-  <button class="btn btn-danger" style="padding: 4px 10px; font-size: 10px;" onclick="cancelNavigation()">Stop</button>
+  <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="cancelNavigation()">Stop</button>
 </div>
 
 <!-- Digitizing Toolbar (Appears when drawing line/polygon) -->
 <div id="drawToolbar">
-  <span id="drawStatusText" style="font-size: 11px; font-weight: 700; color: #00F0FF;">Drawing: 0 pts</span>
-  <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;" onclick="undoDrawVertex()">↩️ Undo</button>
-  <button class="btn btn-primary" style="padding: 4px 10px; font-size: 10px;" onclick="finishDrawing()">✅ Finish</button>
-  <button class="btn btn-danger" style="padding: 4px 8px; font-size: 10px;" onclick="cancelDrawing()">❌ Cancel</button>
+  <span id="drawStatusText" style="font-size: 13px; font-weight: 800; color: #00F0FF;">Drawing: 0 pts</span>
+  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; min-height: 38px;" onclick="undoDrawVertex()">↩️ Undo</button>
+  <button class="btn btn-primary" style="padding: 6px 14px; font-size: 13px; min-height: 38px;" onclick="finishDrawing()">✅ Finish</button>
+  <button class="btn btn-danger" style="padding: 6px 10px; font-size: 12px; min-height: 38px;" onclick="cancelDrawing()">❌ Cancel</button>
 </div>
 
 <!-- Map Click Popover -->
 <div class="map-click-popover" id="mapClickPopover">
   <button class="popover-btn" onclick="addWaypointAtClickedPoint()">📍 Add Waypoint</button>
   <button class="popover-btn" onclick="startNavToClickedPoint()">🧭 Navigate Here</button>
-  <button class="popover-btn" onclick="startDrawAtClickedPoint()">✏️ Start Drawing Here</button>
+  <button class="popover-btn" onclick="startDrawAtClickedPoint()">✏️ Draw From Here</button>
 </div>
 
-<!-- Bottom Navigation Dock -->
+<!-- Bottom Navigation Dock (Medium Field Scale) -->
 <div class="bottom-dock">
   <button class="dock-btn" onclick="openQuickWaypointModal()" title="Add Waypoint">
     <span class="btn-icon">📍</span>
@@ -765,9 +784,9 @@ body, html {
           </div>
         </div>
 
-        <div class="form-group" style="background: rgba(30, 41, 59, 0.4); padding: 12px; border-radius: 12px;">
+        <div class="form-group" style="background: rgba(30, 41, 59, 0.6); padding: 14px; border-radius: 14px;">
           <label class="form-label">Create New Project</label>
-          <div style="display: flex; gap: 8px;">
+          <div style="display: flex; gap: 10px;">
             <input type="text" class="form-input" id="newProjectInput" placeholder="Enter Project Name (e.g. Area North)">
             <button class="btn btn-primary" onclick="createNewProject()">Create</button>
           </div>
@@ -775,7 +794,7 @@ body, html {
 
         <div class="form-group">
           <label class="form-label">Project Stats</label>
-          <div id="projectStatsBox" style="font-size: 11px; color: var(--text-muted); line-height: 1.6;">
+          <div id="projectStatsBox" style="font-size: 13px; color: var(--text-muted); line-height: 1.8; background: rgba(30,41,59,0.5); padding: 12px; border-radius: 12px;">
             Waypoints: 0 | Photos: 0 | Tracks: 0 | Digitized: 0
           </div>
         </div>
@@ -783,17 +802,17 @@ body, html {
 
       <!-- TAB 2: MAP OVERLAYS -->
       <div id="tabLayers" class="settings-tab-pane" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
           <label class="form-label" style="margin-bottom: 0;">Loaded Overlays</label>
-          <button class="btn btn-primary" style="padding: 5px 10px; font-size: 11px;" onclick="triggerOverlayUpload()">➕ Add Layer</button>
+          <button class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;" onclick="triggerOverlayUpload()">➕ Add Layer</button>
         </div>
 
-        <div style="font-size: 11px; color: #94A3B8; margin-bottom: 10px;">
+        <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 12px; line-height: 1.6;">
           Supported: <b>ESRI Shapefile (.zip)</b>, <b>GPX (.gpx)</b>, <b>KML (.kml)</b>, <b>GeoJSON (.json)</b>.
         </div>
 
         <div id="overlaysList">
-          <div style="color: var(--text-muted); font-size: 11px; text-align: center; padding: 20px;">
+          <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">
             No local overlay layers added yet. Tap <b>Add Layer</b> to load files.
           </div>
         </div>
@@ -801,12 +820,12 @@ body, html {
 
       <!-- TAB 3: CATEGORIES MANAGER -->
       <div id="tabCategories" class="settings-tab-pane" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
           <label class="form-label" style="margin-bottom: 0;">Waypoint Categories</label>
-          <button class="btn btn-primary" style="padding: 5px 10px; font-size: 11px;" onclick="promptAddCategory()">➕ Add Category</button>
+          <button class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;" onclick="promptAddCategory()">➕ Add Category</button>
         </div>
 
-        <div id="categoriesList" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        <div id="categoriesList" style="display: flex; flex-direction: column; gap: 8px;"></div>
       </div>
 
       <!-- TAB 4: OPTIONS & GNSS -->
@@ -826,13 +845,13 @@ body, html {
 
         <div class="form-group">
           <label class="form-label">Photo Notes Dictation</label>
-          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; color: #F8FAFC;">
-            <input type="checkbox" id="chkAutoPhotoNote" checked onchange="togglePhotoNoteSetting(this.checked)">
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #FFFFFF;">
+            <input type="checkbox" id="chkAutoPhotoNote" checked onchange="togglePhotoNoteSetting(this.checked)" style="width: 18px; height: 18px;">
             Prompt for voice comments after taking photo
           </label>
         </div>
 
-        <div class="form-group" style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px;">
+        <div class="form-group" style="margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 16px;">
           <label class="form-label" style="color: #EF4444;">Danger Zone</label>
           <button class="btn btn-danger" style="width: 100%; justify-content: center;" onclick="clearActiveProjectData()">🗑️ Clear Active Project Data</button>
         </div>
@@ -867,14 +886,14 @@ body, html {
       </div>
 
       <div class="form-group">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <label class="form-label" style="margin-bottom:0;">Observation Notes</label>
-          <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;" onclick="toggleWaypointDictation()" id="btnWptDictate">🎙️ Voice</button>
+          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="toggleWaypointDictation()" id="btnWptDictate">🎙️ Voice</button>
         </div>
         <textarea class="form-textarea" id="wptNotesInput" placeholder="Speak or type observation details..."></textarea>
       </div>
 
-      <div style="font-size: 11px; color: var(--text-muted); background: rgba(30,41,59,0.5); padding: 8px 10px; border-radius: 8px;">
+      <div style="font-size: 13px; color: var(--text-muted); background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px; line-height: 1.6;">
         <div>Coordinates: <b id="wptCoordsLabel" style="color: var(--accent);">--</b></div>
         <div>Elevation: <b id="wptElevLabel" style="color: var(--accent);">-- m</b></div>
       </div>
@@ -898,12 +917,12 @@ body, html {
     </div>
 
     <div class="modal-body">
-      <div style="display: flex; gap: 12px; margin-bottom: 12px; align-items: center;">
-        <img id="photoModalPreview" src="" style="width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border-glass);">
-        <div style="font-size: 11px; color: var(--text-muted);">
-          <div id="photoCoordsLabel" style="color: var(--accent); font-weight: 700;">Lat: --, Lon: --</div>
+      <div style="display: flex; gap: 14px; margin-bottom: 14px; align-items: center;">
+        <img id="photoModalPreview" src="" style="width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--border-glass);">
+        <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+          <div id="photoCoordsLabel" style="color: var(--accent); font-weight: 800;">Lat: --, Lon: --</div>
           <div id="photoTimeLabel">Time: --</div>
-          <div style="margin-top: 4px; color: #F8FAFC;">Note will be attached to report photo plate.</div>
+          <div style="margin-top: 4px; color: #FFFFFF;">Note will be attached to report photo plate.</div>
         </div>
       </div>
 
@@ -913,9 +932,9 @@ body, html {
       </div>
 
       <div class="form-group">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <label class="form-label" style="margin-bottom:0;">Photo Comments</label>
-          <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;" onclick="togglePhotoDictation()" id="btnPhotoDictate">🎙️ Dictate</button>
+          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="togglePhotoDictation()" id="btnPhotoDictate">🎙️ Dictate</button>
         </div>
         <textarea class="form-textarea" id="photoCommentInput" placeholder="Describe terrain, obstacles, or hazards seen in photo..."></textarea>
       </div>
@@ -951,21 +970,21 @@ body, html {
           <option value="Sabkha">💧 Sabkha / Low Wet Ground</option>
           <option value="Obstacle Area">🚧 Obstacle / Restricted Area</option>
           <option value="Access Route">🛣️ Access Trail / Bulldozed Line</option>
-          <option value="Vibrator Line">🚜 Vibroseis Source Line</option>
+          <option value="Survey Line">🚜 Survey / Source Line</option>
           <option value="Camp Facility">⛺ Camp Facility Area</option>
           <option value="Custom Boundary">📐 General Survey Boundary</option>
         </select>
       </div>
 
       <div class="form-group">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <label class="form-label" style="margin-bottom:0;">Comments & Field Feedback</label>
-          <button type="button" class="btn btn-primary" style="padding: 4px 8px; font-size: 11px;" onclick="toggleDrawDictation()" id="btnDrawDictate">🎙️ Dictate</button>
+          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="toggleDrawDictation()" id="btnDrawDictate">🎙️ Dictate</button>
         </div>
         <textarea class="form-textarea" id="drawCommentsInput" placeholder="Add ground condition feedback, slope details, or vehicle accessibility notes..."></textarea>
       </div>
 
-      <div style="font-size: 11px; color: var(--text-muted); background: rgba(30,41,59,0.5); padding: 8px 10px; border-radius: 8px;">
+      <div style="font-size: 13px; color: var(--text-muted); background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px;">
         <div>Geometry: <b id="drawGeomInfo" style="color: var(--accent);">--</b></div>
       </div>
     </div>
@@ -1009,53 +1028,53 @@ body, html {
       <button class="modal-close" onclick="closeModal('exportModal')">&times;</button>
     </div>
 
-    <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
-      <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 6px;">
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <p style="font-size: 13px; color: #CBD5E1; margin-bottom: 6px;">
         Choose export format for current project (<b id="exportProjectName" style="color:#00F0FF;">No Project</b>):
       </p>
 
       <!-- 1. Package File (.scoutpkg) -->
-      <button class="btn btn-primary" style="padding: 12px; justify-content: flex-start; text-align: left;" onclick="exportScoutPackage()">
-        <span style="font-size: 20px;">📦</span>
+      <button class="btn btn-primary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportScoutPackage()">
+        <span style="font-size: 24px;">📦</span>
         <div>
-          <div style="font-size: 13px; font-weight: 700;">Full Survey Package (.scoutpkg)</div>
-          <div style="font-size: 10px; color: #0A0F1D;">Integrated container with all waypoints, tracks, notes and photos.</div>
+          <div style="font-size: 14px; font-weight: 800;">Full Survey Package (.scoutpkg)</div>
+          <div style="font-size: 11px; color: #0A0F1D;">Integrated container with all waypoints, tracks, notes and photos.</div>
         </div>
       </button>
 
       <!-- 2. CSV Field Notes -->
-      <button class="btn btn-secondary" style="padding: 12px; justify-content: flex-start; text-align: left;" onclick="exportFieldNotesCsv()">
-        <span style="font-size: 20px;">📄</span>
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportFieldNotesCsv()">
+        <span style="font-size: 24px;">📄</span>
         <div>
-          <div style="font-size: 13px; font-weight: 700;">Field Notes CSV (Excel Ready)</div>
-          <div style="font-size: 10px; color: var(--text-muted);">Tabular CSV of all waypoints, photo comments, and coordinates.</div>
+          <div style="font-size: 14px; font-weight: 800;">Field Notes CSV (Excel Ready)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Tabular CSV of all waypoints, photo comments, and coordinates.</div>
         </div>
       </button>
 
       <!-- 3. GPX Tracks & Waypoints -->
-      <button class="btn btn-secondary" style="padding: 12px; justify-content: flex-start; text-align: left;" onclick="exportGpxData()">
-        <span style="font-size: 20px;">🗺️</span>
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportGpxData()">
+        <span style="font-size: 24px;">🗺️</span>
         <div>
-          <div style="font-size: 13px; font-weight: 700;">Standard GPX File (.gpx)</div>
-          <div style="font-size: 10px; color: var(--text-muted);">Standard GPS waypoints and tracklogs for Garmin, BaseCamp, or GIS.</div>
+          <div style="font-size: 14px; font-weight: 800;">Standard GPX File (.gpx)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Standard GPS waypoints and tracklogs for Garmin, BaseCamp, or GIS.</div>
         </div>
       </button>
 
       <!-- 4. GeoJSON Layers -->
-      <button class="btn btn-secondary" style="padding: 12px; justify-content: flex-start; text-align: left;" onclick="exportGeoJsonData()">
-        <span style="font-size: 20px;">📐</span>
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportGeoJsonData()">
+        <span style="font-size: 24px;">📐</span>
         <div>
-          <div style="font-size: 13px; font-weight: 700;">Digitized GeoJSON Layers (.geojson)</div>
-          <div style="font-size: 10px; color: var(--text-muted);">Vector polygons, lines, and waypoints for QGIS / ArcGIS Pro.</div>
+          <div style="font-size: 14px; font-weight: 800;">Digitized GeoJSON Layers (.geojson)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Vector polygons, lines, and waypoints for QGIS / ArcGIS Pro.</div>
         </div>
       </button>
 
       <!-- 5. Geotagged Photos Zip -->
-      <button class="btn btn-secondary" style="padding: 12px; justify-content: flex-start; text-align: left;" onclick="exportPhotosZip()">
-        <span style="font-size: 20px;">📷</span>
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportPhotosZip()">
+        <span style="font-size: 24px;">📷</span>
         <div>
-          <div style="font-size: 13px; font-weight: 700;">Captured Photos Archive (.zip)</div>
-          <div style="font-size: 10px; color: var(--text-muted);">All high-resolution field photos with metadata.</div>
+          <div style="font-size: 14px; font-weight: 800;">Captured Photos Archive (.zip)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">All high-resolution field photos with metadata.</div>
         </div>
       </button>
     </div>
@@ -1104,7 +1123,7 @@ let isRecordingTrack = false;
 let watchId = null;
 
 // Compass & Navigation State
-let compassOrientationMode = 'north-up'; // 'north-up' | 'heading-up'
+let compassOrientationMode = 'manual'; // 'manual' (North-Up / free twist) | 'heading-up'
 let navTarget = null; // { lat, lon, name }
 let navGuidanceLine = null;
 
@@ -1264,15 +1283,12 @@ function createNewProject() {
 }
 
 function switchActiveProject(id) {
-  // Clear current active map graphics
   clearMapGraphics();
-
   currentProjectId = id || null;
   const match = projects.find(p => p.id === id);
   currentProjectName = match ? match.name : "No Project";
   saveProjectsToStorage();
 
-  // Load new project data
   loadActiveProjectData();
   renderAllProjectLayers();
   updateHudDisplay();
@@ -1349,26 +1365,24 @@ function saveCategoriesToStorage() {
 }
 
 function renderCategoriesUI() {
-  // Render Settings Tab List
   const list = document.getElementById('categoriesList');
   if (list) {
     list.innerHTML = '';
     categories.forEach((c, idx) => {
       const row = document.createElement('div');
-      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: rgba(30,41,59,0.5); padding: 6px 10px; border-radius: 8px;';
+      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px;';
       row.innerHTML = `
-        <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
-          <span style="font-size: 14px;">${c.icon || '📍'}</span>
-          <span style="width: 10px; height: 10px; border-radius: 50%; background: ${c.color};"></span>
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700;">
+          <span style="font-size: 18px;">${c.icon || '📍'}</span>
+          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${c.color};"></span>
           <span>${c.name}</span>
         </div>
-        <button class="btn btn-danger" style="padding: 2px 6px; font-size: 10px;" onclick="deleteCategory(${idx})">&times;</button>
+        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="deleteCategory(${idx})">&times;</button>
       `;
       list.appendChild(row);
     });
   }
 
-  // Render Chip Grids in Modals
   renderChipGrid('wptCategoryChips', 'wpt');
   renderChipGrid('photoCategoryChips', 'photo');
 }
@@ -1415,18 +1429,29 @@ function getCategoryById(id) {
   return categories.find(c => c.id === id) || categories[0] || { name: 'General', color: '#38BDF8', icon: '📍' };
 }
 
-// --- MAP & GIS INITIALIZATION ---
+// --- MAP & GIS INITIALIZATION WITH TWO-FINGER ROTATION ---
 function initMap() {
   map = L.map('map', {
     zoomControl: false,
     attributionControl: false,
-    preferCanvas: true
+    preferCanvas: true,
+    rotate: true,
+    touchRotate: true,
+    bearing: 0
   }).setView([currentLat, currentLon], 15);
 
   tileLayerCurrent = L.tileLayer(TILE_PROVIDERS[0].url, TILE_PROVIDERS[0].options).addTo(map);
 
   // Map Click Listener
   map.on('click', onMapClicked);
+
+  // Listen to rotation changes (e.g. two-finger touch rotate)
+  if (typeof map.on === 'function') {
+    map.on('rotate', () => {
+      const b = map.getBearing ? map.getBearing() : 0;
+      updateCompassDisplay(b);
+    });
+  }
 }
 
 function cycleMapLayer() {
@@ -1436,7 +1461,6 @@ function cycleMapLayer() {
 }
 
 function clearMapGraphics() {
-  // Remove all user layer markers from map
   map.eachLayer(layer => {
     if (layer !== tileLayerCurrent && layer !== gpsMarker && layer !== accuracyCircle && layer !== navGuidanceLine) {
       if (layer._qfnFeature) {
@@ -1446,7 +1470,7 @@ function clearMapGraphics() {
   });
 }
 
-// --- COMPASS, HEADING & ORIENTATION ---
+// --- COMPASS, ROTATION & NORTH-FIX ENGINE ---
 function initDeviceOrientation() {
   if (window.DeviceOrientationEvent) {
     window.addEventListener('deviceorientationabsolute', handleOrientation, true);
@@ -1464,39 +1488,49 @@ function handleOrientation(e) {
 
   if (heading !== null && !isNaN(heading)) {
     currentHeading = Math.round(heading);
-    updateCompassDisplay(currentHeading);
+    if (compassOrientationMode === 'heading-up' && map && typeof map.setBearing === 'function') {
+      map.setBearing(currentHeading);
+    }
   }
 }
 
 function updateCompassDisplay(deg) {
   const arrow = document.getElementById('compassArrow');
   const degText = document.getElementById('compassDeg');
-  if (arrow) arrow.style.transform = `rotate(${deg}deg)`;
-  if (degText) degText.textContent = `${deg}°`;
-
-  // If in Heading-Up mode, rotate map canvas smoothly
-  if (compassOrientationMode === 'heading-up' && map) {
-    const mapEl = document.getElementById('map');
-    if (mapEl) {
-      mapEl.style.transform = `rotate(${-deg}deg)`;
-      mapEl.style.transformOrigin = '50% 50%';
-    }
-  }
+  // Needle points to True North relative to map canvas
+  if (arrow) arrow.style.transform = `rotate(${-deg}deg)`;
+  if (degText) degText.textContent = `${Math.round((deg + 360) % 360)}°`;
 }
 
+// User clicked North Arrow -> Fix/Snap orientation back to True North
+function onCompassClicked() {
+  if (map && typeof map.setBearing === 'function') {
+    map.setBearing(0);
+  }
+  compassOrientationMode = 'manual';
+  const badge = document.getElementById('compassModeBadge');
+  if (badge) {
+    badge.textContent = 'NORTH';
+    badge.style.background = '#0284C7';
+  }
+  updateCompassDisplay(0);
+}
+
+// Toggle between Free Rotation / North mode and Magnetometer Heading mode
 function toggleCompassOrientation() {
   const badge = document.getElementById('compassModeBadge');
-  const mapEl = document.getElementById('map');
-
-  if (compassOrientationMode === 'north-up') {
+  if (compassOrientationMode === 'manual') {
     compassOrientationMode = 'heading-up';
     badge.textContent = 'HDG';
     badge.style.background = '#10B981';
+    if (map && typeof map.setBearing === 'function') {
+      map.setBearing(currentHeading);
+    }
   } else {
-    compassOrientationMode = 'north-up';
-    badge.textContent = 'N-UP';
+    compassOrientationMode = 'manual';
+    badge.textContent = 'NORTH';
     badge.style.background = '#0284C7';
-    if (mapEl) mapEl.style.transform = 'none';
+    onCompassClicked();
   }
 }
 
@@ -1531,13 +1565,12 @@ function updateNavCalculations() {
   document.getElementById('navDist').textContent = distStr;
   document.getElementById('navBrg').textContent = Math.round(brg) + '°';
 
-  // Draw guidance line
   if (navGuidanceLine) map.removeLayer(navGuidanceLine);
   navGuidanceLine = L.polyline([[currentLat, currentLon], [navTarget.lat, navTarget.lon]], {
     color: '#00F0FF',
-    weight: 2,
-    dashArray: '6, 8',
-    opacity: 0.8
+    weight: 3,
+    dashArray: '8, 8',
+    opacity: 0.9
   }).addTo(map);
 }
 
@@ -1585,7 +1618,6 @@ function onGpsSuccess(pos) {
 
   if (pos.coords.heading && !isNaN(pos.coords.heading)) {
     currentHeading = Math.round(pos.coords.heading);
-    updateCompassDisplay(currentHeading);
   }
 
   // Update HUD
@@ -1595,12 +1627,12 @@ function onGpsSuccess(pos) {
   // Update Position Marker
   if (!gpsMarker) {
     gpsMarker = L.circleMarker([currentLat, currentLon], {
-      radius: 8,
+      radius: 9,
       fillColor: '#00F0FF',
       color: '#FFFFFF',
-      weight: 2,
+      weight: 2.5,
       opacity: 1,
-      fillOpacity: 0.9
+      fillOpacity: 0.95
     }).addTo(map);
   } else {
     gpsMarker.setLatLng([currentLat, currentLon]);
@@ -1612,8 +1644,8 @@ function onGpsSuccess(pos) {
       radius: currentAccuracy,
       color: '#38BDF8',
       fillColor: '#38BDF8',
-      fillOpacity: 0.12,
-      weight: 1
+      fillOpacity: 0.15,
+      weight: 1.5
     }).addTo(map);
   } else {
     accuracyCircle.setLatLng([currentLat, currentLon]);
@@ -1624,13 +1656,12 @@ function onGpsSuccess(pos) {
   if (isRecordingTrack) {
     activeTrackPoints.push([currentLat, currentLon]);
     if (!activeTrackPolyline) {
-      activeTrackPolyline = L.polyline(activeTrackPoints, { color: '#00F0FF', weight: 3 }).addTo(map);
+      activeTrackPolyline = L.polyline(activeTrackPoints, { color: '#00F0FF', weight: 3.5 }).addTo(map);
     } else {
       activeTrackPolyline.setLatLngs(activeTrackPoints);
     }
   }
 
-  // Update navigation distance if active
   if (navTarget) updateNavCalculations();
 }
 
@@ -1683,7 +1714,6 @@ function toggleTrackRecording() {
 // --- MAP CLICK HANDLER (TAP TO ADD WAYPOINT / NAV) ---
 function onMapClicked(e) {
   if (isDrawing) {
-    // Add vertex to active drawing
     drawVertices.push([e.latlng.lat, e.latlng.lng]);
     updateDrawPreview();
     return;
@@ -1693,11 +1723,10 @@ function onMapClicked(e) {
   const popover = document.getElementById('mapClickPopover');
   const point = map.latLngToContainerPoint(e.latlng);
 
-  popover.style.left = Math.min(point.x, window.innerWidth - 160) + 'px';
-  popover.style.top = Math.min(point.y, window.innerHeight - 140) + 'px';
+  popover.style.left = Math.min(point.x, window.innerWidth - 180) + 'px';
+  popover.style.top = Math.min(point.y, window.innerHeight - 160) + 'px';
   popover.style.display = 'flex';
 
-  // Auto-hide popover on next touch or delay
   setTimeout(() => {
     window.addEventListener('click', hidePopoverOnClickOutside, { once: true });
   }, 100);
@@ -1858,9 +1887,9 @@ function updateDrawPreview() {
 
   if (drawVertices.length >= 1) {
     if (drawType === 'polygon' && drawVertices.length >= 3) {
-      drawPreviewLayer = L.polygon(drawVertices, { color: '#00F0FF', weight: 2, fillColor: '#00F0FF', fillOpacity: 0.2 }).addTo(map);
+      drawPreviewLayer = L.polygon(drawVertices, { color: '#00F0FF', weight: 2.5, fillColor: '#00F0FF', fillOpacity: 0.25 }).addTo(map);
     } else {
-      drawPreviewLayer = L.polyline(drawVertices, { color: '#00F0FF', weight: 2, dashArray: '4, 4' }).addTo(map);
+      drawPreviewLayer = L.polyline(drawVertices, { color: '#00F0FF', weight: 2.5, dashArray: '6, 6' }).addTo(map);
     }
   }
 }
@@ -1892,7 +1921,6 @@ function finishDrawing() {
   isDrawing = false;
   document.getElementById('drawToolbar').style.display = 'none';
 
-  // Open save modal
   document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
   document.getElementById('drawCommentsInput').value = '';
   document.getElementById('drawGeomInfo').textContent = `${drawType.toUpperCase()} with ${drawVertices.length} vertices`;
@@ -1951,8 +1979,8 @@ function renderAllProjectLayers() {
     const icon = L.divIcon({
       className: 'small-photo-marker',
       html: '📷',
-      iconSize: [16, 16],
-      iconAnchor: [8, 8]
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
     });
     const marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
     marker._qfnFeature = { type: 'photo', data: p };
@@ -1970,7 +1998,7 @@ function renderAllProjectLayers() {
   digitizedFeatures.forEach(f => {
     let layer = null;
     if (f.type === 'polygon') {
-      layer = L.polygon(f.vertices, { color: '#EAB308', weight: 2, fillColor: '#EAB308', fillOpacity: 0.2 }).addTo(map);
+      layer = L.polygon(f.vertices, { color: '#EAB308', weight: 2, fillColor: '#EAB308', fillOpacity: 0.25 }).addTo(map);
     } else {
       layer = L.polyline(f.vertices, { color: '#10B981', weight: 2.5, dashArray: '6, 4' }).addTo(map);
     }
@@ -1990,13 +2018,13 @@ function showFeatureInfo(featRef) {
     const cat = getCategoryById(data.categoryId);
     title.innerHTML = `📍 Waypoint: ${data.name}`;
     body.innerHTML = `
-      <div style="font-size: 12px; line-height: 1.8;">
-        <div><b>Category:</b> <span style="color:${cat.color}; font-weight:700;">${cat.icon} ${cat.name}</span></div>
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Category:</b> <span style="color:${cat.color}; font-weight:800;">${cat.icon} ${cat.name}</span></div>
         <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
         <div><b>Elevation:</b> ${Math.round(data.elevation || 0)} m</div>
         <div><b>Recorded:</b> ${new Date(data.timestamp).toLocaleString()}</div>
-        <div style="margin-top: 8px;"><b>Field Notes:</b></div>
-        <div style="background: rgba(30,41,59,0.7); padding: 8px; border-radius: 8px; margin-top: 4px; color: #F8FAFC;">
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Notes:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
           ${data.notes || '<i>No notes recorded.</i>'}
         </div>
       </div>
@@ -2004,12 +2032,12 @@ function showFeatureInfo(featRef) {
   } else if (featRef.type === 'photo') {
     title.innerHTML = `📷 Photo Observation`;
     body.innerHTML = `
-      <div style="font-size: 12px; line-height: 1.8;">
-        <img src="${data.dataUrl}" style="width: 100%; max-height: 200px; object-fit: contain; border-radius: 10px; margin-bottom: 8px; border: 1px solid var(--border-glass);">
+      <div style="font-size: 14px; line-height: 1.8;">
+        <img src="${data.dataUrl}" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 10px; border: 1.5px solid var(--border-glass);">
         <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
         <div><b>Time:</b> ${new Date(data.timestamp).toLocaleString()}</div>
-        <div style="margin-top: 8px;"><b>Comments:</b></div>
-        <div style="background: rgba(30,41,59,0.7); padding: 8px; border-radius: 8px; margin-top: 4px; color: #F8FAFC;">
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Comments:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
           ${data.comments || '<i>No comments recorded.</i>'}
         </div>
       </div>
@@ -2017,13 +2045,13 @@ function showFeatureInfo(featRef) {
   } else if (featRef.type === 'digitized') {
     title.innerHTML = `✏️ Digitized: ${data.name}`;
     body.innerHTML = `
-      <div style="font-size: 12px; line-height: 1.8;">
+      <div style="font-size: 14px; line-height: 1.8;">
         <div><b>Type:</b> ${data.type.toUpperCase()}</div>
         <div><b>Category:</b> ${data.category}</div>
         <div><b>Vertices:</b> ${data.vertices.length} points</div>
         <div><b>Created:</b> ${new Date(data.timestamp).toLocaleString()}</div>
-        <div style="margin-top: 8px;"><b>Field Feedback:</b></div>
-        <div style="background: rgba(30,41,59,0.7); padding: 8px; border-radius: 8px; margin-top: 4px; color: #F8FAFC;">
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Feedback:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
           ${data.comments || '<i>No feedback recorded.</i>'}
         </div>
       </div>
@@ -2031,13 +2059,15 @@ function showFeatureInfo(featRef) {
   } else if (featRef.type === 'track') {
     title.innerHTML = `⏺️ Track: ${data.name}`;
     body.innerHTML = `
-      <div style="font-size: 12px; line-height: 1.8;">
+      <div style="font-size: 14px; line-height: 1.8;">
         <div><b>Total Points:</b> ${data.points.length}</div>
         <div><b>Started:</b> ${new Date(data.timestamp).toLocaleString()}</div>
       </div>
     `;
   }
 
+  document.getElementById('btnDeleteFeature').style.display = 'inline-flex';
+  document.getElementById('btnNavToFeature').style.display = 'inline-flex';
   openModal('featureInfoModal');
 }
 
@@ -2089,18 +2119,16 @@ function onOverlayFileSelected(e) {
 
   const fileName = file.name;
   const ext = fileName.split('.').pop().toLowerCase();
-
   const reader = new FileReader();
 
   if (ext === 'zip') {
-    // ESRI Shapefile inside Zip
     reader.onload = function(evt) {
       if (window.shp) {
         window.shp(evt.target.result).then(geojson => {
           addGeoJsonOverlay(fileName, geojson);
         }).catch(err => alert("Error parsing shapefile zip: " + err));
       } else {
-        alert("Shapefile parser is initializing, please check internet connection or retry.");
+        alert("Shapefile parser is initializing, please retry.");
       }
     };
     reader.readAsArrayBuffer(file);
@@ -2130,9 +2158,9 @@ function onOverlayFileSelected(e) {
 function addGeoJsonOverlay(name, geojson) {
   const layerId = 'overlay_' + Date.now();
   const layer = L.geoJSON(geojson, {
-    style: { color: '#F59E0B', weight: 2, fillOpacity: 0.25 },
+    style: { color: '#F59E0B', weight: 2.5, fillOpacity: 0.25 },
     pointToLayer: function(f, latlng) {
-      return L.circleMarker(latlng, { radius: 5, fillColor: '#F59E0B', color: '#FFF', weight: 1 });
+      return L.circleMarker(latlng, { radius: 6, fillColor: '#F59E0B', color: '#FFF', weight: 1.5 });
     },
     onEachFeature: function(feature, layer) {
       layer.on('click', () => {
@@ -2168,7 +2196,7 @@ function parseAndAddGpxOverlay(name, xmlString) {
     const lon = parseFloat(wpts[i].getAttribute("lon"));
     const nameEl = wpts[i].getElementsByTagName("name")[0];
     const wptName = nameEl ? nameEl.textContent : "Waypoint";
-    const m = L.circleMarker([lat, lon], { radius: 5, fillColor: '#10B981', color: '#FFF', weight: 1 });
+    const m = L.circleMarker([lat, lon], { radius: 6, fillColor: '#10B981', color: '#FFF', weight: 1.5 });
     m.bindPopup(wptName);
     group.addLayer(m);
   }
@@ -2180,7 +2208,7 @@ function parseAndAddGpxOverlay(name, xmlString) {
     trackCoords.push([lat, lon]);
   }
   if (trackCoords.length > 0) {
-    const poly = L.polyline(trackCoords, { color: '#10B981', weight: 2.5 });
+    const poly = L.polyline(trackCoords, { color: '#10B981', weight: 3 });
     group.addLayer(poly);
   }
 
@@ -2214,10 +2242,10 @@ function parseAndAddKmlOverlay(name, xmlString) {
       }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
 
       if (pts.length === 1) {
-        const m = L.circleMarker(pts[0], { radius: 5, fillColor: '#EC4899', color: '#FFF', weight: 1 });
+        const m = L.circleMarker(pts[0], { radius: 6, fillColor: '#EC4899', color: '#FFF', weight: 1.5 });
         group.addLayer(m);
       } else if (pts.length > 1) {
-        const poly = L.polyline(pts, { color: '#EC4899', weight: 2.5 });
+        const poly = L.polyline(pts, { color: '#EC4899', weight: 3 });
         group.addLayer(poly);
       }
     }
@@ -2242,7 +2270,7 @@ function renderOverlaysList() {
   if (!container) return;
 
   if (importedOverlays.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 11px; text-align: center; padding: 20px;">No local overlay layers added yet. Tap <b>Add Layer</b> to load files.</div>';
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">No local overlay layers added yet. Tap <b>Add Layer</b> to load files.</div>';
     return;
   }
 
@@ -2252,18 +2280,18 @@ function renderOverlaysList() {
     row.className = 'layer-row';
     row.innerHTML = `
       <div class="layer-header-row">
-        <div style="font-size: 12px; font-weight: 700; color: #F8FAFC;">🗺️ ${ov.name}</div>
+        <div style="font-size: 14px; font-weight: 800; color: #FFFFFF;">🗺️ ${ov.name}</div>
         <div style="display: flex; gap: 8px;">
-          <button class="btn btn-secondary" style="padding: 2px 6px; font-size: 10px;" onclick="toggleOverlayVisibility(${idx})">
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="toggleOverlayVisibility(${idx})">
             ${ov.visible ? '👁️ On' : '🚫 Off'}
           </button>
-          <button class="btn btn-danger" style="padding: 2px 6px; font-size: 10px;" onclick="removeOverlay(${idx})">🗑️</button>
+          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="removeOverlay(${idx})">🗑️</button>
         </div>
       </div>
       <div class="layer-slider-row">
         <span>Opacity:</span>
         <input type="range" min="0" max="1" step="0.05" value="${ov.opacity}" oninput="setOverlayOpacity(${idx}, this.value)">
-        <span>${Math.round(ov.opacity * 100)}%</span>
+        <span style="min-width: 38px; text-align: right;">${Math.round(ov.opacity * 100)}%</span>
       </div>
     `;
     container.appendChild(row);
@@ -2307,7 +2335,7 @@ function showOverlayFeatureInfo(layerName, props) {
     rows += `<div><b>${k}:</b> ${props[k]}</div>`;
   }
   body.innerHTML = `
-    <div style="font-size: 12px; line-height: 1.8;">
+    <div style="font-size: 14px; line-height: 1.8;">
       ${rows || '<i>No attribute properties found.</i>'}
     </div>
   `;
@@ -2416,7 +2444,6 @@ function handleSpeechResult(rawText) {
   } else if (activeDictationTarget === 'draw') {
     document.getElementById('drawCommentsInput').value = clean;
   } else if (activeDictationTarget === 'dock') {
-    // Open Quick Waypoint Modal with transcribed text
     openWaypointModalWithCoords(currentLat, currentLon);
     document.getElementById('wptNotesInput').value = clean;
     stopDictation();
@@ -2424,7 +2451,6 @@ function handleSpeechResult(rawText) {
 }
 
 function cleanDictationText(txt) {
-  // Common field term normalizer
   return txt
     .replace(/\bseismic\b/gi, "Seismic")
     .replace(/\bgeophone\b/gi, "Geophone")
@@ -2459,7 +2485,6 @@ function exportScoutPackage() {
   zip.file("tracks.json", JSON.stringify(tracks, null, 2));
   zip.file("digitized.json", JSON.stringify(digitizedFeatures, null, 2));
 
-  // Add photos folder
   const photosFolder = zip.folder("photos");
   const photosMeta = [];
 
@@ -2490,22 +2515,19 @@ function exportScoutPackage() {
 
 // 2. Export Field Notes CSV
 function exportFieldNotesCsv() {
-  let csv = '\uFEFF'; // UTF-8 BOM for Excel
+  let csv = '\uFEFF';
   csv += 'Project,Type,ID,Name,Category,Latitude,Longitude,Elevation_m,Timestamp,Comments_Notes\r\n';
 
-  // Add Waypoints
   waypoints.forEach(w => {
     const cat = getCategoryById(w.categoryId);
     csv += `"${escapeCsv(currentProjectName)}","Waypoint","${w.id}","${escapeCsv(w.name)}","${escapeCsv(cat.name)}",${w.lat.toFixed(6)},${w.lon.toFixed(6)},${Math.round(w.elevation || 0)},"${w.timestamp}","${escapeCsv(w.notes)}"\r\n`;
   });
 
-  // Add Photos
   photos.forEach((p, idx) => {
     const cat = getCategoryById(p.categoryId);
     csv += `"${escapeCsv(currentProjectName)}","Photo","${p.id}","Photo ${idx+1}","${escapeCsv(cat.name)}",${p.lat.toFixed(6)},${p.lon.toFixed(6)},${Math.round(p.elevation || 0)},"${p.timestamp}","${escapeCsv(p.comments)}"\r\n`;
   });
 
-  // Add Digitized Features
   digitizedFeatures.forEach(f => {
     const center = f.vertices && f.vertices.length > 0 ? f.vertices[0] : [0, 0];
     csv += `"${escapeCsv(currentProjectName)}","Digitized_${f.type}","${f.id}","${escapeCsv(f.name)}","${escapeCsv(f.category)}",${center[0].toFixed(6)},${center[1].toFixed(6)},0,"${f.timestamp}","${escapeCsv(f.comments)}"\r\n`;
@@ -2521,7 +2543,6 @@ function exportGpxData() {
   gpx += '<gpx version="1.1" creator="Quik Field Notes" xmlns="http://www.topografix.com/GPX/1/1">\r\n';
   gpx += `  <metadata><name>${escapeXml(currentProjectName)}</name><time>${new Date().toISOString()}</time></metadata>\r\n`;
 
-  // Waypoints
   waypoints.forEach(w => {
     const cat = getCategoryById(w.categoryId);
     gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\r\n`;
@@ -2533,7 +2554,6 @@ function exportGpxData() {
     gpx += `  </wpt>\r\n`;
   });
 
-  // Tracks
   tracks.forEach(t => {
     gpx += `  <trk>\r\n    <name>${escapeXml(t.name)}</name>\r\n    <trkseg>\r\n`;
     t.points.forEach(pt => {
@@ -2564,10 +2584,10 @@ function exportGeoJsonData() {
   });
 
   digitizedFeatures.forEach(f => {
-    const coords = f.vertices.map(v => [v[1], v[0]]); // [lon, lat]
+    const coords = f.vertices.map(v => [v[1], v[0]]);
     if (f.type === 'polygon') {
       if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
-        coords.push([...coords[0]]); // Close ring
+        coords.push([...coords[0]]);
       }
       fc.features.push({
         type: "Feature",
@@ -2660,7 +2680,6 @@ function switchSettingsTab(tabId) {
 
   document.getElementById(tabId).style.display = 'block';
 
-  // Highlight active button
   const btns = document.querySelectorAll('.tab-btn');
   if (tabId === 'tabProjects') btns[0].classList.add('active');
   if (tabId === 'tabLayers') btns[1].classList.add('active');

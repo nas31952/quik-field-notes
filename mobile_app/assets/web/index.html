@@ -1,0 +1,2691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0A0F1D">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<title>Quik Field Notes</title>
+
+<!-- Local Offline Vendor Libraries with CDN Fallbacks -->
+<link rel="stylesheet" href="vendor/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
+<script src="vendor/leaflet.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';"></script>
+<script src="vendor/leaflet-rotate.js" onerror="this.onerror=null;this.src='https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js';"></script>
+<script src="vendor/jszip.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';"></script>
+<script src="vendor/shp.js" onerror="this.onerror=null;this.src='https://unpkg.com/shpjs@latest/dist/shp.js';"></script>
+
+<style>
+:root {
+  --bg-dark: #0A0F1D;
+  --surface: #1E293B;
+  --surface-glass: rgba(15, 23, 42, 0.95);
+  --border-glass: rgba(56, 189, 248, 0.35);
+  --accent: #38BDF8;
+  --accent-glow: #0284C7;
+  --accent-neon: #00F0FF;
+  --success: #10B981;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --text-main: #FFFFFF;
+  --text-muted: #CBD5E1;
+  --safe-bottom: env(safe-area-inset-bottom, 14px);
+  --safe-top: env(safe-area-inset-top, 14px);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+body, html {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-dark);
+  color: var(--text-main);
+  font-size: 15px;
+}
+
+/* Full Screen GIS Canvas */
+#map {
+  width: 100vw;
+  height: 100vh;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+  background: #0B132B;
+  touch-action: none;
+}
+
+/* Compass & Heading Widget (Medium Size, High Visibility) */
+.compass-widget {
+  position: absolute;
+  top: calc(var(--safe-top) + 60px);
+  right: 14px;
+  z-index: 1000;
+  width: 54px;
+  height: 54px;
+  background: var(--surface-glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 2px solid var(--border-glass);
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.2s ease;
+}
+.compass-widget:active {
+  transform: scale(0.92);
+  border-color: var(--accent-neon);
+}
+.compass-arrow {
+  width: 24px;
+  height: 24px;
+  transition: transform 0.12s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.compass-deg {
+  font-size: 9px;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin-top: -1px;
+}
+.compass-mode-badge {
+  position: absolute;
+  bottom: -7px;
+  background: #0284C7;
+  color: #FFFFFF;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+/* Navigation Banner */
+#navBanner {
+  position: absolute;
+  top: calc(var(--safe-top) + 60px);
+  left: 14px;
+  right: 76px;
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(14px);
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  padding: 10px 14px;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+  animation: slideDown 0.25s ease;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Top HUD Header (Medium Field Scale) */
+.top-hud {
+  position: absolute;
+  top: calc(var(--safe-top) + 4px);
+  left: 12px;
+  right: 12px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  pointer-events: none;
+}
+.top-hud > * {
+  pointer-events: auto;
+}
+
+.hud-pill {
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 24px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  white-space: nowrap;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  color: #FFFFFF;
+}
+.hud-pill:active {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: var(--accent-neon);
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.btn-icon-hud {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.btn-icon-hud:active {
+  transform: scale(0.92);
+  background: rgba(56, 189, 248, 0.3);
+  border-color: var(--accent-neon);
+}
+
+/* Bottom Action Dock (Medium Size, Large Touch Targets) */
+.bottom-dock {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + 8px);
+  left: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  background: var(--surface-glass);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 26px;
+  padding: 10px 12px;
+  height: 76px;
+  box-shadow: 0 10px 36px rgba(0,0,0,0.7);
+}
+
+.dock-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 14px;
+  transition: all 0.15s ease;
+  min-width: 62px;
+  min-height: 54px;
+}
+.dock-btn .btn-icon {
+  font-size: 26px;
+  transition: transform 0.15s ease;
+}
+.dock-btn:active {
+  transform: scale(0.92);
+  color: var(--accent);
+}
+.dock-btn.active {
+  color: var(--accent-neon);
+}
+.dock-btn.active .btn-icon {
+  transform: scale(1.15);
+}
+
+/* Primary Central Capture Action (Dictate) */
+.dock-btn-primary {
+  background: linear-gradient(135deg, #0284C7, #00F0FF);
+  color: #0A0F1D !important;
+  font-weight: 800;
+  font-size: 13px;
+  border-radius: 20px;
+  padding: 8px 16px;
+  min-width: 76px;
+  height: 58px;
+  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
+  transform: translateY(-6px);
+}
+.dock-btn-primary .btn-icon {
+  font-size: 28px;
+  color: #0A0F1D;
+}
+.dock-btn-primary:active {
+  transform: translateY(-3px) scale(0.94);
+}
+
+/* Precision Center Crosshair */
+#crosshair {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 500;
+  pointer-events: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+}
+.crosshair-reticle {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  position: relative;
+}
+.crosshair-reticle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -10px;
+  right: -10px;
+  height: 2px;
+  background: var(--accent);
+  transform: translateY(-50%);
+}
+.crosshair-reticle::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: -10px;
+  bottom: -10px;
+  width: 2px;
+  background: var(--accent);
+  transform: translateX(-50%);
+}
+.crosshair-center-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: #00F0FF;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #00F0FF;
+}
+
+/* Modals & Dialogs (Medium Field Scale) */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  background: #0F172A;
+  border: 1.5px solid var(--border-glass);
+  border-radius: 22px;
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 16px 54px rgba(0,0,0,0.85);
+  animation: popUp 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes popUp {
+  from { opacity: 0; transform: scale(0.92) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 26px;
+  cursor: pointer;
+  padding: 6px;
+  line-height: 1;
+}
+
+.modal-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1;
+}
+
+.modal-footer {
+  padding: 14px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+/* Tabs inside Settings Modal */
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.95);
+}
+.tab-btn {
+  flex: 1;
+  padding: 12px 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  border-bottom: 3px solid transparent;
+  transition: all 0.15s ease;
+}
+.tab-btn.active {
+  color: var(--accent-neon);
+  border-bottom-color: var(--accent-neon);
+  background: rgba(56, 189, 248, 0.12);
+}
+
+/* Form Controls (High Legibility for Weak Eyes) */
+.form-group {
+  margin-bottom: 16px;
+}
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #38BDF8;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  color: #FFFFFF;
+  font-size: 15px;
+  font-weight: 500;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--accent);
+  background: rgba(30, 41, 59, 1);
+}
+.form-textarea {
+  resize: vertical;
+  min-height: 84px;
+}
+
+/* Category Badges & Chips */
+.chip-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.chip-badge {
+  padding: 8px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(30, 41, 59, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.15s ease;
+}
+.chip-badge.active {
+  border-color: var(--accent-neon);
+  background: rgba(56, 189, 248, 0.35);
+  color: #00F0FF;
+}
+
+/* Buttons (Medium Field Scale) */
+.btn {
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.btn:active {
+  transform: scale(0.96);
+}
+.btn-primary {
+  background: linear-gradient(135deg, #0284C7, #00F0FF);
+  color: #0A0F1D;
+  font-weight: 800;
+}
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+}
+.btn-danger {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1.5px solid rgba(239, 68, 68, 0.5);
+  color: #FCA5A5;
+}
+
+/* Map Click Popover */
+.map-click-popover {
+  position: absolute;
+  z-index: 1500;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 16px;
+  padding: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 170px;
+}
+.popover-btn {
+  background: none;
+  border: none;
+  color: #FFFFFF;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.popover-btn:active {
+  background: rgba(56, 189, 248, 0.25);
+  color: var(--accent-neon);
+}
+
+/* Digitizing Active Toolbar */
+#drawToolbar {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + 90px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  background: rgba(15, 23, 42, 0.96);
+  backdrop-filter: blur(18px);
+  border: 1.5px solid var(--accent-neon);
+  border-radius: 18px;
+  padding: 10px 16px;
+  display: none;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 10px 36px rgba(0, 240, 255, 0.35);
+  white-space: nowrap;
+}
+
+/* Layer item in list */
+.layer-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.layer-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.layer-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+.layer-slider-row input[type=range] {
+  flex: 1;
+  accent-color: var(--accent);
+  height: 8px;
+}
+
+/* Discreet, Small Map Symbols */
+.small-wpt-marker {
+  width: 12px !important;
+  height: 12px !important;
+  border-radius: 50%;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 0 6px rgba(0,0,0,0.6);
+}
+.small-photo-marker {
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 4px;
+  background: #38BDF8;
+  border: 1.5px solid #FFFFFF;
+  color: #0A0F1D;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(0,0,0,0.6);
+}
+</style>
+</head>
+<body>
+
+<!-- Full Screen Map -->
+<div id="map"></div>
+
+<!-- Precision Center Crosshair -->
+<div id="crosshair">
+  <div class="crosshair-reticle">
+    <div class="crosshair-center-dot"></div>
+  </div>
+</div>
+
+<!-- Top HUD Header -->
+<div class="top-hud">
+  <!-- Dynamic Project Pill -->
+  <div class="hud-pill" onclick="openProjectSettings()" title="Click to Switch Project">
+    <span style="color: #38BDF8; font-size: 16px;">📁</span>
+    <span id="hudProjectName" style="color: #FFFFFF;">No Project</span>
+  </div>
+
+  <!-- GNSS Satellite Status -->
+  <div class="hud-pill" onclick="centerOnGps()" title="Tap to Center on GNSS">
+    <span id="gnssDot" style="width: 10px; height: 10px; border-radius: 50%; background: #EAB308; display: inline-block;"></span>
+    <span id="gnssBadge">GNSS: Searching...</span>
+  </div>
+
+  <!-- Top Right Action Buttons -->
+  <div class="hud-actions">
+    <button class="btn-icon-hud" onclick="cycleMapLayer()" title="Switch Map Background">🗺️</button>
+    <button class="btn-icon-hud" onclick="openSettingsModal()" title="Settings & Layers">⚙️</button>
+  </div>
+</div>
+
+<!-- Compass & North Arrow Widget (Free touch rotate canvas + North-Fix Button) -->
+<div class="compass-widget" onclick="onCompassClicked()" title="Tap to Snap/Fix Map to True North">
+  <div class="compass-arrow" id="compassArrow">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <!-- High-contrast True North Arrow with vibrant red needle and white border -->
+      <path d="M12 2L18 21L12 16.5L6 21L12 2Z" fill="#EF4444" stroke="#FFFFFF" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="12" cy="12" r="2" fill="#FFFFFF"/>
+    </svg>
+  </div>
+  <div class="compass-deg" id="compassDeg">0°</div>
+  <div class="compass-mode-badge" id="compassModeBadge" onclick="event.stopPropagation(); toggleCompassOrientation();">NORTH</div>
+</div>
+
+<!-- Navigation Target Banner -->
+<div id="navBanner">
+  <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+    <span style="font-size: 20px;">🧭</span>
+    <div style="font-size: 13px;">
+      <div id="navTargetName" style="color: #00F0FF; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Target</div>
+      <div style="color: #CBD5E1;">Dist: <b id="navDist" style="color:#FFF;">--</b> | Brg: <b id="navBrg" style="color:#FFF;">--</b></div>
+    </div>
+  </div>
+  <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="cancelNavigation()">Stop</button>
+</div>
+
+<!-- Digitizing Toolbar (Appears when drawing line/polygon) -->
+<div id="drawToolbar">
+  <span id="drawStatusText" style="font-size: 13px; font-weight: 800; color: #00F0FF;">Drawing: 0 pts</span>
+  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; min-height: 38px;" onclick="undoDrawVertex()">↩️ Undo</button>
+  <button class="btn btn-primary" style="padding: 6px 14px; font-size: 13px; min-height: 38px;" onclick="finishDrawing()">✅ Finish</button>
+  <button class="btn btn-danger" style="padding: 6px 10px; font-size: 12px; min-height: 38px;" onclick="cancelDrawing()">❌ Cancel</button>
+</div>
+
+<!-- Map Click Popover -->
+<div class="map-click-popover" id="mapClickPopover">
+  <button class="popover-btn" onclick="addWaypointAtClickedPoint()">📍 Add Waypoint</button>
+  <button class="popover-btn" onclick="startNavToClickedPoint()">🧭 Navigate Here</button>
+  <button class="popover-btn" onclick="startDrawAtClickedPoint()">✏️ Draw From Here</button>
+</div>
+
+<!-- Bottom Navigation Dock (Medium Field Scale) -->
+<div class="bottom-dock">
+  <button class="dock-btn" onclick="openQuickWaypointModal()" title="Add Waypoint">
+    <span class="btn-icon">📍</span>
+    <span>Waypoint</span>
+  </button>
+
+  <button class="dock-btn" onclick="triggerCameraCapture()" title="Capture Geotagged Photo">
+    <span class="btn-icon">📷</span>
+    <span>Photo</span>
+  </button>
+
+  <!-- Central Primary Capture Action: Fast & Furious Voice Note -->
+  <button class="dock-btn dock-btn-primary" onclick="toggleVoiceDictation()" id="btnVoiceDock" title="Fast Voice Dictation">
+    <span class="btn-icon" id="micIconDock">🎙️</span>
+    <span id="micLabelDock">Dictate</span>
+  </button>
+
+  <button class="dock-btn" onclick="promptDrawMode()" title="Draw Line or Polygon">
+    <span class="btn-icon">✏️</span>
+    <span>Digitize</span>
+  </button>
+
+  <button class="dock-btn" onclick="toggleTrackRecording()" id="btnTrackRecord" title="Record GPS Track">
+    <span class="btn-icon" id="trackIcon">⏺️</span>
+    <span id="trackLabel">Track</span>
+  </button>
+
+  <button class="dock-btn" onclick="openExportModal()" title="Export Data">
+    <span class="btn-icon">📤</span>
+    <span>Export</span>
+  </button>
+</div>
+
+<!-- Hidden File Inputs -->
+<input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="onPhotoCaptured(event)">
+<input type="file" id="overlayFileInput" accept=".zip,.gpx,.kml,.geojson,.json,.shp" style="display: none;" onchange="onOverlayFileSelected(event)">
+
+<!-- ========================================================================= -->
+<!-- MODAL: SETTINGS & PROJECT & LAYER MANAGER                                  -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">⚙️ Settings & Map Layers</div>
+      <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+    </div>
+
+    <!-- Tab Bar -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchSettingsTab('tabProjects')">📁 Projects</button>
+      <button class="tab-btn" onclick="switchSettingsTab('tabLayers')">🗺️ Overlays</button>
+      <button class="tab-btn" onclick="switchSettingsTab('tabCategories')">🏷️ Categories</button>
+      <button class="tab-btn" onclick="switchSettingsTab('tabOptions')">⚙️ Options</button>
+    </div>
+
+    <div class="modal-body">
+      <!-- TAB 1: PROJECTS -->
+      <div id="tabProjects" class="settings-tab-pane">
+        <div class="form-group">
+          <label class="form-label">Active Project</label>
+          <div style="display: flex; gap: 8px;">
+            <select class="form-select" id="projectSelect" onchange="onProjectSelectChanged()">
+              <option value="">(No Project - General Field Data)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="background: rgba(30, 41, 59, 0.6); padding: 14px; border-radius: 14px;">
+          <label class="form-label">Create New Project</label>
+          <div style="display: flex; gap: 10px;">
+            <input type="text" class="form-input" id="newProjectInput" placeholder="Enter Project Name (e.g. Area North)">
+            <button class="btn btn-primary" onclick="createNewProject()">Create</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Project Stats</label>
+          <div id="projectStatsBox" style="font-size: 13px; color: var(--text-muted); line-height: 1.8; background: rgba(30,41,59,0.5); padding: 12px; border-radius: 12px;">
+            Waypoints: 0 | Photos: 0 | Tracks: 0 | Digitized: 0
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 2: MAP OVERLAYS -->
+      <div id="tabLayers" class="settings-tab-pane" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <label class="form-label" style="margin-bottom: 0;">Loaded Overlays</label>
+          <button class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;" onclick="triggerOverlayUpload()">➕ Add Layer</button>
+        </div>
+
+        <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 12px; line-height: 1.6;">
+          Supported: <b>ESRI Shapefile (.zip)</b>, <b>GPX (.gpx)</b>, <b>KML (.kml)</b>, <b>GeoJSON (.json)</b>.
+        </div>
+
+        <div id="overlaysList">
+          <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">
+            No local overlay layers added yet. Tap <b>Add Layer</b> to load files.
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB 3: CATEGORIES MANAGER -->
+      <div id="tabCategories" class="settings-tab-pane" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <label class="form-label" style="margin-bottom: 0;">Waypoint Categories</label>
+          <button class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;" onclick="promptAddCategory()">➕ Add Category</button>
+        </div>
+
+        <div id="categoriesList" style="display: flex; flex-direction: column; gap: 8px;"></div>
+      </div>
+
+      <!-- TAB 4: OPTIONS & GNSS -->
+      <div id="tabOptions" class="settings-tab-pane" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Speech Normalizer Mode</label>
+          <select class="form-select" id="speechLocaleSelect" onchange="onSpeechLocaleChanged()">
+            <option value="auto">⚡ Auto (Fastest On-Device)</option>
+            <option value="en-US">English (US Standard)</option>
+            <option value="en-GB">English (UK Standard)</option>
+            <option value="en-SA">Arab English (Middle East)</option>
+            <option value="en-IN">South Asian English (Indian/Pakistani)</option>
+            <option value="ur-PK">Native Urdu (اردو)</option>
+            <option value="ar-SA">Native Arabic (العربية)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Photo Notes Dictation</label>
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 14px; color: #FFFFFF;">
+            <input type="checkbox" id="chkAutoPhotoNote" checked onchange="togglePhotoNoteSetting(this.checked)" style="width: 18px; height: 18px;">
+            Prompt for voice comments after taking photo
+          </label>
+        </div>
+
+        <div class="form-group" style="margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 16px;">
+          <label class="form-label" style="color: #EF4444;">Danger Zone</label>
+          <button class="btn btn-danger" style="width: 100%; justify-content: center;" onclick="clearActiveProjectData()">🗑️ Clear Active Project Data</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('settingsModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ADD / EDIT WAYPOINT                                                -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="waypointModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">📍 Record Waypoint</div>
+      <button class="modal-close" onclick="closeModal('waypointModal')">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Waypoint Name / Label</label>
+        <input type="text" class="form-input" id="wptNameInput" placeholder="WP-001">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <div class="chip-grid" id="wptCategoryChips"></div>
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label class="form-label" style="margin-bottom:0;">Observation Notes</label>
+          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="toggleWaypointDictation()" id="btnWptDictate">🎙️ Voice</button>
+        </div>
+        <textarea class="form-textarea" id="wptNotesInput" placeholder="Speak or type observation details..."></textarea>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text-muted); background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px; line-height: 1.6;">
+        <div>Coordinates: <b id="wptCoordsLabel" style="color: var(--accent);">--</b></div>
+        <div>Elevation: <b id="wptElevLabel" style="color: var(--accent);">-- m</b></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('waypointModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmSaveWaypoint()">Save Waypoint</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: PHOTO COMMENT WITH VOICE DICTATION                                  -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="photoModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">📷 Photo Observation Comments</div>
+      <button class="modal-close" onclick="skipPhotoNote()">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div style="display: flex; gap: 14px; margin-bottom: 14px; align-items: center;">
+        <img id="photoModalPreview" src="" style="width: 80px; height: 80px; object-fit: cover; border-radius: 12px; border: 1.5px solid var(--border-glass);">
+        <div style="font-size: 13px; color: var(--text-muted); line-height: 1.6;">
+          <div id="photoCoordsLabel" style="color: var(--accent); font-weight: 800;">Lat: --, Lon: --</div>
+          <div id="photoTimeLabel">Time: --</div>
+          <div style="margin-top: 4px; color: #FFFFFF;">Note will be attached to report photo plate.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <div class="chip-grid" id="photoCategoryChips"></div>
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label class="form-label" style="margin-bottom:0;">Photo Comments</label>
+          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="togglePhotoDictation()" id="btnPhotoDictate">🎙️ Dictate</button>
+        </div>
+        <textarea class="form-textarea" id="photoCommentInput" placeholder="Describe terrain, obstacles, or hazards seen in photo..."></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="skipPhotoNote()">Save Without Note</button>
+      <button class="btn btn-primary" onclick="confirmSavePhotoNote()">Save Photo & Note</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: DIGITIZE FEATURE (TERRAIN / POLYGON / LINE)                        -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="drawModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Save Digitized Feature</div>
+      <button class="modal-close" onclick="closeModal('drawModal')">&times;</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Feature Name</label>
+        <input type="text" class="form-input" id="drawFeatureName" placeholder="e.g. Sabkha Zone 1 / Dune Crossing">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Layer Type / Category</label>
+        <select class="form-select" id="drawFeatureCategory">
+          <option value="Terrain / Dunes">🏜️ Terrain / Sand Dunes</option>
+          <option value="Sabkha">💧 Sabkha / Low Wet Ground</option>
+          <option value="Obstacle Area">🚧 Obstacle / Restricted Area</option>
+          <option value="Access Route">🛣️ Access Trail / Bulldozed Line</option>
+          <option value="Survey Line">🚜 Survey / Source Line</option>
+          <option value="Camp Facility">⛺ Camp Facility Area</option>
+          <option value="Custom Boundary">📐 General Survey Boundary</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label class="form-label" style="margin-bottom:0;">Comments & Field Feedback</label>
+          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="toggleDrawDictation()" id="btnDrawDictate">🎙️ Dictate</button>
+        </div>
+        <textarea class="form-textarea" id="drawCommentsInput" placeholder="Add ground condition feedback, slope details, or vehicle accessibility notes..."></textarea>
+      </div>
+
+      <div style="font-size: 13px; color: var(--text-muted); background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px;">
+        <div>Geometry: <b id="drawGeomInfo" style="color: var(--accent);">--</b></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('drawModal')">Discard</button>
+      <button class="btn btn-primary" onclick="confirmSaveDigitizedFeature()">Save Feature</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: FEATURE INFO CARD (CLICK ANY MAP OBJECT)                            -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="featureInfoModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="infoModalTitle">ℹ️ Feature Details</div>
+      <button class="modal-close" onclick="closeModal('featureInfoModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" id="infoModalBody">
+      <!-- Dynamic content inserted via JS -->
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-danger" id="btnDeleteFeature" onclick="deleteCurrentFeature()">🗑️ Delete</button>
+      <button class="btn btn-primary" id="btnNavToFeature" onclick="startNavToCurrentFeature()">🧭 Navigate To</button>
+      <button class="btn btn-secondary" onclick="closeModal('featureInfoModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: MULTI-FORMAT EXPORT                                                -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="exportModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">📤 Export Field Data</div>
+      <button class="modal-close" onclick="closeModal('exportModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <p style="font-size: 13px; color: #CBD5E1; margin-bottom: 6px;">
+        Choose export format for current project (<b id="exportProjectName" style="color:#00F0FF;">No Project</b>):
+      </p>
+
+      <!-- 1. Package File (.scoutpkg) -->
+      <button class="btn btn-primary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportScoutPackage()">
+        <span style="font-size: 24px;">📦</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Full Survey Package (.scoutpkg)</div>
+          <div style="font-size: 11px; color: #0A0F1D;">Integrated container with all waypoints, tracks, notes and photos.</div>
+        </div>
+      </button>
+
+      <!-- 2. CSV Field Notes -->
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportFieldNotesCsv()">
+        <span style="font-size: 24px;">📄</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Field Notes CSV (Excel Ready)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Tabular CSV of all waypoints, photo comments, and coordinates.</div>
+        </div>
+      </button>
+
+      <!-- 3. GPX Tracks & Waypoints -->
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportGpxData()">
+        <span style="font-size: 24px;">🗺️</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Standard GPX File (.gpx)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Standard GPS waypoints and tracklogs for Garmin, BaseCamp, or GIS.</div>
+        </div>
+      </button>
+
+      <!-- 4. GeoJSON Layers -->
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportGeoJsonData()">
+        <span style="font-size: 24px;">📐</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Digitized GeoJSON Layers (.geojson)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Vector polygons, lines, and waypoints for QGIS / ArcGIS Pro.</div>
+        </div>
+      </button>
+
+      <!-- 5. Geotagged Photos Zip -->
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportPhotosZip()">
+        <span style="font-size: 24px;">📷</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Captured Photos Archive (.zip)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">All high-resolution field photos with metadata.</div>
+        </div>
+      </button>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('exportModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- JAVASCRIPT CORE ENGINE                                                    -->
+<!-- ========================================================================= -->
+<script>
+// --- GLOBAL APPLICATION STATE ---
+let map = null;
+let tileLayerCurrent = null;
+let tileLayerIndex = 0;
+
+// Dynamic Project Manager State
+let projects = [];
+let currentProjectId = null;
+let currentProjectName = "No Project";
+
+// Active Project Data Containers
+let waypoints = [];
+let tracks = [];
+let photos = [];
+let digitizedFeatures = [];
+let importedOverlays = [];
+
+// Waypoint Categories
+let categories = [];
+
+// GNSS & Tracking State
+let currentLat = 25.2854;
+let currentLon = 51.5310;
+let currentAlt = 0;
+let currentAccuracy = null;
+let currentHeading = 0;
+let gpsMarker = null;
+let accuracyCircle = null;
+let activeTrackPolyline = null;
+let activeTrackPoints = [];
+let isRecordingTrack = false;
+let watchId = null;
+
+// Compass & Navigation State
+let compassOrientationMode = 'manual'; // 'manual' (North-Up / free twist) | 'heading-up'
+let navTarget = null; // { lat, lon, name }
+let navGuidanceLine = null;
+
+// Digitizing State
+let isDrawing = false;
+let drawType = 'polygon'; // 'line' | 'polygon'
+let drawVertices = [];
+let drawPreviewLayer = null;
+
+// Speech-to-Text Engine
+let recognition = null;
+let isDictating = false;
+let activeDictationTarget = null; // 'waypoint' | 'photo' | 'draw' | 'dock'
+
+// Photo Options
+let autoPromptPhotoNote = true;
+let tempCapturedPhoto = null;
+
+// Active Selected Feature for Info Modal
+let activeFeatureRef = null;
+
+// Map Click Temp Coords
+let lastClickedLatLng = null;
+
+// Default Tile Layers
+const TILE_PROVIDERS = [
+  {
+    name: "Satellite (ESRI)",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    name: "OpenStreetMap",
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap' }
+  },
+  {
+    name: "Terrain / Topo",
+    url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  }
+];
+
+// Default Categories
+const DEFAULT_CATEGORIES = [
+  { id: "general", name: "General Observation", color: "#38BDF8", icon: "📍" },
+  { id: "hazard", name: "Hazard / Danger", color: "#EF4444", icon: "⚠️" },
+  { id: "obstacle", name: "Obstacle / Barrier", color: "#F97316", icon: "🚧" },
+  { id: "access", name: "Access / Road / Trail", color: "#10B981", icon: "🛣️" },
+  { id: "terrain", name: "Terrain / Dunes / Sabkha", color: "#EAB308", icon: "🏜️" },
+  { id: "camp", name: "Camp Site / Base", color: "#8B5CF6", icon: "⛺" },
+  { id: "water", name: "Water Point / Well", color: "#06B6D4", icon: "💧" },
+  { id: "infra", name: "Infrastructure / Utility", color: "#EC4899", icon: "🏭" },
+  { id: "survey_path", name: "Survey / Source Line", color: "#6366F1", icon: "🚜" },
+  { id: "landmark", name: "Landmark / High Point", color: "#14B8A6", icon: "🚩" }
+];
+
+// --- INITIALIZATION ---
+window.addEventListener('DOMContentLoaded', () => {
+  loadProjectsFromStorage();
+  loadCategoriesFromStorage();
+  loadActiveProjectData();
+  initMap();
+  initGeolocation();
+  initDeviceOrientation();
+  initSpeechEngine();
+  renderAllProjectLayers();
+  updateHudDisplay();
+});
+
+// --- PROJECT MANAGEMENT ---
+function loadProjectsFromStorage() {
+  try {
+    const raw = localStorage.getItem('qfn_projects');
+    if (raw) {
+      projects = JSON.parse(raw);
+    }
+  } catch (e) {
+    projects = [];
+  }
+
+  // Restore active project
+  currentProjectId = localStorage.getItem('qfn_current_project') || null;
+  const match = projects.find(p => p.id === currentProjectId);
+  if (match) {
+    currentProjectName = match.name;
+  } else {
+    currentProjectId = null;
+    currentProjectName = "No Project";
+  }
+}
+
+function saveProjectsToStorage() {
+  try {
+    localStorage.setItem('qfn_projects', JSON.stringify(projects));
+    if (currentProjectId) {
+      localStorage.setItem('qfn_current_project', currentProjectId);
+    } else {
+      localStorage.removeItem('qfn_current_project');
+    }
+  } catch (e) {}
+}
+
+function loadActiveProjectData() {
+  const storageKey = currentProjectId ? `qfn_data_${currentProjectId}` : 'qfn_data_no_project';
+  try {
+    const raw = localStorage.getItem(storageKey);
+    if (raw) {
+      const data = JSON.parse(raw);
+      waypoints = data.waypoints || [];
+      tracks = data.tracks || [];
+      photos = data.photos || [];
+      digitizedFeatures = data.digitizedFeatures || [];
+    } else {
+      waypoints = [];
+      tracks = [];
+      photos = [];
+      digitizedFeatures = [];
+    }
+  } catch (e) {
+    waypoints = [];
+    tracks = [];
+    photos = [];
+    digitizedFeatures = [];
+  }
+}
+
+function saveActiveProjectData() {
+  const storageKey = currentProjectId ? `qfn_data_${currentProjectId}` : 'qfn_data_no_project';
+  try {
+    const payload = {
+      projectId: currentProjectId,
+      projectName: currentProjectName,
+      lastModified: new Date().toISOString(),
+      waypoints: waypoints,
+      tracks: tracks,
+      photos: photos,
+      digitizedFeatures: digitizedFeatures
+    };
+    localStorage.setItem(storageKey, JSON.stringify(payload));
+  } catch (e) {}
+  updateProjectStatsDisplay();
+}
+
+function createNewProject() {
+  const input = document.getElementById('newProjectInput');
+  const name = input.value.trim();
+  if (!name) return;
+
+  const id = 'proj_' + Date.now();
+  projects.push({ id: id, name: name, createdAt: new Date().toISOString() });
+  saveProjectsToStorage();
+
+  input.value = '';
+  switchActiveProject(id);
+  refreshProjectSelectDropdown();
+}
+
+function switchActiveProject(id) {
+  clearMapGraphics();
+  currentProjectId = id || null;
+  const match = projects.find(p => p.id === id);
+  currentProjectName = match ? match.name : "No Project";
+  saveProjectsToStorage();
+
+  loadActiveProjectData();
+  renderAllProjectLayers();
+  updateHudDisplay();
+  refreshProjectSelectDropdown();
+}
+
+function onProjectSelectChanged() {
+  const sel = document.getElementById('projectSelect');
+  switchActiveProject(sel.value || null);
+}
+
+function refreshProjectSelectDropdown() {
+  const sel = document.getElementById('projectSelect');
+  sel.innerHTML = '<option value="">(No Project - General Field Data)</option>';
+  projects.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.name;
+    if (p.id === currentProjectId) opt.selected = true;
+    sel.appendChild(opt);
+  });
+}
+
+function openProjectSettings() {
+  openSettingsModal();
+  switchSettingsTab('tabProjects');
+}
+
+function updateHudDisplay() {
+  const hudName = document.getElementById('hudProjectName');
+  hudName.textContent = currentProjectName;
+  updateProjectStatsDisplay();
+}
+
+function updateProjectStatsDisplay() {
+  const box = document.getElementById('projectStatsBox');
+  if (box) {
+    box.innerHTML = `Waypoints: <b>${waypoints.length}</b> | Photos: <b>${photos.length}</b> | Tracks: <b>${tracks.length}</b> | Digitized: <b>${digitizedFeatures.length}</b>`;
+  }
+}
+
+function clearActiveProjectData() {
+  if (!confirm(`Are you sure you want to permanently clear all data for project "${currentProjectName}"?`)) return;
+  waypoints = [];
+  tracks = [];
+  photos = [];
+  digitizedFeatures = [];
+  saveActiveProjectData();
+  clearMapGraphics();
+  renderAllProjectLayers();
+  closeModal('settingsModal');
+}
+
+// --- CATEGORIES MANAGEMENT ---
+function loadCategoriesFromStorage() {
+  try {
+    const raw = localStorage.getItem('qfn_categories');
+    if (raw) {
+      categories = JSON.parse(raw);
+    } else {
+      categories = [...DEFAULT_CATEGORIES];
+    }
+  } catch (e) {
+    categories = [...DEFAULT_CATEGORIES];
+  }
+  renderCategoriesUI();
+}
+
+function saveCategoriesToStorage() {
+  try {
+    localStorage.setItem('qfn_categories', JSON.stringify(categories));
+  } catch (e) {}
+  renderCategoriesUI();
+}
+
+function renderCategoriesUI() {
+  const list = document.getElementById('categoriesList');
+  if (list) {
+    list.innerHTML = '';
+    categories.forEach((c, idx) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display: flex; align-items: center; justify-content: space-between; background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px;';
+      row.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700;">
+          <span style="font-size: 18px;">${c.icon || '📍'}</span>
+          <span style="width: 12px; height: 12px; border-radius: 50%; background: ${c.color};"></span>
+          <span>${c.name}</span>
+        </div>
+        <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="deleteCategory(${idx})">&times;</button>
+      `;
+      list.appendChild(row);
+    });
+  }
+
+  renderChipGrid('wptCategoryChips', 'wpt');
+  renderChipGrid('photoCategoryChips', 'photo');
+}
+
+function renderChipGrid(containerId, prefix) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = '';
+  categories.forEach((c, idx) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip-badge' + (idx === 0 ? ' active' : '');
+    chip.dataset.categoryId = c.id;
+    chip.innerHTML = `<span>${c.icon || '📍'}</span> <span>${c.name}</span>`;
+    chip.onclick = () => {
+      container.querySelectorAll('.chip-badge').forEach(b => b.classList.remove('active'));
+      chip.classList.add('active');
+    };
+    container.appendChild(chip);
+  });
+}
+
+function promptAddCategory() {
+  const name = prompt("Enter new category name:");
+  if (!name || !name.trim()) return;
+  const icon = prompt("Enter an emoji icon for this category:", "📌") || "📌";
+  const colors = ["#38BDF8", "#EF4444", "#10B981", "#F59E0B", "#8B5CF6", "#EC4899", "#14B8A6"];
+  const color = colors[categories.length % colors.length];
+
+  const id = 'cat_' + Date.now();
+  categories.push({ id: id, name: name.trim(), color: color, icon: icon });
+  saveCategoriesToStorage();
+}
+
+function deleteCategory(index) {
+  if (categories.length <= 1) {
+    alert("At least one category is required.");
+    return;
+  }
+  categories.splice(index, 1);
+  saveCategoriesToStorage();
+}
+
+function getCategoryById(id) {
+  return categories.find(c => c.id === id) || categories[0] || { name: 'General', color: '#38BDF8', icon: '📍' };
+}
+
+// --- MAP & GIS INITIALIZATION WITH TWO-FINGER ROTATION ---
+function initMap() {
+  map = L.map('map', {
+    zoomControl: false,
+    attributionControl: false,
+    preferCanvas: true,
+    rotate: true,
+    touchRotate: true,
+    bearing: 0
+  }).setView([currentLat, currentLon], 15);
+
+  tileLayerCurrent = L.tileLayer(TILE_PROVIDERS[0].url, TILE_PROVIDERS[0].options).addTo(map);
+
+  // Map Click Listener
+  map.on('click', onMapClicked);
+
+  // Listen to rotation changes (e.g. two-finger touch rotate)
+  if (typeof map.on === 'function') {
+    map.on('rotate', () => {
+      const b = map.getBearing ? map.getBearing() : 0;
+      updateCompassDisplay(b);
+    });
+  }
+}
+
+function cycleMapLayer() {
+  tileLayerIndex = (tileLayerIndex + 1) % TILE_PROVIDERS.length;
+  if (tileLayerCurrent) map.removeLayer(tileLayerCurrent);
+  tileLayerCurrent = L.tileLayer(TILE_PROVIDERS[tileLayerIndex].url, TILE_PROVIDERS[tileLayerIndex].options).addTo(map);
+}
+
+function clearMapGraphics() {
+  map.eachLayer(layer => {
+    if (layer !== tileLayerCurrent && layer !== gpsMarker && layer !== accuracyCircle && layer !== navGuidanceLine) {
+      if (layer._qfnFeature) {
+        map.removeLayer(layer);
+      }
+    }
+  });
+}
+
+// --- COMPASS, ROTATION & NORTH-FIX ENGINE ---
+function initDeviceOrientation() {
+  if (window.DeviceOrientationEvent) {
+    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    window.addEventListener('deviceorientation', handleOrientation, true);
+  }
+}
+
+function handleOrientation(e) {
+  let heading = null;
+  if (e.webkitCompassHeading) {
+    heading = e.webkitCompassHeading; // iOS Safari
+  } else if (e.alpha !== null) {
+    heading = 360 - e.alpha; // Android Chrome
+  }
+
+  if (heading !== null && !isNaN(heading)) {
+    currentHeading = Math.round(heading);
+    if (compassOrientationMode === 'heading-up' && map && typeof map.setBearing === 'function') {
+      map.setBearing(currentHeading);
+    }
+  }
+}
+
+function updateCompassDisplay(deg) {
+  const arrow = document.getElementById('compassArrow');
+  const degText = document.getElementById('compassDeg');
+  // Needle points to True North relative to map canvas
+  if (arrow) arrow.style.transform = `rotate(${-deg}deg)`;
+  if (degText) degText.textContent = `${Math.round((deg + 360) % 360)}°`;
+}
+
+// User clicked North Arrow -> Fix/Snap orientation back to True North
+function onCompassClicked() {
+  if (map && typeof map.setBearing === 'function') {
+    map.setBearing(0);
+  }
+  compassOrientationMode = 'manual';
+  const badge = document.getElementById('compassModeBadge');
+  if (badge) {
+    badge.textContent = 'NORTH';
+    badge.style.background = '#0284C7';
+  }
+  updateCompassDisplay(0);
+}
+
+// Toggle between Free Rotation / North mode and Magnetometer Heading mode
+function toggleCompassOrientation() {
+  const badge = document.getElementById('compassModeBadge');
+  if (compassOrientationMode === 'manual') {
+    compassOrientationMode = 'heading-up';
+    badge.textContent = 'HDG';
+    badge.style.background = '#10B981';
+    if (map && typeof map.setBearing === 'function') {
+      map.setBearing(currentHeading);
+    }
+  } else {
+    compassOrientationMode = 'manual';
+    badge.textContent = 'NORTH';
+    badge.style.background = '#0284C7';
+    onCompassClicked();
+  }
+}
+
+// --- NAVIGATION ENGINE ---
+function startNavigationTo(lat, lon, name) {
+  navTarget = { lat: lat, lon: lon, name: name || 'Destination' };
+
+  const banner = document.getElementById('navBanner');
+  banner.style.display = 'flex';
+  document.getElementById('navTargetName').textContent = navTarget.name;
+
+  updateNavCalculations();
+}
+
+function cancelNavigation() {
+  navTarget = null;
+  const banner = document.getElementById('navBanner');
+  banner.style.display = 'none';
+  if (navGuidanceLine) {
+    map.removeLayer(navGuidanceLine);
+    navGuidanceLine = null;
+  }
+}
+
+function updateNavCalculations() {
+  if (!navTarget) return;
+
+  const d = calcDistanceMeters(currentLat, currentLon, navTarget.lat, navTarget.lon);
+  const brg = calcBearingDegrees(currentLat, currentLon, navTarget.lat, navTarget.lon);
+
+  const distStr = d >= 1000 ? (d / 1000).toFixed(2) + ' km' : Math.round(d) + ' m';
+  document.getElementById('navDist').textContent = distStr;
+  document.getElementById('navBrg').textContent = Math.round(brg) + '°';
+
+  if (navGuidanceLine) map.removeLayer(navGuidanceLine);
+  navGuidanceLine = L.polyline([[currentLat, currentLon], [navTarget.lat, navTarget.lon]], {
+    color: '#00F0FF',
+    weight: 3,
+    dashArray: '8, 8',
+    opacity: 0.9
+  }).addTo(map);
+}
+
+function calcDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function calcBearingDegrees(lat1, lon1, lat2, lon2) {
+  const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+  const brg = Math.atan2(y, x) * 180 / Math.PI;
+  return (brg + 360) % 360;
+}
+
+// --- GNSS GEOLOCATION TRACKING ---
+function initGeolocation() {
+  if (!navigator.geolocation) {
+    document.getElementById('gnssBadge').textContent = 'GNSS: Unsupported';
+    return;
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    onGpsSuccess,
+    onGpsError,
+    { enableHighAccuracy: true, timeout: 60000, maximumAge: 0 }
+  );
+}
+
+function onGpsSuccess(pos) {
+  currentLat = pos.coords.latitude;
+  currentLon = pos.coords.longitude;
+  currentAlt = pos.coords.altitude || 0;
+  currentAccuracy = pos.coords.accuracy || 5;
+
+  if (pos.coords.heading && !isNaN(pos.coords.heading)) {
+    currentHeading = Math.round(pos.coords.heading);
+  }
+
+  // Update HUD
+  document.getElementById('gnssDot').style.background = '#10B981';
+  document.getElementById('gnssBadge').textContent = `±${Math.round(currentAccuracy)}m`;
+
+  // Update Position Marker
+  if (!gpsMarker) {
+    gpsMarker = L.circleMarker([currentLat, currentLon], {
+      radius: 9,
+      fillColor: '#00F0FF',
+      color: '#FFFFFF',
+      weight: 2.5,
+      opacity: 1,
+      fillOpacity: 0.95
+    }).addTo(map);
+  } else {
+    gpsMarker.setLatLng([currentLat, currentLon]);
+  }
+
+  // Update Accuracy Circle
+  if (!accuracyCircle) {
+    accuracyCircle = L.circle([currentLat, currentLon], {
+      radius: currentAccuracy,
+      color: '#38BDF8',
+      fillColor: '#38BDF8',
+      fillOpacity: 0.15,
+      weight: 1.5
+    }).addTo(map);
+  } else {
+    accuracyCircle.setLatLng([currentLat, currentLon]);
+    accuracyCircle.setRadius(currentAccuracy);
+  }
+
+  // Track Recording Point
+  if (isRecordingTrack) {
+    activeTrackPoints.push([currentLat, currentLon]);
+    if (!activeTrackPolyline) {
+      activeTrackPolyline = L.polyline(activeTrackPoints, { color: '#00F0FF', weight: 3.5 }).addTo(map);
+    } else {
+      activeTrackPolyline.setLatLngs(activeTrackPoints);
+    }
+  }
+
+  if (navTarget) updateNavCalculations();
+}
+
+function onGpsError(err) {
+  document.getElementById('gnssDot').style.background = '#EF4444';
+  document.getElementById('gnssBadge').textContent = 'GNSS: Searching...';
+}
+
+function centerOnGps() {
+  if (map && currentLat && currentLon) {
+    map.setView([currentLat, currentLon], 16, { animate: true });
+  }
+}
+
+// --- TRACK RECORDING ---
+function toggleTrackRecording() {
+  const btn = document.getElementById('btnTrackRecord');
+  const icon = document.getElementById('trackIcon');
+  const label = document.getElementById('trackLabel');
+
+  if (!isRecordingTrack) {
+    isRecordingTrack = true;
+    activeTrackPoints = [[currentLat, currentLon]];
+    btn.classList.add('active');
+    icon.textContent = '⏹️';
+    label.textContent = 'Stop';
+  } else {
+    isRecordingTrack = false;
+    btn.classList.remove('active');
+    icon.textContent = '⏺️';
+    label.textContent = 'Track';
+
+    if (activeTrackPoints.length >= 2) {
+      const trackId = 'trk_' + Date.now();
+      const trackObj = {
+        id: trackId,
+        name: 'Track ' + new Date().toLocaleTimeString(),
+        points: [...activeTrackPoints],
+        timestamp: new Date().toISOString()
+      };
+      tracks.push(trackObj);
+      saveActiveProjectData();
+      renderAllProjectLayers();
+    }
+    activeTrackPoints = [];
+    activeTrackPolyline = null;
+  }
+}
+
+// --- MAP CLICK HANDLER (TAP TO ADD WAYPOINT / NAV) ---
+function onMapClicked(e) {
+  if (isDrawing) {
+    drawVertices.push([e.latlng.lat, e.latlng.lng]);
+    updateDrawPreview();
+    return;
+  }
+
+  lastClickedLatLng = e.latlng;
+  const popover = document.getElementById('mapClickPopover');
+  const point = map.latLngToContainerPoint(e.latlng);
+
+  popover.style.left = Math.min(point.x, window.innerWidth - 180) + 'px';
+  popover.style.top = Math.min(point.y, window.innerHeight - 160) + 'px';
+  popover.style.display = 'flex';
+
+  setTimeout(() => {
+    window.addEventListener('click', hidePopoverOnClickOutside, { once: true });
+  }, 100);
+}
+
+function hidePopoverOnClickOutside(e) {
+  const popover = document.getElementById('mapClickPopover');
+  if (!popover.contains(e.target)) {
+    popover.style.display = 'none';
+  }
+}
+
+function addWaypointAtClickedPoint() {
+  document.getElementById('mapClickPopover').style.display = 'none';
+  if (lastClickedLatLng) {
+    openWaypointModalWithCoords(lastClickedLatLng.lat, lastClickedLatLng.lng);
+  }
+}
+
+function startNavToClickedPoint() {
+  document.getElementById('mapClickPopover').style.display = 'none';
+  if (lastClickedLatLng) {
+    startNavigationTo(lastClickedLatLng.lat, lastClickedLatLng.lng, 'Pinned Point');
+  }
+}
+
+function startDrawAtClickedPoint() {
+  document.getElementById('mapClickPopover').style.display = 'none';
+  startDrawingMode('polygon');
+  if (lastClickedLatLng) {
+    drawVertices.push([lastClickedLatLng.lat, lastClickedLatLng.lng]);
+    updateDrawPreview();
+  }
+}
+
+// --- WAYPOINT MODAL & STORAGE ---
+function openQuickWaypointModal() {
+  openWaypointModalWithCoords(currentLat, currentLon);
+}
+
+function openWaypointModalWithCoords(lat, lon) {
+  document.getElementById('wptNameInput').value = 'WP-' + (waypoints.length + 1).toString().padStart(3, '0');
+  document.getElementById('wptNotesInput').value = '';
+  document.getElementById('wptCoordsLabel').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+  document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+
+  window._tempWptCoords = { lat: lat, lon: lon };
+  openModal('waypointModal');
+}
+
+function confirmSaveWaypoint() {
+  const name = document.getElementById('wptNameInput').value.trim() || 'Waypoint';
+  const notes = document.getElementById('wptNotesInput').value.trim();
+  const activeChip = document.querySelector('#wptCategoryChips .chip-badge.active');
+  const catId = activeChip ? activeChip.dataset.categoryId : 'general';
+
+  const coords = window._tempWptCoords || { lat: currentLat, lon: currentLon };
+
+  const wpt = {
+    id: 'wpt_' + Date.now(),
+    name: name,
+    categoryId: catId,
+    notes: notes,
+    lat: coords.lat,
+    lon: coords.lon,
+    elevation: currentAlt,
+    timestamp: new Date().toISOString()
+  };
+
+  waypoints.push(wpt);
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  closeModal('waypointModal');
+}
+
+// --- PHOTO CAPTURE & NOTES MODAL ---
+function triggerCameraCapture() {
+  document.getElementById('cameraInput').click();
+}
+
+function onPhotoCaptured(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const dataUrl = evt.target.result;
+    tempCapturedPhoto = {
+      id: 'photo_' + Date.now(),
+      dataUrl: dataUrl,
+      lat: currentLat,
+      lon: currentLon,
+      elevation: currentAlt,
+      timestamp: new Date().toISOString(),
+      comments: '',
+      categoryId: 'general'
+    };
+
+    if (autoPromptPhotoNote) {
+      document.getElementById('photoModalPreview').src = dataUrl;
+      document.getElementById('photoCoordsLabel').textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}`;
+      document.getElementById('photoTimeLabel').textContent = new Date().toLocaleTimeString();
+      document.getElementById('photoCommentInput').value = '';
+      openModal('photoModal');
+    } else {
+      finalizeSavePhoto('');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function confirmSavePhotoNote() {
+  const comments = document.getElementById('photoCommentInput').value.trim();
+  const activeChip = document.querySelector('#photoCategoryChips .chip-badge.active');
+  if (tempCapturedPhoto && activeChip) {
+    tempCapturedPhoto.categoryId = activeChip.dataset.categoryId;
+  }
+  finalizeSavePhoto(comments);
+  closeModal('photoModal');
+}
+
+function skipPhotoNote() {
+  finalizeSavePhoto('');
+  closeModal('photoModal');
+}
+
+function finalizeSavePhoto(comments) {
+  if (!tempCapturedPhoto) return;
+  tempCapturedPhoto.comments = comments;
+  photos.push(tempCapturedPhoto);
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  tempCapturedPhoto = null;
+}
+
+function togglePhotoNoteSetting(enabled) {
+  autoPromptPhotoNote = enabled;
+}
+
+// --- DIGITIZING (DRAW LINE / POLYGON) ---
+function promptDrawMode() {
+  const choice = confirm("Press OK to draw a Polygon (Area), or Cancel to draw a Line (Trail/Track).");
+  startDrawingMode(choice ? 'polygon' : 'line');
+}
+
+function startDrawingMode(type) {
+  isDrawing = true;
+  drawType = type;
+  drawVertices = [];
+  document.getElementById('drawToolbar').style.display = 'flex';
+  document.getElementById('drawStatusText').textContent = `Drawing ${type}: 0 pts`;
+}
+
+function updateDrawPreview() {
+  document.getElementById('drawStatusText').textContent = `Drawing ${drawType}: ${drawVertices.length} pts`;
+
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+
+  if (drawVertices.length >= 1) {
+    if (drawType === 'polygon' && drawVertices.length >= 3) {
+      drawPreviewLayer = L.polygon(drawVertices, { color: '#00F0FF', weight: 2.5, fillColor: '#00F0FF', fillOpacity: 0.25 }).addTo(map);
+    } else {
+      drawPreviewLayer = L.polyline(drawVertices, { color: '#00F0FF', weight: 2.5, dashArray: '6, 6' }).addTo(map);
+    }
+  }
+}
+
+function undoDrawVertex() {
+  if (drawVertices.length > 0) {
+    drawVertices.pop();
+    updateDrawPreview();
+  }
+}
+
+function cancelDrawing() {
+  isDrawing = false;
+  drawVertices = [];
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  document.getElementById('drawToolbar').style.display = 'none';
+}
+
+function finishDrawing() {
+  if (drawType === 'polygon' && drawVertices.length < 3) {
+    alert("Polygons require at least 3 points.");
+    return;
+  }
+  if (drawType === 'line' && drawVertices.length < 2) {
+    alert("Lines require at least 2 points.");
+    return;
+  }
+
+  isDrawing = false;
+  document.getElementById('drawToolbar').style.display = 'none';
+
+  document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
+  document.getElementById('drawCommentsInput').value = '';
+  document.getElementById('drawGeomInfo').textContent = `${drawType.toUpperCase()} with ${drawVertices.length} vertices`;
+
+  openModal('drawModal');
+}
+
+function confirmSaveDigitizedFeature() {
+  const name = document.getElementById('drawFeatureName').value.trim() || 'Digitized Feature';
+  const category = document.getElementById('drawFeatureCategory').value;
+  const comments = document.getElementById('drawCommentsInput').value.trim();
+
+  const feature = {
+    id: 'feat_' + Date.now(),
+    type: drawType,
+    name: name,
+    category: category,
+    comments: comments,
+    vertices: [...drawVertices],
+    timestamp: new Date().toISOString()
+  };
+
+  digitizedFeatures.push(feature);
+  saveActiveProjectData();
+
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  drawPreviewLayer = null;
+  drawVertices = [];
+
+  renderAllProjectLayers();
+  closeModal('drawModal');
+}
+
+// --- RENDER ALL PROJECT LAYERS ON MAP ---
+function renderAllProjectLayers() {
+  clearMapGraphics();
+
+  // 1. Waypoints (Discreet 6px vector circle markers)
+  waypoints.forEach(w => {
+    const cat = getCategoryById(w.categoryId);
+    const marker = L.circleMarker([w.lat, w.lon], {
+      radius: 6,
+      fillColor: cat.color,
+      color: '#FFFFFF',
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.95
+    }).addTo(map);
+
+    marker._qfnFeature = { type: 'waypoint', data: w };
+    marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+  });
+
+  // 2. Photos (Small camera badge)
+  photos.forEach(p => {
+    const icon = L.divIcon({
+      className: 'small-photo-marker',
+      html: '📷',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+    const marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
+    marker._qfnFeature = { type: 'photo', data: p };
+    marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+  });
+
+  // 3. Tracks
+  tracks.forEach(t => {
+    const poly = L.polyline(t.points, { color: '#38BDF8', weight: 2.5, opacity: 0.85 }).addTo(map);
+    poly._qfnFeature = { type: 'track', data: t };
+    poly.on('click', () => showFeatureInfo(poly._qfnFeature));
+  });
+
+  // 4. Digitized Polygons & Lines
+  digitizedFeatures.forEach(f => {
+    let layer = null;
+    if (f.type === 'polygon') {
+      layer = L.polygon(f.vertices, { color: '#EAB308', weight: 2, fillColor: '#EAB308', fillOpacity: 0.25 }).addTo(map);
+    } else {
+      layer = L.polyline(f.vertices, { color: '#10B981', weight: 2.5, dashArray: '6, 4' }).addTo(map);
+    }
+    layer._qfnFeature = { type: 'digitized', data: f };
+    layer.on('click', () => showFeatureInfo(layer._qfnFeature));
+  });
+}
+
+// --- FEATURE INFO MODAL (CLICK ANY MAP OBJECT) ---
+function showFeatureInfo(featRef) {
+  activeFeatureRef = featRef;
+  const title = document.getElementById('infoModalTitle');
+  const body = document.getElementById('infoModalBody');
+  const data = featRef.data;
+
+  if (featRef.type === 'waypoint') {
+    const cat = getCategoryById(data.categoryId);
+    title.innerHTML = `📍 Waypoint: ${data.name}`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Category:</b> <span style="color:${cat.color}; font-weight:800;">${cat.icon} ${cat.name}</span></div>
+        <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
+        <div><b>Elevation:</b> ${Math.round(data.elevation || 0)} m</div>
+        <div><b>Recorded:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Notes:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
+          ${data.notes || '<i>No notes recorded.</i>'}
+        </div>
+      </div>
+    `;
+  } else if (featRef.type === 'photo') {
+    title.innerHTML = `📷 Photo Observation`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <img src="${data.dataUrl}" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 10px; border: 1.5px solid var(--border-glass);">
+        <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
+        <div><b>Time:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Comments:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
+          ${data.comments || '<i>No comments recorded.</i>'}
+        </div>
+      </div>
+    `;
+  } else if (featRef.type === 'digitized') {
+    title.innerHTML = `✏️ Digitized: ${data.name}`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Type:</b> ${data.type.toUpperCase()}</div>
+        <div><b>Category:</b> ${data.category}</div>
+        <div><b>Vertices:</b> ${data.vertices.length} points</div>
+        <div><b>Created:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Feedback:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
+          ${data.comments || '<i>No feedback recorded.</i>'}
+        </div>
+      </div>
+    `;
+  } else if (featRef.type === 'track') {
+    title.innerHTML = `⏺️ Track: ${data.name}`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Total Points:</b> ${data.points.length}</div>
+        <div><b>Started:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+      </div>
+    `;
+  }
+
+  document.getElementById('btnDeleteFeature').style.display = 'inline-flex';
+  document.getElementById('btnNavToFeature').style.display = 'inline-flex';
+  openModal('featureInfoModal');
+}
+
+function startNavToCurrentFeature() {
+  if (!activeFeatureRef) return;
+  const d = activeFeatureRef.data;
+  let lat = null, lon = null, name = 'Target';
+
+  if (d.lat && d.lon) {
+    lat = d.lat; lon = d.lon; name = d.name || 'Waypoint';
+  } else if (d.vertices && d.vertices.length > 0) {
+    lat = d.vertices[0][0]; lon = d.vertices[0][1]; name = d.name || 'Feature';
+  }
+
+  if (lat && lon) {
+    closeModal('featureInfoModal');
+    startNavigationTo(lat, lon, name);
+  }
+}
+
+function deleteCurrentFeature() {
+  if (!activeFeatureRef) return;
+  if (!confirm("Delete this feature permanently?")) return;
+
+  const d = activeFeatureRef.data;
+  if (activeFeatureRef.type === 'waypoint') {
+    waypoints = waypoints.filter(w => w.id !== d.id);
+  } else if (activeFeatureRef.type === 'photo') {
+    photos = photos.filter(p => p.id !== d.id);
+  } else if (activeFeatureRef.type === 'digitized') {
+    digitizedFeatures = digitizedFeatures.filter(f => f.id !== d.id);
+  } else if (activeFeatureRef.type === 'track') {
+    tracks = tracks.filter(t => t.id !== d.id);
+  }
+
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  closeModal('featureInfoModal');
+}
+
+// --- LOCAL OVERLAYS (SHAPEFILE, GPX, KML, GEOJSON) ---
+function triggerOverlayUpload() {
+  document.getElementById('overlayFileInput').click();
+}
+
+function onOverlayFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const fileName = file.name;
+  const ext = fileName.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+
+  if (ext === 'zip') {
+    reader.onload = function(evt) {
+      if (window.shp) {
+        window.shp(evt.target.result).then(geojson => {
+          addGeoJsonOverlay(fileName, geojson);
+        }).catch(err => alert("Error parsing shapefile zip: " + err));
+      } else {
+        alert("Shapefile parser is initializing, please retry.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else if (ext === 'gpx') {
+    reader.onload = function(evt) {
+      parseAndAddGpxOverlay(fileName, evt.target.result);
+    };
+    reader.readAsText(file);
+  } else if (ext === 'kml') {
+    reader.onload = function(evt) {
+      parseAndAddKmlOverlay(fileName, evt.target.result);
+    };
+    reader.readAsText(file);
+  } else if (ext === 'geojson' || ext === 'json') {
+    reader.onload = function(evt) {
+      try {
+        const geojson = JSON.parse(evt.target.result);
+        addGeoJsonOverlay(fileName, geojson);
+      } catch (err) { alert("Invalid GeoJSON: " + err); }
+    };
+    reader.readAsText(file);
+  } else {
+    alert("Unsupported file type. Please upload .zip (Shapefile), .gpx, .kml, or .geojson.");
+  }
+}
+
+function addGeoJsonOverlay(name, geojson) {
+  const layerId = 'overlay_' + Date.now();
+  const layer = L.geoJSON(geojson, {
+    style: { color: '#F59E0B', weight: 2.5, fillOpacity: 0.25 },
+    pointToLayer: function(f, latlng) {
+      return L.circleMarker(latlng, { radius: 6, fillColor: '#F59E0B', color: '#FFF', weight: 1.5 });
+    },
+    onEachFeature: function(feature, layer) {
+      layer.on('click', () => {
+        showOverlayFeatureInfo(name, feature.properties || {});
+      });
+    }
+  }).addTo(map);
+
+  importedOverlays.push({
+    id: layerId,
+    name: name,
+    layer: layer,
+    visible: true,
+    opacity: 1
+  });
+
+  renderOverlaysList();
+  if (layer.getBounds().isValid()) {
+    map.fitBounds(layer.getBounds());
+  }
+}
+
+function parseAndAddGpxOverlay(name, xmlString) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlString, "application/xml");
+  const wpts = xml.getElementsByTagName("wpt");
+  const trkpts = xml.getElementsByTagName("trkpt");
+
+  const group = L.featureGroup();
+
+  for (let i = 0; i < wpts.length; i++) {
+    const lat = parseFloat(wpts[i].getAttribute("lat"));
+    const lon = parseFloat(wpts[i].getAttribute("lon"));
+    const nameEl = wpts[i].getElementsByTagName("name")[0];
+    const wptName = nameEl ? nameEl.textContent : "Waypoint";
+    const m = L.circleMarker([lat, lon], { radius: 6, fillColor: '#10B981', color: '#FFF', weight: 1.5 });
+    m.bindPopup(wptName);
+    group.addLayer(m);
+  }
+
+  const trackCoords = [];
+  for (let i = 0; i < trkpts.length; i++) {
+    const lat = parseFloat(trkpts[i].getAttribute("lat"));
+    const lon = parseFloat(trkpts[i].getAttribute("lon"));
+    trackCoords.push([lat, lon]);
+  }
+  if (trackCoords.length > 0) {
+    const poly = L.polyline(trackCoords, { color: '#10B981', weight: 3 });
+    group.addLayer(poly);
+  }
+
+  group.addTo(map);
+  const layerId = 'overlay_' + Date.now();
+  importedOverlays.push({
+    id: layerId,
+    name: name,
+    layer: group,
+    visible: true,
+    opacity: 1
+  });
+
+  renderOverlaysList();
+  if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+}
+
+function parseAndAddKmlOverlay(name, xmlString) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlString, "application/xml");
+  const placemarks = xml.getElementsByTagName("Placemark");
+  const group = L.featureGroup();
+
+  for (let i = 0; i < placemarks.length; i++) {
+    const coordsEl = placemarks[i].getElementsByTagName("coordinates")[0];
+    if (coordsEl) {
+      const coordStr = coordsEl.textContent.trim().split(/\s+/);
+      const pts = coordStr.map(c => {
+        const parts = c.split(',');
+        return [parseFloat(parts[1]), parseFloat(parts[0])];
+      }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+
+      if (pts.length === 1) {
+        const m = L.circleMarker(pts[0], { radius: 6, fillColor: '#EC4899', color: '#FFF', weight: 1.5 });
+        group.addLayer(m);
+      } else if (pts.length > 1) {
+        const poly = L.polyline(pts, { color: '#EC4899', weight: 3 });
+        group.addLayer(poly);
+      }
+    }
+  }
+
+  group.addTo(map);
+  const layerId = 'overlay_' + Date.now();
+  importedOverlays.push({
+    id: layerId,
+    name: name,
+    layer: group,
+    visible: true,
+    opacity: 1
+  });
+
+  renderOverlaysList();
+  if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+}
+
+function renderOverlaysList() {
+  const container = document.getElementById('overlaysList');
+  if (!container) return;
+
+  if (importedOverlays.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">No local overlay layers added yet. Tap <b>Add Layer</b> to load files.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  importedOverlays.forEach((ov, idx) => {
+    const row = document.createElement('div');
+    row.className = 'layer-row';
+    row.innerHTML = `
+      <div class="layer-header-row">
+        <div style="font-size: 14px; font-weight: 800; color: #FFFFFF;">🗺️ ${ov.name}</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="toggleOverlayVisibility(${idx})">
+            ${ov.visible ? '👁️ On' : '🚫 Off'}
+          </button>
+          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="removeOverlay(${idx})">🗑️</button>
+        </div>
+      </div>
+      <div class="layer-slider-row">
+        <span>Opacity:</span>
+        <input type="range" min="0" max="1" step="0.05" value="${ov.opacity}" oninput="setOverlayOpacity(${idx}, this.value)">
+        <span style="min-width: 38px; text-align: right;">${Math.round(ov.opacity * 100)}%</span>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function toggleOverlayVisibility(idx) {
+  const ov = importedOverlays[idx];
+  ov.visible = !ov.visible;
+  if (ov.visible) {
+    map.addLayer(ov.layer);
+  } else {
+    map.removeLayer(ov.layer);
+  }
+  renderOverlaysList();
+}
+
+function setOverlayOpacity(idx, val) {
+  const ov = importedOverlays[idx];
+  ov.opacity = parseFloat(val);
+  if (ov.layer.setStyle) {
+    ov.layer.setStyle({ opacity: ov.opacity, fillOpacity: ov.opacity * 0.35 });
+  }
+  renderOverlaysList();
+}
+
+function removeOverlay(idx) {
+  const ov = importedOverlays[idx];
+  map.removeLayer(ov.layer);
+  importedOverlays.splice(idx, 1);
+  renderOverlaysList();
+}
+
+function showOverlayFeatureInfo(layerName, props) {
+  const title = document.getElementById('infoModalTitle');
+  const body = document.getElementById('infoModalBody');
+  title.innerHTML = `🗺️ ${layerName}`;
+
+  let rows = '';
+  for (const k in props) {
+    rows += `<div><b>${k}:</b> ${props[k]}</div>`;
+  }
+  body.innerHTML = `
+    <div style="font-size: 14px; line-height: 1.8;">
+      ${rows || '<i>No attribute properties found.</i>'}
+    </div>
+  `;
+  document.getElementById('btnDeleteFeature').style.display = 'none';
+  document.getElementById('btnNavToFeature').style.display = 'none';
+  openModal('featureInfoModal');
+}
+
+// --- SPEECH-TO-TEXT DICTATION ENGINE ---
+function initSpeechEngine() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = navigator.language || 'en-US';
+
+  recognition.onresult = function(e) {
+    let transcript = '';
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      transcript += e.results[i][0].transcript;
+    }
+    handleSpeechResult(transcript);
+  };
+
+  recognition.onerror = function() {
+    stopDictation();
+  };
+  recognition.onend = function() {
+    if (isDictating) stopDictation();
+  };
+}
+
+function onSpeechLocaleChanged() {
+  const sel = document.getElementById('speechLocaleSelect');
+  if (recognition) {
+    recognition.lang = sel.value === 'auto' ? (navigator.language || 'en-US') : sel.value;
+  }
+}
+
+function toggleVoiceDictation() {
+  if (isDictating) {
+    stopDictation();
+  } else {
+    startDictation('dock');
+  }
+}
+
+function toggleWaypointDictation() {
+  if (isDictating) stopDictation(); else startDictation('waypoint');
+}
+
+function togglePhotoDictation() {
+  if (isDictating) stopDictation(); else startDictation('photo');
+}
+
+function toggleDrawDictation() {
+  if (isDictating) stopDictation(); else startDictation('draw');
+}
+
+function startDictation(target) {
+  if (!recognition) {
+    alert("Speech recognition is not supported in this browser. Please use Google Chrome or Safari.");
+    return;
+  }
+  activeDictationTarget = target;
+  isDictating = true;
+  try {
+    recognition.start();
+    updateDictationUI(true);
+  } catch (e) {}
+}
+
+function stopDictation() {
+  isDictating = false;
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+  }
+  updateDictationUI(false);
+}
+
+function updateDictationUI(active) {
+  const dockBtn = document.getElementById('btnVoiceDock');
+  const dockIcon = document.getElementById('micIconDock');
+  const dockLabel = document.getElementById('micLabelDock');
+
+  if (active) {
+    dockBtn.style.background = '#EF4444';
+    dockIcon.textContent = '⏹️';
+    dockLabel.textContent = 'Listening...';
+  } else {
+    dockBtn.style.background = 'linear-gradient(135deg, #0284C7, #00F0FF)';
+    dockIcon.textContent = '🎙️';
+    dockLabel.textContent = 'Dictate';
+  }
+}
+
+function handleSpeechResult(rawText) {
+  const clean = cleanDictationText(rawText);
+
+  if (activeDictationTarget === 'waypoint') {
+    document.getElementById('wptNotesInput').value = clean;
+  } else if (activeDictationTarget === 'photo') {
+    document.getElementById('photoCommentInput').value = clean;
+  } else if (activeDictationTarget === 'draw') {
+    document.getElementById('drawCommentsInput').value = clean;
+  } else if (activeDictationTarget === 'dock') {
+    openWaypointModalWithCoords(currentLat, currentLon);
+    document.getElementById('wptNotesInput').value = clean;
+    stopDictation();
+  }
+}
+
+function cleanDictationText(txt) {
+  return txt
+    .replace(/\bseismic\b/gi, "Seismic")
+    .replace(/\bgeophone\b/gi, "Geophone")
+    .replace(/\bvibroseis\b/gi, "Vibroseis")
+    .replace(/\bsabkha\b/gi, "Sabkha")
+    .replace(/\bwadi\b/gi, "Wadi")
+    .replace(/\bpipeline\b/gi, "Pipeline");
+}
+
+// --- MULTI-FORMAT EXPORT ENGINE ---
+function openExportModal() {
+  document.getElementById('exportProjectName').textContent = currentProjectName;
+  openModal('exportModal');
+}
+
+// 1. Export Package (.scoutpkg)
+function exportScoutPackage() {
+  const zip = new JSZip();
+
+  const manifest = {
+    packageName: currentProjectName,
+    exportDate: new Date().toISOString(),
+    generator: "Quik Field Notes",
+    author: "Field Operator",
+    waypoints: waypoints,
+    tracks: tracks,
+    digitizedFeatures: digitizedFeatures
+  };
+
+  zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+  zip.file("waypoints.json", JSON.stringify(waypoints, null, 2));
+  zip.file("tracks.json", JSON.stringify(tracks, null, 2));
+  zip.file("digitized.json", JSON.stringify(digitizedFeatures, null, 2));
+
+  const photosFolder = zip.folder("photos");
+  const photosMeta = [];
+
+  photos.forEach((p, idx) => {
+    const filename = `photo_${idx + 1}.jpg`;
+    photosMeta.push({
+      filename: filename,
+      lat: p.lat,
+      lon: p.lon,
+      elevation: p.elevation,
+      timestamp: p.timestamp,
+      comments: p.comments,
+      categoryId: p.categoryId
+    });
+
+    const base64Data = p.dataUrl.split(',')[1];
+    if (base64Data) {
+      photosFolder.file(filename, base64Data, { base64: true });
+    }
+  });
+
+  zip.file("photos.json", JSON.stringify(photosMeta, null, 2));
+
+  zip.generateAsync({ type: "blob" }).then(content => {
+    downloadBlob(content, `${sanitizeFileName(currentProjectName)}_Field_Package.scoutpkg`);
+  });
+}
+
+// 2. Export Field Notes CSV
+function exportFieldNotesCsv() {
+  let csv = '\uFEFF';
+  csv += 'Project,Type,ID,Name,Category,Latitude,Longitude,Elevation_m,Timestamp,Comments_Notes\r\n';
+
+  waypoints.forEach(w => {
+    const cat = getCategoryById(w.categoryId);
+    csv += `"${escapeCsv(currentProjectName)}","Waypoint","${w.id}","${escapeCsv(w.name)}","${escapeCsv(cat.name)}",${w.lat.toFixed(6)},${w.lon.toFixed(6)},${Math.round(w.elevation || 0)},"${w.timestamp}","${escapeCsv(w.notes)}"\r\n`;
+  });
+
+  photos.forEach((p, idx) => {
+    const cat = getCategoryById(p.categoryId);
+    csv += `"${escapeCsv(currentProjectName)}","Photo","${p.id}","Photo ${idx+1}","${escapeCsv(cat.name)}",${p.lat.toFixed(6)},${p.lon.toFixed(6)},${Math.round(p.elevation || 0)},"${p.timestamp}","${escapeCsv(p.comments)}"\r\n`;
+  });
+
+  digitizedFeatures.forEach(f => {
+    const center = f.vertices && f.vertices.length > 0 ? f.vertices[0] : [0, 0];
+    csv += `"${escapeCsv(currentProjectName)}","Digitized_${f.type}","${f.id}","${escapeCsv(f.name)}","${escapeCsv(f.category)}",${center[0].toFixed(6)},${center[1].toFixed(6)},0,"${f.timestamp}","${escapeCsv(f.comments)}"\r\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Field_Notes.csv`);
+}
+
+// 3. Export GPX Format
+function exportGpxData() {
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\r\n';
+  gpx += '<gpx version="1.1" creator="Quik Field Notes" xmlns="http://www.topografix.com/GPX/1/1">\r\n';
+  gpx += `  <metadata><name>${escapeXml(currentProjectName)}</name><time>${new Date().toISOString()}</time></metadata>\r\n`;
+
+  waypoints.forEach(w => {
+    const cat = getCategoryById(w.categoryId);
+    gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\r\n`;
+    gpx += `    <name>${escapeXml(w.name)}</name>\r\n`;
+    gpx += `    <desc>${escapeXml(w.notes || '')}</desc>\r\n`;
+    gpx += `    <type>${escapeXml(cat.name)}</type>\r\n`;
+    if (w.elevation) gpx += `    <ele>${w.elevation}</ele>\r\n`;
+    gpx += `    <time>${w.timestamp}</time>\r\n`;
+    gpx += `  </wpt>\r\n`;
+  });
+
+  tracks.forEach(t => {
+    gpx += `  <trk>\r\n    <name>${escapeXml(t.name)}</name>\r\n    <trkseg>\r\n`;
+    t.points.forEach(pt => {
+      gpx += `      <trkpt lat="${pt[0]}" lon="${pt[1]}"></trkpt>\r\n`;
+    });
+    gpx += `    </trkseg>\r\n  </trk>\r\n`;
+  });
+
+  gpx += '</gpx>';
+
+  const blob = new Blob([gpx], { type: 'application/gpx+xml;charset=utf-8;' });
+  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Field_Data.gpx`);
+}
+
+// 4. Export GeoJSON Data
+function exportGeoJsonData() {
+  const fc = {
+    type: "FeatureCollection",
+    features: []
+  };
+
+  waypoints.forEach(w => {
+    fc.features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [w.lon, w.lat] },
+      properties: { name: w.name, category: getCategoryById(w.categoryId).name, notes: w.notes, timestamp: w.timestamp }
+    });
+  });
+
+  digitizedFeatures.forEach(f => {
+    const coords = f.vertices.map(v => [v[1], v[0]]);
+    if (f.type === 'polygon') {
+      if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
+        coords.push([...coords[0]]);
+      }
+      fc.features.push({
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [coords] },
+        properties: { name: f.name, category: f.category, comments: f.comments, timestamp: f.timestamp }
+      });
+    } else {
+      fc.features.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+        properties: { name: f.name, category: f.category, comments: f.comments, timestamp: f.timestamp }
+      });
+    }
+  });
+
+  const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json;charset=utf-8;' });
+  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Digitized_Layers.geojson`);
+}
+
+// 5. Export Photos Zip
+function exportPhotosZip() {
+  if (photos.length === 0) {
+    alert("No photos captured in this project.");
+    return;
+  }
+  const zip = new JSZip();
+  photos.forEach((p, idx) => {
+    const filename = `photo_${idx + 1}.jpg`;
+    const base64Data = p.dataUrl.split(',')[1];
+    if (base64Data) {
+      zip.file(filename, base64Data, { base64: true });
+    }
+  });
+  zip.generateAsync({ type: "blob" }).then(content => {
+    downloadBlob(content, `${sanitizeFileName(currentProjectName)}_Photos.zip`);
+  });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
+}
+
+function sanitizeFileName(name) {
+  return (name || 'Field_Data').replace(/[^a-zA-Z0-9_\-]/g, '_');
+}
+
+function escapeCsv(str) {
+  return (str || '').replace(/"/g, '""');
+}
+
+function escapeXml(str) {
+  return (str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// --- MODAL UTILITIES ---
+function openModal(id) {
+  document.getElementById(id).style.display = 'flex';
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+  if (isDictating) stopDictation();
+}
+
+function openSettingsModal() {
+  refreshProjectSelectDropdown();
+  renderOverlaysList();
+  renderCategoriesUI();
+  updateProjectStatsDisplay();
+  openModal('settingsModal');
+}
+
+function switchSettingsTab(tabId) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.settings-tab-pane').forEach(p => p.style.display = 'none');
+
+  document.getElementById(tabId).style.display = 'block';
+
+  const btns = document.querySelectorAll('.tab-btn');
+  if (tabId === 'tabProjects') btns[0].classList.add('active');
+  if (tabId === 'tabLayers') btns[1].classList.add('active');
+  if (tabId === 'tabCategories') btns[2].classList.add('active');
+  if (tabId === 'tabOptions') btns[3].classList.add('active');
+}
+</script>
+</body>
+</html>
