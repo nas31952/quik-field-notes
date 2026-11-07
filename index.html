@@ -117,6 +117,79 @@ body, html {
   box-shadow: 0 2px 6px rgba(0,0,0,0.5);
 }
 
+/* Vertical Floating Zoom Control Rail (Convenient Right Rail below Compass) */
+.zoom-controls {
+  position: absolute;
+  top: calc(var(--safe-top) + 128px);
+  right: 14px;
+  z-index: 1000;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.zoom-btn {
+  width: 100%;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.zoom-btn:active {
+  background: rgba(0, 240, 255, 0.3);
+  color: var(--accent-neon);
+  transform: scale(0.92);
+}
+
+.zoom-level-badge {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 23, 42, 0.7);
+  cursor: pointer;
+}
+.zoom-level-badge:active {
+  background: rgba(56, 189, 248, 0.25);
+}
+
+.zoom-level-num {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #00F0FF;
+  line-height: 1.1;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+}
+
+.zoom-level-lbl {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+
 /* Navigation Banner */
 #navBanner {
   position: absolute;
@@ -189,8 +262,8 @@ body, html {
   gap: 8px;
 }
 .btn-icon-hud {
-  width: 46px;
-  height: 46px;
+  width: clamp(36px, 9.5vw, 44px);
+  height: clamp(36px, 9.5vw, 44px);
   border-radius: 50%;
   background: var(--surface-glass);
   backdrop-filter: blur(16px);
@@ -199,7 +272,7 @@ body, html {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: clamp(16px, 4.5vw, 20px);
   box-shadow: 0 6px 18px rgba(0,0,0,0.45);
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
@@ -211,45 +284,58 @@ body, html {
 }
 
 /* Bottom Action Dock (Medium Size, Large Touch Targets) */
+/* Bottom Action Dock (Fluid responsive auto-scaling for Galaxy Note 8 ~360px & all screens) */
 .bottom-dock {
   position: absolute;
-  bottom: calc(var(--safe-bottom) + 8px);
-  left: 10px;
-  right: 10px;
+  bottom: calc(var(--safe-bottom) + 6px);
+  left: 6px;
+  right: 6px;
+  max-width: 520px;
+  margin: 0 auto;
   z-index: 1000;
   display: flex;
   align-items: center;
-  justify-content: space-around;
+  justify-content: space-between;
+  gap: 2px;
   background: var(--surface-glass);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
   border: 1.5px solid var(--border-glass);
-  border-radius: 26px;
-  padding: 10px 12px;
-  height: 76px;
+  border-radius: 20px;
+  padding: 6px 4px;
+  height: clamp(56px, 14vw, 68px);
   box-shadow: 0 10px 36px rgba(0,0,0,0.7);
+  box-sizing: border-box;
 }
 
 .dock-btn {
+  flex: 1 1 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 2px;
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: clamp(8px, 2.3vw, 11px);
   font-weight: 700;
   cursor: pointer;
-  padding: 6px 8px;
-  border-radius: 14px;
+  padding: 3px 1px;
+  border-radius: 12px;
   transition: all 0.15s ease;
-  min-width: 62px;
-  min-height: 54px;
+  box-sizing: border-box;
+}
+.dock-btn span:last-child {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .dock-btn .btn-icon {
-  font-size: 26px;
+  font-size: clamp(16px, 4.6vw, 22px);
+  line-height: 1;
   transition: transform 0.15s ease;
 }
 .dock-btn:active {
@@ -265,23 +351,86 @@ body, html {
 
 /* Primary Central Capture Action (Dictate) */
 .dock-btn-primary {
+  flex: 1.15 1 0;
+  min-width: 0;
   background: linear-gradient(135deg, #0284C7, #00F0FF);
   color: #0A0F1D !important;
   font-weight: 800;
-  font-size: 13px;
-  border-radius: 20px;
-  padding: 8px 16px;
-  min-width: 76px;
-  height: 58px;
-  box-shadow: 0 6px 20px rgba(0, 240, 255, 0.5);
-  transform: translateY(-6px);
+  font-size: clamp(9px, 2.5vw, 11.5px);
+  border-radius: 16px;
+  padding: 4px 2px;
+  height: clamp(48px, 12vw, 56px);
+  box-shadow: 0 4px 18px rgba(0, 240, 255, 0.45);
+  transform: translateY(-4px);
 }
 .dock-btn-primary .btn-icon {
-  font-size: 28px;
+  font-size: clamp(18px, 5.2vw, 24px);
   color: #0A0F1D;
 }
 .dock-btn-primary:active {
-  transform: translateY(-3px) scale(0.94);
+  transform: translateY(-2px) scale(0.94);
+}
+
+/* Responsive HUD Action Icons */
+.btn-icon-hud {
+  width: clamp(36px, 9.5vw, 44px);
+  height: clamp(36px, 9.5vw, 44px);
+  border-radius: 50%;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(16px, 4.5vw, 20px);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+}
+.btn-icon-hud.active-state {
+  background: rgba(16, 185, 129, 0.35) !important;
+  border-color: #10B981 !important;
+}
+
+/* Storage Bar Meter */
+.storage-meter-track {
+  width: 100%;
+  height: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.storage-meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #10B981, #00F0FF);
+  transition: width 0.3s ease;
+}
+.storage-meter-fill.warn {
+  background: linear-gradient(90deg, #F59E0B, #EF4444);
+}
+
+/* Snapping Indicator Ring */
+.snap-target-ring {
+  pointer-events: none;
+  border: 2px dashed #00F0FF;
+  border-radius: 50%;
+  animation: pulseSnap 0.8s infinite alternate;
+}
+@keyframes pulseSnap {
+  0% { transform: scale(0.85); opacity: 0.6; }
+  100% { transform: scale(1.2); opacity: 1; }
+}
+
+/* Category Expandable Select Styling */
+.category-select {
+  background: #1E293B url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2214%22%20height%3D%2214%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%2338BDF8%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E") no-repeat right 12px center;
+  background-size: 16px;
+  padding-right: 36px;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
 }
 
 /* Precision Center Crosshair */
@@ -669,8 +818,10 @@ body, html {
     <span id="gnssBadge">GNSS: Searching...</span>
   </div>
 
-  <!-- Top Right Action Buttons -->
+  <!-- Top Right Action Buttons (Auto-Follow GPS & Offline AOI Caching) -->
   <div class="hud-actions">
+    <button class="btn-icon-hud active-state" id="btnFollowGps" onclick="toggleAutoFollowGps()" title="Auto-Follow GPS: ON (Tap to Hold Map)">🛰️</button>
+    <button class="btn-icon-hud" id="btnOfflineAOI" onclick="openAoiModal()" title="Offline Basemap AOI & Storage Caching">📥</button>
     <button class="btn-icon-hud" onclick="cycleMapLayer()" title="Switch Map Background">🗺️</button>
     <button class="btn-icon-hud" onclick="openSettingsModal()" title="Settings & Layers">⚙️</button>
   </div>
@@ -689,6 +840,26 @@ body, html {
   <div class="compass-mode-badge" id="compassModeBadge" onclick="event.stopPropagation(); toggleCompassOrientation();">NORTH</div>
 </div>
 
+<!-- Convenient Zoom In / Zoom Out Controls & Live Zoom Level Display -->
+<div class="zoom-controls" id="zoomControls">
+  <button class="zoom-btn" onclick="zoomInMap()" title="Zoom In (+)" aria-label="Zoom In">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+  <div class="zoom-level-badge" id="zoomLevelBadge" onclick="resetDefaultZoom()" title="Current Zoom Level (Tap to reset to Scout View)">
+    <span class="zoom-level-num" id="zoomLevelNum">15</span>
+    <span class="zoom-level-lbl">ZOOM</span>
+  </div>
+  <button class="zoom-btn" onclick="zoomOutMap()" title="Zoom Out (-)" aria-label="Zoom Out">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  </button>
+</div>
+
+
 <!-- Navigation Target Banner -->
 <div id="navBanner">
   <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
@@ -701,12 +872,13 @@ body, html {
   <button class="btn btn-danger" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="cancelNavigation()">Stop</button>
 </div>
 
-<!-- Digitizing Toolbar (Appears when drawing line/polygon) -->
+<!-- Digitizing Toolbar (With ArcPro-style Snapping Engine) -->
 <div id="drawToolbar">
-  <span id="drawStatusText" style="font-size: 13px; font-weight: 800; color: #00F0FF;">Drawing: 0 pts</span>
-  <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; min-height: 38px;" onclick="undoDrawVertex()">↩️ Undo</button>
-  <button class="btn btn-primary" style="padding: 6px 14px; font-size: 13px; min-height: 38px;" onclick="finishDrawing()">✅ Finish</button>
-  <button class="btn btn-danger" style="padding: 6px 10px; font-size: 12px; min-height: 38px;" onclick="cancelDrawing()">❌ Cancel</button>
+  <span id="drawStatusText" style="font-size: 12px; font-weight: 800; color: #00F0FF; white-space: nowrap;">Drawing: 0 pts</span>
+  <button class="btn" id="btnSnapToggle" style="padding: 6px 10px; font-size: 11px; min-height: 36px; background: rgba(16, 185, 129, 0.25); border: 1.5px solid #10B981; color: #10B981;" onclick="toggleSnapEngine()">🧲 Snap: ON</button>
+  <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 11px; min-height: 36px;" onclick="undoDrawVertex()">↩️ Undo</button>
+  <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="finishDrawing()">✅ Finish</button>
+  <button class="btn btn-danger" style="padding: 6px 8px; font-size: 11px; min-height: 36px;" onclick="cancelDrawing()">❌</button>
 </div>
 
 <!-- Map Click Popover -->
@@ -875,26 +1047,36 @@ body, html {
     </div>
 
     <div class="modal-body">
+      <!-- Coordinate Source Switcher: GPS vs Cursor/Crosshair -->
+      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+        <button type="button" class="btn" id="btnWptSourceGps" onclick="setWptCoordinateSource('gps')" style="flex:1; font-size:12px; padding:8px 4px; background: rgba(0, 240, 255, 0.25); border: 1.5px solid #00F0FF; color: #00F0FF; font-weight:800;">📍 GPS (±<span id="wptGpsAcc">5</span>m)</button>
+        <button type="button" class="btn" id="btnWptSourceCursor" onclick="setWptCoordinateSource('cursor')" style="flex:1; font-size:12px; padding:8px 4px; background: rgba(30,41,59,0.8); border: 1.5px solid rgba(255,255,255,0.15); color: #CBD5E1;">🎯 Center / Cursor</button>
+      </div>
+
       <div class="form-group">
         <label class="form-label">Waypoint Name / Label</label>
         <input type="text" class="form-input" id="wptNameInput" placeholder="WP-001">
       </div>
 
+      <!-- Expandable Category Dropdown -->
       <div class="form-group">
-        <label class="form-label">Category</label>
-        <div class="chip-grid" id="wptCategoryChips"></div>
+        <label class="form-label">Category (Tap to select)</label>
+        <select class="form-select category-select" id="wptCategorySelect" onchange="onWptCategorySelectChanged(this.value)"></select>
       </div>
 
       <div class="form-group">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <label class="form-label" style="margin-bottom:0;">Observation Notes</label>
-          <button type="button" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="toggleWaypointDictation()" id="btnWptDictate">🎙️ Voice</button>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px; min-height: 32px;" onclick="openSeismicPad('wptNotesInput')">⚡ Terms</button>
+            <button type="button" class="btn btn-primary" style="padding: 4px 10px; font-size: 11px; min-height: 32px;" onclick="toggleWaypointDictation()" id="btnWptDictate">🎙️ Voice</button>
+          </div>
         </div>
         <textarea class="form-textarea" id="wptNotesInput" placeholder="Speak or type observation details..."></textarea>
       </div>
 
       <div style="font-size: 13px; color: var(--text-muted); background: rgba(30,41,59,0.7); padding: 10px 14px; border-radius: 12px; line-height: 1.6;">
-        <div>Coordinates: <b id="wptCoordsLabel" style="color: var(--accent);">--</b></div>
+        <div>Coordinates (<span id="wptSourceLabel" style="color:#00F0FF;">GPS</span>): <b id="wptCoordsLabel" style="color: var(--accent);">--</b></div>
         <div>Elevation: <b id="wptElevLabel" style="color: var(--accent);">-- m</b></div>
       </div>
     </div>
@@ -927,8 +1109,8 @@ body, html {
       </div>
 
       <div class="form-group">
-        <label class="form-label">Category</label>
-        <div class="chip-grid" id="photoCategoryChips"></div>
+        <label class="form-label">Category (Tap to select)</label>
+        <select class="form-select category-select" id="photoCategorySelect" onchange="onPhotoCategorySelectChanged(this.value)"></select>
       </div>
 
       <div class="form-group">
@@ -1021,6 +1203,120 @@ body, html {
 <!-- ========================================================================= -->
 <!-- MODAL: MULTI-FORMAT EXPORT                                                -->
 <!-- ========================================================================= -->
+<!-- ========================================================================= -->
+<!-- MODAL: OFFLINE BASEMAP AOI DOWNLOADER & STORAGE MANAGER                     -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="aoiModal">
+  <div class="modal-content" style="max-height: 90vh;">
+    <div class="modal-header">
+      <div class="modal-title">📥 Offline Basemap & Storage</div>
+      <button class="modal-close" onclick="closeModal('aoiModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 13px; color: #CBD5E1; line-height: 1.5; background: rgba(30,41,59,0.6); padding: 10px 14px; border-radius: 12px;">
+        <div>Current AOI Bounds: <b id="aoiBoundsText" style="color:#00F0FF;">Viewing Extent</b></div>
+        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Download tiles into device memory for 100% offline navigation in remote seismic zones.</div>
+      </div>
+
+      <!-- Storage Memory Meter & Quota -->
+      <div style="background: rgba(15, 23, 42, 0.8); border: 1.5px solid var(--border-glass); border-radius: 14px; padding: 12px;">
+        <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 700;">
+          <span style="color: #94A3B8;">Device Storage Memory:</span>
+          <span id="storageSummaryText" style="color: #00F0FF;">Checking...</span>
+        </div>
+        <div class="storage-meter-track">
+          <div class="storage-meter-fill" id="storageMeterFill" style="width: 15%;"></div>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #64748B;">
+          <span id="storageUsedText">Used: -- MB</span>
+          <span id="storageFreeText">Free: -- MB</span>
+        </div>
+        <div id="storageLowAlert" style="display: none; margin-top: 8px; padding: 6px 10px; background: rgba(239, 68, 68, 0.2); border: 1px solid #EF4444; border-radius: 8px; font-size: 11px; color: #FCA5A5;">
+          ⚠️ <b>Low Storage Warning!</b> Free memory is low. Tap 'Clear Cached Maps' or free space before downloading large areas.
+        </div>
+      </div>
+
+      <!-- Zoom Level Detail Selector -->
+      <div class="form-group">
+        <label class="form-label">Detail / Zoom Range</label>
+        <select class="form-select" id="aoiZoomSelect" onchange="updateAoiEstimate()">
+          <option value="scout">Standard Scouting (Zoom 12 - 15) ~Recommended</option>
+          <option value="detailed">High-Detail Terrain (Zoom 13 - 16) ~Finer LOD</option>
+          <option value="regional">Regional Overview (Zoom 10 - 13) ~Lightweight</option>
+        </select>
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; background: rgba(30,41,59,0.5); padding: 8px 12px; border-radius: 10px;">
+        <span>Estimated Tiles: <b id="aoiTileCountText" style="color: #00F0FF;">--</b></span>
+        <span>Download Size: <b id="aoiDownloadSizeText" style="color: #10B981;">-- MB</b></span>
+      </div>
+
+      <!-- Download Progress Bar -->
+      <div id="aoiProgressContainer" style="display: none;">
+        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #00F0FF; margin-bottom: 4px;">
+          <span id="aoiProgressLabel">Downloading tiles...</span>
+          <span id="aoiProgressPercent">0%</span>
+        </div>
+        <div class="storage-meter-track">
+          <div class="storage-meter-fill" id="aoiProgressBar" style="width: 0%;"></div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div style="display: flex; gap: 8px; margin-top: 4px;">
+        <button class="btn btn-primary" id="btnStartAoiDownload" style="flex: 1.2; font-size: 13px; padding: 12px;" onclick="startAoiDownload()">🚀 Cache AOI Now</button>
+        <button class="btn btn-secondary" style="flex: 0.9; font-size: 12px; padding: 12px;" onclick="exportAoiBasemapPackage()">🗺️ Export GeoImage</button>
+      </div>
+
+      <button class="btn btn-danger" style="width: 100%; font-size: 12px; padding: 10px; margin-top: 4px;" onclick="clearTileCache()">🧹 Clear Cached Offline Map Data</button>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('aoiModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: SEISMIC VOICE & KEYWORD ASSISTANT                                   -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="seismicVoiceModal">
+  <div class="modal-content" style="max-height: 85vh;">
+    <div class="modal-header">
+      <div class="modal-title">⚡ Field Voice & Seismic Terms</div>
+      <button class="modal-close" onclick="closeModal('seismicVoiceModal')">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+        Tap any term below to insert into your note, or click Start Voice for speech recognition:
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin-bottom: 14px;">
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Sabkha (Wet Salt Flat)')">🧂 Sabkha</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('High Sand Dune')">🏜️ Sand Dune</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Gravel Bed / Hamada')">🪨 Gravel Bed</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Wadi / Dry River Bed')">🌊 Wadi / Wash</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Pipeline Crossing')">⛽ Pipeline</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('High Voltage Power Line')">⚡ Power Line</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Fenced / Restricted Area')">🚧 Fenced Area</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Security Checkpoint / Gate')">🚪 Security Gate</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Active Drill Rig')">🏗️ Drill Rig</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Water Well / Borehole')">💧 Water Well</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('DANGER: UXO / Unexploded Ordnance')">💣 DANGER / UXO</button>
+        <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 8px 6px;" onclick="insertSeismicTerm('Access Road / Track Clear')">🛣️ Access Road</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Note Preview</label>
+        <textarea class="form-textarea" id="seismicVoicePreview" placeholder="Dictated or selected text appears here..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="confirmSeismicVoiceText()">Apply to Note</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="exportModal">
   <div class="modal-content">
     <div class="modal-header">
@@ -1060,12 +1356,39 @@ body, html {
         </div>
       </button>
 
+      <!-- ESRI Shapefiles (.zip) -->
+      <button class="btn btn-primary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportShapefilesZip()">
+        <span style="font-size: 24px;">🗺️</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">ESRI Shapefiles (.zip)</div>
+          <div style="font-size: 11px; color: #0A0F1D;">Industry standard shapefiles (.shp, .shx, .dbf, .prj) for ArcGIS Pro / QGIS.</div>
+        </div>
+      </button>
+
+      <!-- Google Earth KML (.kml) -->
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportKmlData()">
+        <span style="font-size: 24px;">🌐</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Google Earth KML (.kml)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Standard 3D vector map file for Google Earth & global GIS viewers.</div>
+        </div>
+      </button>
+
       <!-- 4. GeoJSON Layers -->
       <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportGeoJsonData()">
         <span style="font-size: 24px;">📐</span>
         <div>
           <div style="font-size: 14px; font-weight: 800;">Digitized GeoJSON Layers (.geojson)</div>
           <div style="font-size: 11px; color: var(--text-muted);">Vector polygons, lines, and waypoints for QGIS / ArcGIS Pro.</div>
+        </div>
+      </button>
+
+      <!-- Georeferenced Basemap AOI Image + World File -->
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportAoiBasemapPackage()">
+        <span style="font-size: 24px;">🖼️</span>
+        <div>
+          <div style="font-size: 14px; font-weight: 800;">Georeferenced Basemap (.png + .pgw)</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Calibrated raster image with ESRI World File & PRJ for field mapping.</div>
         </div>
       </button>
 
@@ -1135,6 +1458,19 @@ let drawPreviewLayer = null;
 
 // Speech-to-Text Engine
 let recognition = null;
+
+// --- ENHANCED MOBILE ENGINE STATES ---
+let isAutoFollowGps = true;        // Item 2: Auto-Follow vs Hold GPS
+let isSnappingEnabled = true;      // Item 6: Real-time digitizing snapping
+const SNAP_PIXEL_TOLERANCE = 24;   // 24px touch/stylus tolerance
+let activeSnapIndicator = null;
+let wptCoordinateSource = 'gps';   // Item 3: 'gps' or 'cursor'
+let dbMapCache = null;             // Item 7: IndexedDB Tile Cache
+const CACHE_DB_NAME = 'QuikFieldNotes_TileCache_v2';
+let isDownloadingAoi = false;
+let cancelAoiFlag = false;
+let activeVoiceTargetId = null;
+
 let isDictating = false;
 let activeDictationTarget = null; // 'waypoint' | 'photo' | 'draw' | 'dock'
 
@@ -1190,6 +1526,9 @@ window.addEventListener('DOMContentLoaded', () => {
   initGeolocation();
   initDeviceOrientation();
   initSpeechEngine();
+  initMapCacheDb().then(() => {
+    analyzeDeviceStorage();
+  });
   renderAllProjectLayers();
   updateHudDisplay();
 });
@@ -1383,26 +1722,32 @@ function renderCategoriesUI() {
     });
   }
 
-  renderChipGrid('wptCategoryChips', 'wpt');
-  renderChipGrid('photoCategoryChips', 'photo');
+  populateCategorySelects();
 }
 
-function renderChipGrid(containerId, prefix) {
-  const container = document.getElementById(containerId);
-  if (!container) return;
-  container.innerHTML = '';
-  categories.forEach((c, idx) => {
-    const chip = document.createElement('div');
-    chip.className = 'chip-badge' + (idx === 0 ? ' active' : '');
-    chip.dataset.categoryId = c.id;
-    chip.innerHTML = `<span>${c.icon || '📍'}</span> <span>${c.name}</span>`;
-    chip.onclick = () => {
-      container.querySelectorAll('.chip-badge').forEach(b => b.classList.remove('active'));
-      chip.classList.add('active');
-    };
-    container.appendChild(chip);
-  });
+function populateCategorySelects() {
+  const wptSelect = document.getElementById('wptCategorySelect');
+  const photoSelect = document.getElementById('photoCategorySelect');
+
+  const optionsHtml = categories.map(cat => `
+    <option value="${cat.id}">${cat.icon || '📍'} ${cat.name}</option>
+  `).join('');
+
+  if (wptSelect) {
+    const curVal = wptSelect.value || (categories[0] ? categories[0].id : 'general');
+    wptSelect.innerHTML = optionsHtml;
+    wptSelect.value = curVal;
+  }
+
+  if (photoSelect) {
+    const curVal = photoSelect.value || (categories[0] ? categories[0].id : 'general');
+    photoSelect.innerHTML = optionsHtml;
+    photoSelect.value = curVal;
+  }
 }
+
+function onWptCategorySelectChanged(val) {}
+function onPhotoCategorySelectChanged(val) {}
 
 function promptAddCategory() {
   const name = prompt("Enter new category name:");
@@ -1430,6 +1775,39 @@ function getCategoryById(id) {
 }
 
 // --- MAP & GIS INITIALIZATION WITH TWO-FINGER ROTATION ---
+
+// --- MAP ZOOM CONTROLS & LIVE ZOOM LEVEL ENGINE ---
+function zoomInMap() {
+  if (map) {
+    map.zoomIn();
+    updateZoomDisplay();
+  }
+}
+
+function zoomOutMap() {
+  if (map) {
+    map.zoomOut();
+    updateZoomDisplay();
+  }
+}
+
+function updateZoomDisplay() {
+  if (!map) return;
+  const z = map.getZoom ? map.getZoom() : 15;
+  const numElem = document.getElementById('zoomLevelNum');
+  if (numElem) {
+    const rounded = Math.round(z * 10) / 10;
+    numElem.textContent = Number.isInteger(rounded) ? rounded : rounded.toFixed(1);
+  }
+}
+
+function resetDefaultZoom() {
+  if (map) {
+    map.setZoom(15, { animate: true });
+    updateZoomDisplay();
+  }
+}
+
 function initMap() {
   map = L.map('map', {
     zoomControl: false,
@@ -1440,10 +1818,15 @@ function initMap() {
     bearing: 0
   }).setView([currentLat, currentLon], 15);
 
-  tileLayerCurrent = L.tileLayer(TILE_PROVIDERS[0].url, TILE_PROVIDERS[0].options).addTo(map);
+  tileLayerCurrent = createOptimizedTileLayer(TILE_PROVIDERS[0], 0).addTo(map);
 
   // Map Click Listener
   map.on('click', onMapClicked);
+
+  // Hold Map Canvas on User Touch Pan
+  map.on('dragstart', () => {
+    setAutoFollowGps(false);
+  });
 
   // Listen to rotation changes (e.g. two-finger touch rotate)
   if (typeof map.on === 'function') {
@@ -1451,13 +1834,46 @@ function initMap() {
       const b = map.getBearing ? map.getBearing() : 0;
       updateCompassDisplay(b);
     });
+
+  // Live Zoom Level Listeners
+  map.on('zoom', updateZoomDisplay);
+  map.on('zoomend', updateZoomDisplay);
+  updateZoomDisplay();
   }
+}
+
+function createOptimizedTileLayer(provider, idx) {
+  const layer = L.tileLayer(provider.url, {
+    ...provider.options,
+    minZoom: 4,
+    maxZoom: 19,
+    updateWhenIdle: true,
+    updateWhenZooming: false,
+    keepBuffer: 2
+  });
+
+  const originalCreateTile = layer.createTile;
+  layer.createTile = function(coords, done) {
+    const tile = originalCreateTile.call(this, coords, done);
+    const tileKey = `${idx}_${coords.z}_${coords.x}_${coords.y}`;
+
+    getCachedTile(tileKey).then(blob => {
+      if (blob) {
+        tile.src = URL.createObjectURL(blob);
+      }
+    });
+
+    return tile;
+  };
+
+  return layer;
 }
 
 function cycleMapLayer() {
   tileLayerIndex = (tileLayerIndex + 1) % TILE_PROVIDERS.length;
   if (tileLayerCurrent) map.removeLayer(tileLayerCurrent);
-  tileLayerCurrent = L.tileLayer(TILE_PROVIDERS[tileLayerIndex].url, TILE_PROVIDERS[tileLayerIndex].options).addTo(map);
+  tileLayerCurrent = createOptimizedTileLayer(TILE_PROVIDERS[tileLayerIndex], tileLayerIndex).addTo(map);
+  tileLayerCurrent.bringToBack();
 }
 
 function clearMapGraphics() {
@@ -1663,6 +2079,33 @@ function onGpsSuccess(pos) {
   }
 
   if (navTarget) updateNavCalculations();
+
+  // Item 2: Auto-Follow / Hold GPS Logic
+  if (isAutoFollowGps && currentLat && currentLon && map) {
+    map.panTo([currentLat, currentLon], { animate: true, duration: 0.5 });
+  }
+}
+
+// User-controlled Auto-Follow GPS toggle
+function toggleAutoFollowGps() {
+  setAutoFollowGps(!isAutoFollowGps);
+  if (isAutoFollowGps && currentLat && currentLon && map) {
+    map.setView([currentLat, currentLon], map.getZoom(), { animate: true });
+  }
+}
+
+function setAutoFollowGps(enabled) {
+  isAutoFollowGps = enabled;
+  const btn = document.getElementById('btnFollowGps');
+  if (btn) {
+    if (isAutoFollowGps) {
+      btn.classList.add('active-state');
+      btn.title = 'Auto-Follow GPS: ON (Map pans with moving position)';
+    } else {
+      btn.classList.remove('active-state');
+      btn.title = 'Auto-Follow GPS: OFF (Map stays held at one place)';
+    }
+  }
 }
 
 function onGpsError(err) {
@@ -1711,10 +2154,11 @@ function toggleTrackRecording() {
   }
 }
 
-// --- MAP CLICK HANDLER (TAP TO ADD WAYPOINT / NAV) ---
+// --- MAP CLICK HANDLER (WITH REAL-TIME SNAPPING) ---
 function onMapClicked(e) {
   if (isDrawing) {
-    drawVertices.push([e.latlng.lat, e.latlng.lng]);
+    const pt = isSnappingEnabled ? findSnapPoint(e.latlng) : e.latlng;
+    drawVertices.push([pt.lat, pt.lng]);
     updateDrawPreview();
     return;
   }
@@ -1770,18 +2214,73 @@ function openQuickWaypointModal() {
 function openWaypointModalWithCoords(lat, lon) {
   document.getElementById('wptNameInput').value = 'WP-' + (waypoints.length + 1).toString().padStart(3, '0');
   document.getElementById('wptNotesInput').value = '';
-  document.getElementById('wptCoordsLabel').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-  document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+  const accElem = document.getElementById('wptGpsAcc');
+  if (accElem) accElem.textContent = Math.round(currentAccuracy || 5);
 
   window._tempWptCoords = { lat: lat, lon: lon };
+  setWptCoordinateSource('gps');
+  populateCategorySelects();
   openModal('waypointModal');
+}
+
+function setWptCoordinateSource(source) {
+  wptCoordinateSource = source;
+  const btnGps = document.getElementById('btnWptSourceGps');
+  const btnCursor = document.getElementById('btnWptSourceCursor');
+  const label = document.getElementById('wptSourceLabel');
+
+  if (source === 'gps') {
+    if (btnGps) {
+      btnGps.style.background = 'rgba(0, 240, 255, 0.25)';
+      btnGps.style.borderColor = '#00F0FF';
+      btnGps.style.color = '#00F0FF';
+      btnGps.style.fontWeight = '800';
+    }
+    if (btnCursor) {
+      btnCursor.style.background = 'rgba(30,41,59,0.8)';
+      btnCursor.style.borderColor = 'rgba(255,255,255,0.15)';
+      btnCursor.style.color = '#CBD5E1';
+      btnCursor.style.fontWeight = 'normal';
+    }
+    if (label) label.textContent = 'GPS';
+    const lat = currentLat || (window._tempWptCoords ? window._tempWptCoords.lat : 0);
+    const lon = currentLon || (window._tempWptCoords ? window._tempWptCoords.lon : 0);
+    window._tempWptCoords = { lat: lat, lon: lon };
+    document.getElementById('wptCoordsLabel').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+  } else {
+    if (btnCursor) {
+      btnCursor.style.background = 'rgba(0, 240, 255, 0.25)';
+      btnCursor.style.borderColor = '#00F0FF';
+      btnCursor.style.color = '#00F0FF';
+      btnCursor.style.fontWeight = '800';
+    }
+    if (btnGps) {
+      btnGps.style.background = 'rgba(30,41,59,0.8)';
+      btnGps.style.borderColor = 'rgba(255,255,255,0.15)';
+      btnGps.style.color = '#CBD5E1';
+      btnGps.style.fontWeight = 'normal';
+    }
+    if (label) label.textContent = 'Cursor / Crosshair';
+    const center = map ? map.getCenter() : { lat: currentLat, lng: currentLon };
+    window._tempWptCoords = { lat: center.lat, lon: center.lng };
+    document.getElementById('wptCoordsLabel').textContent = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+    document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+  }
+}
+
+function recordWaypointAtCursor() {
+  if (!map) return;
+  const center = map.getCenter();
+  openWaypointModalWithCoords(center.lat, center.lng);
+  setWptCoordinateSource('cursor');
 }
 
 function confirmSaveWaypoint() {
   const name = document.getElementById('wptNameInput').value.trim() || 'Waypoint';
   const notes = document.getElementById('wptNotesInput').value.trim();
-  const activeChip = document.querySelector('#wptCategoryChips .chip-badge.active');
-  const catId = activeChip ? activeChip.dataset.categoryId : 'general';
+  const catSelect = document.getElementById('wptCategorySelect');
+  const catId = catSelect ? catSelect.value : 'general';
 
   const coords = window._tempWptCoords || { lat: currentLat, lon: currentLon };
 
@@ -1878,6 +2377,119 @@ function startDrawingMode(type) {
   drawVertices = [];
   document.getElementById('drawToolbar').style.display = 'flex';
   document.getElementById('drawStatusText').textContent = `Drawing ${type}: 0 pts`;
+}
+
+
+// --- GIS VECTOR SNAPPING ENGINE ---
+function toggleSnapEngine() {
+  isSnappingEnabled = !isSnappingEnabled;
+  const btn = document.getElementById('btnSnapToggle');
+  if (btn) {
+    if (isSnappingEnabled) {
+      btn.textContent = '🧲 Snap: ON';
+      btn.style.background = 'rgba(16, 185, 129, 0.25)';
+      btn.style.borderColor = '#10B981';
+      btn.style.color = '#10B981';
+    } else {
+      btn.textContent = '🧲 Snap: OFF';
+      btn.style.background = 'rgba(100, 116, 139, 0.25)';
+      btn.style.borderColor = '#64748B';
+      btn.style.color = '#94A3B8';
+    }
+  }
+}
+
+function findSnapPoint(clickedLatLng) {
+  if (!isSnappingEnabled || !map) return clickedLatLng;
+
+  const clickPx = map.latLngToContainerPoint(clickedLatLng);
+  let bestDist = SNAP_PIXEL_TOLERANCE;
+  let bestPt = null;
+
+  // 1. Snap to Waypoints
+  waypoints.forEach(w => {
+    const ptPx = map.latLngToContainerPoint([w.lat, w.lon]);
+    const dist = clickPx.distanceTo(ptPx);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestPt = L.latLng(w.lat, w.lon);
+    }
+  });
+
+  // 2. Snap to Existing Digitized Feature Vertices
+  digitizedFeatures.forEach(feat => {
+    (feat.vertices || []).forEach(v => {
+      const ptPx = map.latLngToContainerPoint(v);
+      const dist = clickPx.distanceTo(ptPx);
+      if (dist < bestDist) {
+        bestDist = dist;
+        bestPt = L.latLng(v[0], v[1]);
+      }
+    });
+  });
+
+  // 3. Snap to First Vertex of Current Polygon (Clean Closure)
+  if (drawType === 'polygon' && drawVertices.length >= 2) {
+    const firstV = drawVertices[0];
+    const ptPx = map.latLngToContainerPoint(firstV);
+    const dist = clickPx.distanceTo(ptPx);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestPt = L.latLng(firstV[0], firstV[1]);
+    }
+  }
+
+  // 4. Snap to Loaded Basemap Overlay Features (Shapefiles, GPX, KML, GeoJSON)
+  loadedOverlayLayers.forEach(overlay => {
+    if (overlay.geojson && overlay.geojson.features) {
+      overlay.geojson.features.forEach(f => {
+        extractCoordsForSnap(f.geometry).forEach(c => {
+          const ptPx = map.latLngToContainerPoint([c[1], c[0]]);
+          const dist = clickPx.distanceTo(ptPx);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestPt = L.latLng(c[1], c[0]);
+          }
+        });
+      });
+    }
+  });
+
+  if (bestPt) {
+    flashSnapIndicator(bestPt);
+    if (navigator.vibrate) try { navigator.vibrate(25); } catch(_) {}
+    return bestPt;
+  }
+  return clickedLatLng;
+}
+
+function extractCoordsForSnap(geom) {
+  if (!geom || !geom.coordinates) return [];
+  const coords = [];
+  function recurse(c) {
+    if (typeof c[0] === 'number') coords.push(c);
+    else c.forEach(recurse);
+  }
+  recurse(geom.coordinates);
+  return coords;
+}
+
+function flashSnapIndicator(latLng) {
+  if (activeSnapIndicator) map.removeLayer(activeSnapIndicator);
+  activeSnapIndicator = L.circleMarker(latLng, {
+    radius: 12,
+    color: '#00F0FF',
+    fillColor: '#00F0FF',
+    fillOpacity: 0.35,
+    weight: 2.5
+  }).addTo(map);
+
+  setTimeout(() => {
+    if (activeSnapIndicator) {
+      map.removeLayer(activeSnapIndicator);
+      activeSnapIndicator = null;
+    }
+  }, 400);
 }
 
 function updateDrawPreview() {
@@ -2398,16 +3010,87 @@ function toggleDrawDictation() {
 }
 
 function startDictation(target) {
-  if (!recognition) {
-    alert("Speech recognition is not supported in this browser. Please use Google Chrome or Safari.");
-    return;
-  }
   activeDictationTarget = target;
   isDictating = true;
-  try {
-    recognition.start();
-    updateDictationUI(true);
-  } catch (e) {}
+  updateDictationUI(true);
+
+  // 1. Android Native Flutter WebView Bridge (100% Reliable in APK)
+  if (window.NativeSpeechBridge) {
+    try {
+      window.NativeSpeechBridge.postMessage('start');
+      return;
+    } catch (e) {
+      console.warn('Native speech postMessage failed:', e);
+    }
+  }
+
+  // 2. Standard Web Speech API (Chrome / Safari / Web Browser)
+  if (recognition) {
+    try {
+      recognition.start();
+      return;
+    } catch (e) {}
+  }
+
+  // 3. Fallback: Open Seismic Terms & Keyword Quick Pad
+  isDictating = false;
+  updateDictationUI(false);
+  openSeismicPad(target === 'waypoint' ? 'wptNotesInput' : (target === 'photo' ? 'photoCommentInput' : 'drawCommentsInput'));
+}
+
+function stopDictation() {
+  isDictating = false;
+  if (window.NativeSpeechBridge) {
+    try { window.NativeSpeechBridge.postMessage('stop'); } catch(e) {}
+  }
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+  }
+  updateDictationUI(false);
+}
+
+// Android Native Speech Callbacks
+window.onNativeSpeechResult = function(text, isFinal) {
+  handleSpeechResult(text);
+  if (isFinal) {
+    setTimeout(() => { stopDictation(); }, 1200);
+  }
+};
+
+window.onNativeSpeechError = function(err) {
+  console.warn('Native speech error:', err);
+  stopDictation();
+};
+
+window.onNativeSpeechStatus = function(status) {
+  if (status === 'done' || status === 'notListening') {
+    stopDictation();
+  }
+};
+
+// Seismic Keyword Pad Helper
+function openSeismicPad(targetInputId) {
+  activeVoiceTargetId = targetInputId;
+  const targetElem = document.getElementById(targetInputId);
+  const preview = document.getElementById('seismicVoicePreview');
+  if (preview && targetElem) preview.value = targetElem.value;
+  openModal('seismicVoiceModal');
+}
+
+function insertSeismicTerm(term) {
+  const preview = document.getElementById('seismicVoicePreview');
+  if (!preview) return;
+  const current = preview.value.trim();
+  preview.value = current ? `${current}; ${term}` : term;
+}
+
+function confirmSeismicVoiceText() {
+  const preview = document.getElementById('seismicVoicePreview');
+  if (preview && activeVoiceTargetId) {
+    const target = document.getElementById(activeVoiceTargetId);
+    if (target) target.value = preview.value;
+  }
+  closeModal('seismicVoiceModal');
 }
 
 function stopDictation() {
@@ -2608,6 +3291,620 @@ function exportGeoJsonData() {
 }
 
 // 5. Export Photos Zip
+
+// =========================================================================
+// OFFLINE BASEMAP CACHE & STORAGE MEMORY ENGINE (INDEXEDDB)
+// =========================================================================
+function initMapCacheDb() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const req = window.indexedDB.open(CACHE_DB_NAME, 1);
+    req.onupgradeneeded = function(e) {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('tiles')) {
+        db.createObjectStore('tiles', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = function(e) {
+      dbMapCache = e.target.result;
+      resolve(dbMapCache);
+    };
+    req.onerror = function() {
+      resolve(null);
+    };
+  });
+}
+
+function getCachedTile(key) {
+  return new Promise((resolve) => {
+    if (!dbMapCache) { resolve(null); return; }
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readonly');
+      const store = tx.objectStore('tiles');
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+      req.onerror = () => resolve(null);
+    } catch (_) { resolve(null); }
+  });
+}
+
+function saveCachedTile(key, blob) {
+  return new Promise((resolve) => {
+    if (!dbMapCache) { resolve(); return; }
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readwrite');
+      const store = tx.objectStore('tiles');
+      store.put({ key: key, blob: blob, size: blob.size, timestamp: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (_) { resolve(); }
+  });
+}
+
+// Device Storage Quota & Analysis (W3C navigator.storage)
+async function analyzeDeviceStorage() {
+  let usageMB = 0;
+  let quotaMB = 0;
+  let freeMB = 0;
+
+  if (navigator.storage && navigator.storage.estimate) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      usageMB = ((estimate.usage || 0) / (1024 * 1024)).toFixed(1);
+      quotaMB = ((estimate.quota || 0) / (1024 * 1024)).toFixed(1);
+      freeMB = Math.max(0, quotaMB - usageMB).toFixed(1);
+    } catch (_) {}
+  }
+
+  // Count tiles in cache
+  let cachedTileCount = 0;
+  let cachedBytes = 0;
+  if (dbMapCache) {
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readonly');
+      const store = tx.objectStore('tiles');
+      const req = store.openCursor();
+      await new Promise((res) => {
+        req.onsuccess = function(e) {
+          const cursor = e.target.result;
+          if (cursor) {
+            cachedTileCount++;
+            cachedBytes += (cursor.value.size || 25000);
+            cursor.continue();
+          } else {
+            res();
+          }
+        };
+        req.onerror = () => res();
+      });
+    } catch (_) {}
+  }
+  const cachedMB = (cachedBytes / (1024 * 1024)).toFixed(1);
+
+  // Update UI Elements
+  const summary = document.getElementById('storageSummaryText');
+  const usedText = document.getElementById('storageUsedText');
+  const freeText = document.getElementById('storageFreeText');
+  const fill = document.getElementById('storageMeterFill');
+  const alertBox = document.getElementById('storageLowAlert');
+
+  if (summary) summary.textContent = `${cachedTileCount} tiles (${cachedMB} MB cached)`;
+  if (usedText) usedText.textContent = `Used: ${usageMB} MB / ${quotaMB} MB`;
+  if (freeText) freeText.textContent = `Free: ${freeMB} MB`;
+
+  if (fill && quotaMB > 0) {
+    const pct = Math.min(100, (usageMB / quotaMB) * 100).toFixed(0);
+    fill.style.width = pct + '%';
+    if (pct > 85 || freeMB < 50) {
+      fill.classList.add('warn');
+      if (alertBox) alertBox.style.display = 'block';
+    } else {
+      fill.classList.remove('warn');
+      if (alertBox) alertBox.style.display = 'none';
+    }
+  }
+
+  return { freeMB: parseFloat(freeMB), usageMB: parseFloat(usageMB) };
+}
+
+function clearTileCache() {
+  if (!confirm("Clear all cached offline map tiles to free up device memory?")) return;
+  if (!dbMapCache) return;
+  try {
+    const tx = dbMapCache.transaction('tiles', 'readwrite');
+    const store = tx.objectStore('tiles');
+    store.clear();
+    tx.oncomplete = function() {
+      alert("Offline map cache cleared successfully!");
+      analyzeDeviceStorage();
+    };
+  } catch (e) {
+    alert("Error clearing cache: " + e.message);
+  }
+}
+
+// AOI Modal Management
+function openAoiModal() {
+  if (!map) return;
+  const bounds = map.getBounds();
+  const txt = `${bounds.getSouth().toFixed(3)}, ${bounds.getWest().toFixed(3)} to ${bounds.getNorth().toFixed(3)}, ${bounds.getEast().toFixed(3)}`;
+  const boundsElem = document.getElementById('aoiBoundsText');
+  if (boundsElem) boundsElem.textContent = txt;
+
+  updateAoiEstimate();
+  analyzeDeviceStorage();
+  openModal('aoiModal');
+}
+
+function updateAoiEstimate() {
+  if (!map) return;
+  const bounds = map.getBounds();
+  const sel = document.getElementById('aoiZoomSelect');
+  const mode = sel ? sel.value : 'scout';
+
+  let minZ = 12, maxZ = 15;
+  if (mode === 'regional') { minZ = 10; maxZ = 13; }
+  else if (mode === 'detailed') { minZ = 13; maxZ = 16; }
+
+  let totalTiles = 0;
+  for (let z = minZ; z <= maxZ; z++) {
+    const minTile = latLonToTileXY(bounds.getNorth(), bounds.getWest(), z);
+    const maxTile = latLonToTileXY(bounds.getSouth(), bounds.getEast(), z);
+    const xCount = Math.abs(maxTile.x - minTile.x) + 1;
+    const yCount = Math.abs(maxTile.y - minTile.y) + 1;
+    totalTiles += (xCount * yCount);
+  }
+
+  const estMB = ((totalTiles * 24) / 1024).toFixed(1);
+  const countElem = document.getElementById('aoiTileCountText');
+  const sizeElem = document.getElementById('aoiDownloadSizeText');
+  if (countElem) countElem.textContent = totalTiles.toLocaleString();
+  if (sizeElem) sizeElem.textContent = estMB;
+}
+
+function latLonToTileXY(lat, lon, zoom) {
+  const n = Math.pow(2, zoom);
+  const rad = lat * Math.PI / 180;
+  const x = Math.floor((lon + 180) / 360 * n);
+  const y = Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n);
+  return { x: x, y: y };
+}
+
+// AOI Tile Downloader
+async function startAoiDownload() {
+  if (isDownloadingAoi) return;
+  const storage = await analyzeDeviceStorage();
+  const sizeElem = document.getElementById('aoiDownloadSizeText');
+  const requiredMB = parseFloat(sizeElem ? sizeElem.textContent : '10');
+
+  if (storage.freeMB > 0 && storage.freeMB < requiredMB + 20) {
+    if (!confirm(`Warning: Free space (${storage.freeMB} MB) is close to download size (${requiredMB} MB). Proceed anyway?`)) {
+      return;
+    }
+  }
+
+  const bounds = map.getBounds();
+  const sel = document.getElementById('aoiZoomSelect');
+  const mode = sel ? sel.value : 'scout';
+
+  let minZ = 12, maxZ = 15;
+  if (mode === 'regional') { minZ = 10; maxZ = 13; }
+  else if (mode === 'detailed') { minZ = 13; maxZ = 16; }
+
+  const tileList = [];
+  for (let z = minZ; z <= maxZ; z++) {
+    const minTile = latLonToTileXY(bounds.getNorth(), bounds.getWest(), z);
+    const maxTile = latLonToTileXY(bounds.getSouth(), bounds.getEast(), z);
+    const minX = Math.min(minTile.x, maxTile.x);
+    const maxX = Math.max(minTile.x, maxTile.x);
+    const minY = Math.min(minTile.y, maxTile.y);
+    const maxY = Math.max(minTile.y, maxTile.y);
+
+    for (let x = minX; x <= maxX; x++) {
+      for (let y = minY; y <= maxY; y++) {
+        tileList.push({ z: z, x: x, y: y });
+      }
+    }
+  }
+
+  isDownloadingAoi = true;
+  cancelAoiFlag = false;
+  const progContainer = document.getElementById('aoiProgressContainer');
+  const progBar = document.getElementById('aoiProgressBar');
+  const progLabel = document.getElementById('aoiProgressLabel');
+  const progPct = document.getElementById('aoiProgressPercent');
+  const btn = document.getElementById('btnStartAoiDownload');
+
+  if (progContainer) progContainer.style.display = 'block';
+  if (btn) btn.textContent = 'Downloading...';
+
+  const provider = TILE_PROVIDERS[tileLayerIndex];
+  let completed = 0;
+
+  for (const t of tileList) {
+    if (cancelAoiFlag) break;
+    const tileKey = `${tileLayerIndex}_${t.z}_${t.x}_${t.y}`;
+    const cached = await getCachedTile(tileKey);
+    if (!cached) {
+      let tileUrl = provider.url.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y);
+      if (provider.url.includes('{s}')) {
+        const sub = ['a', 'b', 'c'][Math.floor(Math.random() * 3)];
+        tileUrl = tileUrl.replace('{s}', sub);
+      }
+      try {
+        const resp = await fetch(tileUrl, { mode: 'cors' });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          await saveCachedTile(tileKey, blob);
+        }
+      } catch (_) {}
+    }
+    completed++;
+    const pct = Math.floor((completed / tileList.length) * 100);
+    if (progBar) progBar.style.width = pct + '%';
+    if (progPct) progPct.textContent = pct + '%';
+    if (progLabel) progLabel.textContent = `Downloaded ${completed} of ${tileList.length} tiles`;
+  }
+
+  isDownloadingAoi = false;
+  if (btn) btn.textContent = '🚀 Cache AOI Now';
+  if (progLabel) progLabel.textContent = 'Cache download complete! Ready for 100% offline field navigation.';
+  analyzeDeviceStorage();
+}
+
+// Export Georeferenced Basemap (.png + .pgw + .prj)
+async function exportAoiBasemapPackage() {
+  if (!map) return;
+  const bounds = map.getBounds();
+  const zip = new JSZip();
+
+  // Create an offscreen canvas capturing current view
+  const mapContainer = map.getContainer();
+  const width = mapContainer.clientWidth;
+  const height = mapContainer.clientHeight;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+
+  // Draw background
+  ctx.fillStyle = '#0F172A';
+  ctx.fillRect(0, 0, width, height);
+
+  // Render tile images from container
+  const tileImgs = mapContainer.querySelectorAll('.leaflet-tile-loaded');
+  tileImgs.forEach(img => {
+    try {
+      const rect = img.getBoundingClientRect();
+      const parentRect = mapContainer.getBoundingClientRect();
+      ctx.drawImage(img, rect.left - parentRect.left, rect.top - parentRect.top, rect.width, rect.height);
+    } catch (_) {}
+  });
+
+  const imgDataUrl = canvas.toDataURL('image/png');
+  const base64Data = imgDataUrl.replace(/^data:image\/png;base64,/, '');
+  zip.file('Basemap_Scout_AOI.png', base64Data, { base64: true });
+
+  // Calculate World File (.pgw)
+  const dx = (bounds.getEast() - bounds.getWest()) / width;
+  const dy = (bounds.getNorth() - bounds.getSouth()) / height;
+  const pgwContent = [
+    dx.toFixed(10),
+    '0.0000000000',
+    '0.0000000000',
+    (-dy).toFixed(10),
+    bounds.getWest().toFixed(10),
+    bounds.getNorth().toFixed(10)
+  ].join('\r\n');
+  zip.file('Basemap_Scout_AOI.pgw', pgwContent);
+
+  // Projection File (.prj) standard WGS84
+  const prjContent = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+  zip.file('Basemap_Scout_AOI.prj', prjContent);
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  triggerFileDownload(blob, `Basemap_Scout_AOI_${Date.now()}.zip`);
+}
+
+// Export ESRI Shapefiles (.zip) for GIS
+async function exportShapefilesZip() {
+  const zip = new JSZip();
+  const prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+
+  // 1. Waypoints Point Shapefile
+  if (waypoints.length > 0) {
+    const wpShp = buildPointShapefile(waypoints);
+    zip.file('scout_waypoints.shp', wpShp.shp);
+    zip.file('scout_waypoints.shx', wpShp.shx);
+    zip.file('scout_waypoints.dbf', wpShp.dbf);
+    zip.file('scout_waypoints.prj', prj);
+  }
+
+  // 2. Digitized Features Shapefiles
+  const lines = digitizedFeatures.filter(f => f.type === 'line');
+  const polys = digitizedFeatures.filter(f => f.type === 'polygon');
+
+  if (lines.length > 0) {
+    const lineShp = buildPolyShapefile(lines, 3);
+    zip.file('scout_digitized_lines.shp', lineShp.shp);
+    zip.file('scout_digitized_lines.shx', lineShp.shx);
+    zip.file('scout_digitized_lines.dbf', lineShp.dbf);
+    zip.file('scout_digitized_lines.prj', prj);
+  }
+
+  if (polys.length > 0) {
+    const polyShp = buildPolyShapefile(polys, 5);
+    zip.file('scout_digitized_polygons.shp', polyShp.shp);
+    zip.file('scout_digitized_polygons.shx', polyShp.shx);
+    zip.file('scout_digitized_polygons.dbf', polyShp.dbf);
+    zip.file('scout_digitized_polygons.prj', prj);
+  }
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  triggerFileDownload(blob, `Scout_Shapefiles_${Date.now()}.zip`);
+}
+
+// Pure JS Binary Shapefile Builders
+function buildPointShapefile(points) {
+  const count = points.length;
+  const fileLenWords = 50 + (count * 14); // 100 byte header (50 words) + 28 bytes per point record (14 words)
+  const shp = new ArrayBuffer(fileLenWords * 2);
+  const shx = new ArrayBuffer((50 + (count * 4)) * 2);
+  const shpView = new DataView(shp);
+  const shxView = new DataView(shx);
+
+  // File Headers
+  [shpView, shxView].forEach((v, idx) => {
+    v.setInt32(0, 9994, false); // Magic
+    v.setInt32(24, idx === 0 ? fileLenWords : 50 + (count * 4), false);
+    v.setInt32(28, 1000, true); // Version
+    v.setInt32(32, 1, true); // ShapeType 1 = Point
+  });
+
+  // Calculate Bounding Box
+  let minX = 180, maxX = -180, minY = 90, maxY = -90;
+  points.forEach(p => {
+    if (p.lon < minX) minX = p.lon;
+    if (p.lon > maxX) maxX = p.lon;
+    if (p.lat < minY) minY = p.lat;
+    if (p.lat > maxY) maxY = p.lat;
+  });
+
+  [shpView, shxView].forEach(v => {
+    v.setFloat64(36, minX, true);
+    v.setFloat64(44, minY, true);
+    v.setFloat64(52, maxX, true);
+    v.setFloat64(60, maxY, true);
+  });
+
+  // Records
+  let shpOffset = 100;
+  let shxOffset = 100;
+
+  points.forEach((p, i) => {
+    // SHX Record
+    shxView.setInt32(shxOffset, shpOffset / 2, false);
+    shxView.setInt32(shxOffset + 4, 10, false);
+    shxOffset += 8;
+
+    // SHP Record
+    shpView.setInt32(shpOffset, i + 1, false);
+    shpView.setInt32(shpOffset + 4, 10, false); // 20 bytes content = 10 words
+    shpView.setInt32(shpOffset + 8, 1, true); // Point
+    shpView.setFloat64(shpOffset + 12, p.lon, true);
+    shpView.setFloat64(shpOffset + 20, p.lat, true);
+    shpOffset += 28;
+  });
+
+  // Simple DBF
+  const dbf = buildSimpleDbf(points.map(p => ({
+    NAME: (p.name || 'WP').substring(0, 20),
+    CAT: (p.categoryId || 'gen').substring(0, 15),
+    NOTES: (p.notes || '').substring(0, 50),
+    ELEV: Math.round(p.elevation || 0).toString()
+  })));
+
+  return { shp: shp, shx: shx, dbf: dbf };
+}
+
+function buildPolyShapefile(features, shapeType) {
+  // shapeType: 3 = Polyline, 5 = Polygon
+  let totalWords = 50;
+  const count = features.length;
+
+  features.forEach(f => {
+    const numPts = (f.vertices || []).length;
+    totalWords += 4 + (22 + 2 + (numPts * 8)); // Record header (4 words) + box(16) + numParts(2) + numPoints(2) + parts(2) + points(numPts*8)
+  });
+
+  const shp = new ArrayBuffer(totalWords * 2);
+  const shx = new ArrayBuffer((50 + (count * 4)) * 2);
+  const shpView = new DataView(shp);
+  const shxView = new DataView(shx);
+
+  [shpView, shxView].forEach((v, idx) => {
+    v.setInt32(0, 9994, false);
+    v.setInt32(24, idx === 0 ? totalWords : 50 + (count * 4), false);
+    v.setInt32(28, 1000, true);
+    v.setInt32(32, shapeType, true);
+  });
+
+  let shpOffset = 100;
+  let shxOffset = 100;
+
+  features.forEach((f, i) => {
+    const pts = f.vertices || [];
+    const numPts = pts.length;
+    const contentLenWords = 22 + 2 + (numPts * 8);
+
+    shxView.setInt32(shxOffset, shpOffset / 2, false);
+    shxView.setInt32(shxOffset + 4, contentLenWords, false);
+    shxOffset += 8;
+
+    shpView.setInt32(shpOffset, i + 1, false);
+    shpView.setInt32(shpOffset + 4, contentLenWords, false);
+    shpView.setInt32(shpOffset + 8, shapeType, true);
+
+    // Box
+    let bMinX = 180, bMaxX = -180, bMinY = 90, bMaxY = -90;
+    pts.forEach(p => {
+      if (p[1] < bMinX) bMinX = p[1];
+      if (p[1] > bMaxX) bMaxX = p[1];
+      if (p[0] < bMinY) bMinY = p[0];
+      if (p[0] > bMaxY) bMaxY = p[0];
+    });
+    shpView.setFloat64(shpOffset + 12, bMinX, true);
+    shpView.setFloat64(shpOffset + 20, bMinY, true);
+    shpView.setFloat64(shpOffset + 28, bMaxX, true);
+    shpView.setFloat64(shpOffset + 36, bMaxY, true);
+
+    shpView.setInt32(shpOffset + 44, 1, true); // numParts
+    shpView.setInt32(shpOffset + 48, numPts, true); // numPoints
+    shpView.setInt32(shpOffset + 52, 0, true); // part 0 index
+
+    let ptOffset = shpOffset + 56;
+    pts.forEach(p => {
+      shpView.setFloat64(ptOffset, p[1], true); // X (lon)
+      shpView.setFloat64(ptOffset + 8, p[0], true); // Y (lat)
+      ptOffset += 16;
+    });
+
+    shpOffset += (8 + (contentLenWords * 2));
+  });
+
+  const dbf = buildSimpleDbf(features.map(f => ({
+    NAME: (f.name || 'Feature').substring(0, 20),
+    CAT: (f.category || 'general').substring(0, 15),
+    COMMENTS: (f.comments || '').substring(0, 50)
+  })));
+
+  return { shp: shp, shx: shx, dbf: dbf };
+}
+
+function buildSimpleDbf(rows) {
+  if (rows.length === 0) return new ArrayBuffer(32);
+  const fields = Object.keys(rows[0]);
+  const fieldLen = 32;
+  const headerLen = 32 + (fields.length * 32) + 1;
+  const recordLen = 1 + (fields.length * fieldLen);
+  const totalLen = headerLen + (rows.length * recordLen) + 1;
+
+  const buf = new ArrayBuffer(totalLen);
+  const view = new DataView(buf);
+  const bytes = new Uint8Array(buf);
+
+  // DBF Header
+  view.setUint8(0, 0x03); // dBASE III
+  const now = new Date();
+  view.setUint8(1, now.getFullYear() - 1900);
+  view.setUint8(2, now.getMonth() + 1);
+  view.setUint8(3, now.getDate());
+  view.setUint32(4, rows.length, true);
+  view.setUint16(8, headerLen, true);
+  view.setUint16(10, recordLen, true);
+
+  // Field Descriptors
+  fields.forEach((field, idx) => {
+    const fOffset = 32 + (idx * 32);
+    for (let c = 0; c < Math.min(10, field.length); c++) {
+      bytes[fOffset + c] = field.charCodeAt(c);
+    }
+    bytes[fOffset + 11] = 0x43; // Type 'C' (Char)
+    bytes[fOffset + 16] = fieldLen; // Field length
+  });
+
+  bytes[headerLen - 1] = 0x0D; // Header terminator
+
+  // Records
+  let rOffset = headerLen;
+  rows.forEach(r => {
+    bytes[rOffset] = 0x20; // Valid record flag (space)
+    let cOffset = rOffset + 1;
+    fields.forEach(field => {
+      const val = (r[field] || '').toString();
+      for (let i = 0; i < fieldLen; i++) {
+        bytes[cOffset + i] = i < val.length ? val.charCodeAt(i) : 0x20;
+      }
+      cOffset += fieldLen;
+    });
+    rOffset += recordLen;
+  });
+
+  bytes[totalLen - 1] = 0x1A; // EOF
+  return buf;
+}
+
+// Export Google Earth KML (.kml)
+function exportKmlData() {
+  const kml = [];
+  kml.push('<?xml version="1.0" encoding="UTF-8"?>');
+  kml.push('<kml xmlns="http://www.opengis.net/kml/2.2">');
+  kml.push('<Document>');
+  kml.push('  <name>Quik Field Notes Survey</name>');
+
+  // Style Definitions
+  kml.push('  <Style id="wptStyle"><IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon></IconStyle></Style>');
+  kml.push('  <Style id="lineStyle"><LineStyle><color>ff00f0ff</color><width>3.5</width></LineStyle></Style>');
+  kml.push('  <Style id="polyStyle"><LineStyle><color>ff00f0ff</color><width>2</width></LineStyle><PolyStyle><color>4000f0ff</color></PolyStyle></Style>');
+
+  // Waypoints
+  waypoints.forEach(w => {
+    kml.push('  <Placemark>');
+    kml.push(`    <name>${escapeXml(w.name)}</name>`);
+    kml.push(`    <description>Category: ${escapeXml(w.categoryId)}\nNotes: ${escapeXml(w.notes || '')}\nElevation: ${Math.round(w.elevation || 0)}m</description>`);
+    kml.push('    <styleUrl>#wptStyle</styleUrl>');
+    kml.push(`    <Point><coordinates>${w.lon},${w.lat},${w.elevation || 0}</coordinates></Point>`);
+    kml.push('  </Placemark>');
+  });
+
+  // Digitized Lines and Polygons
+  digitizedFeatures.forEach(f => {
+    kml.push('  <Placemark>');
+    kml.push(`    <name>${escapeXml(f.name)}</name>`);
+    kml.push(`    <description>Type: ${f.type}\nCategory: ${escapeXml(f.category)}\nComments: ${escapeXml(f.comments || '')}</description>`);
+
+    if (f.type === 'polygon') {
+      kml.push('    <styleUrl>#polyStyle</styleUrl>');
+      kml.push('    <Polygon><outerBoundaryIs><LinearRing><coordinates>');
+      const coords = [...(f.vertices || [])];
+      if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
+        coords.push(coords[0]);
+      }
+      coords.forEach(c => { kml.push(`      ${c[1]},${c[0]},0`); });
+      kml.push('    </coordinates></LinearRing></outerBoundaryIs></Polygon>');
+    } else {
+      kml.push('    <styleUrl>#lineStyle</styleUrl>');
+      kml.push('    <LineString><coordinates>');
+      (f.vertices || []).forEach(c => { kml.push(`      ${c[1]},${c[0]},0`); });
+      kml.push('    </coordinates></LineString>');
+    }
+    kml.push('  </Placemark>');
+  });
+
+  kml.push('</Document>');
+  kml.push('</kml>');
+
+  const blob = new Blob([kml.join('\n')], { type: 'application/vnd.google-earth.kml+xml' });
+  triggerFileDownload(blob, `Quik_Field_Notes_${Date.now()}.kml`);
+}
+
+function escapeXml(unsafe) {
+  if (!unsafe) return '';
+  return unsafe.toString().replace(/[<>&'"]/g, c => {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+    }
+  });
+}
+
 function exportPhotosZip() {
   if (photos.length === 0) {
     alert("No photos captured in this project.");
