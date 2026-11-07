@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,8 @@ class QuikFieldNotesApp extends StatefulWidget {
 class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
   WebViewController? _controller;
   bool _isLoading = true;
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechInitialized = false;
 
   @override
   void initState() {
@@ -49,7 +52,7 @@ class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
 
     final WebViewController controller = WebViewController();
 
-    // Android WebViewController configuration for high-precision GNSS and camera
+    // Android WebViewController configuration for high-precision GNSS, microphone and camera
     if (controller.platform is AndroidWebViewController) {
       final androidController = controller.platform as AndroidWebViewController;
       androidController.setGeolocationPermissionsPromptCallbacks(
@@ -57,11 +60,22 @@ class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
           return const GeolocationPermissionsResponse(allow: true, retain: true);
         },
       );
+      androidController.setOnPlatformPermissionRequest(
+        (request) async {
+          request.grant();
+        },
+      );
     }
 
     controller
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(const Color(0xFF0A0F1D))
+      ..addJavaScriptChannel(
+        'NativeSpeechBridge',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleSpeechCommand(message.message);
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
@@ -79,6 +93,44 @@ class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
       setState(() {
         _controller = controller;
       });
+    }
+  }
+
+  Future<void> _handleSpeechCommand(String command) async {
+    if (command == 'start') {
+      try {
+        if (!_speechInitialized) {
+          _speechInitialized = await _speech.initialize(
+            onError: (val) {
+              final err = val.errorMsg.replaceAll("'", "\\'");
+              _controller?.runJavaScript("if(window.onNativeSpeechError) window.onNativeSpeechError('$err');");
+            },
+            onStatus: (val) {
+              _controller?.runJavaScript("if(window.onNativeSpeechStatus) window.onNativeSpeechStatus('$val');");
+            },
+          );
+        }
+
+        if (_speechInitialized) {
+          await _speech.listen(
+            onResult: (val) {
+              final recognized = val.recognizedWords.replaceAll("'", "\\'").replaceAll('"', '\\"');
+              final isFinal = val.finalResult;
+              _controller?.runJavaScript("if(window.onNativeSpeechResult) window.onNativeSpeechResult('$recognized', $isFinal);");
+            },
+            cancelOnError: false,
+            partialResults: true,
+          );
+        }
+      } catch (e) {
+        _controller?.runJavaScript("if(window.onNativeSpeechError) window.onNativeSpeechError('Init error');");
+      }
+    } else if (command == 'stop') {
+      try {
+        if (_speech.isListening) {
+          await _speech.stop();
+        }
+      } catch (_) {}
     }
   }
 
