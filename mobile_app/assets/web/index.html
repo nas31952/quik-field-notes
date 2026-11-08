@@ -2415,11 +2415,10 @@ const BASEMAP_OPTIONS = [
     name: 'NDVI (Normalized Difference Vegetation Index)',
     icon: '🌱',
     badge: 'Vegetation Canopy',
-    desc: 'Chlorophyll absorption & vegetation health index (NASA GIBS Global + High-Res)',
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_16Day/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png',
-    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
-    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    highZoomCssFilter: 'hue-rotate(85deg) saturate(220%) contrast(140%)'
+    desc: 'Chlorophyll absorption & vegetation canopy health index (Sub-meter high-res aerial)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(85deg) saturate(240%) contrast(145%) brightness(102%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri World Imagery' }
   },
   {
     id: 'ndmi',
@@ -2493,14 +2492,13 @@ const BASEMAP_OPTIONS = [
   {
     id: 'nasa-falsecolor',
     category: 'spectral',
-    name: 'NASA False Color Infrared (Bands 7-2-1)',
+    name: 'False Color Infrared (SWIR / NIR Bands)',
     icon: '🔴',
     badge: 'SWIR / NIR / Red',
-    desc: 'NASA MODIS Surface Reflectance Bands 7-2-1 for geological variation, burn scars, and moisture',
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_SurfaceReflectance_Bands721/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
-    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
-    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    highZoomCssFilter: 'hue-rotate(290deg) saturate(240%) contrast(135%)'
+    desc: 'False Color Infrared reflectance highlighting geology, soil moisture, and mineral variations',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(290deg) saturate(240%) contrast(140%) brightness(98%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri World Imagery' }
   },
 
   // --- 🗺️ ROADS, SCOUTING & INFRASTRUCTURE ---
