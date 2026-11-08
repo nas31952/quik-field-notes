@@ -925,6 +925,45 @@ body, html {
   font-weight: 700;
   box-shadow: 0 0 8px rgba(0,0,0,0.6);
 }
+/* Interactive AOI Banners */
+#aoiSelectionBanner {
+  display: none;
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1.5px solid #00F0FF;
+  border-radius: 24px;
+  padding: 8px 16px;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  align-items: center;
+  gap: 10px;
+  max-width: 90vw;
+}
+#aoiActionPill {
+  display: none;
+  position: fixed;
+  bottom: 85px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 1.5px solid #10B981;
+  border-radius: 24px;
+  padding: 8px 14px;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 9999;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  align-items: center;
+  gap: 8px;
+  max-width: 90vw;
+}
 </style>
 </head>
 <body>
@@ -1344,6 +1383,18 @@ body, html {
 <!-- ========================================================================= -->
 <!-- MODAL: BASEMAP SELECTION & OFFLINE MAP DATA DOWNLOADER                    -->
 <!-- ========================================================================= -->
+<!-- Interactive AOI Selection Banner & Action Pill -->
+<div id="aoiSelectionBanner">
+  <span id="aoiBannerText">📐 Tap 1st corner on map to start AOI box</span>
+  <button onclick="cancelAoiSelection()" style="background: rgba(239, 68, 68, 0.3); border: 1px solid #EF4444; color: #FCA5A5; border-radius: 12px; padding: 4px 8px; font-size: 11px; cursor: pointer;">✕ Cancel</button>
+</div>
+
+<div id="aoiActionPill">
+  <span id="aoiActionDimensions" style="color: #10B981;">Selected AOI Box</span>
+  <button onclick="confirmAoiSelection()" class="btn btn-primary" style="padding: 5px 12px; font-size: 11px; background: #10B981; border-color: #10B981; color: #0B132B; font-weight: 800;">📥 Download AOI</button>
+  <button onclick="clearAoiSelection()" style="background: none; border: none; color: #94A3B8; font-size: 13px; cursor: pointer; padding: 2px 6px;">✕</button>
+</div>
+
 <div class="modal-overlay" id="basemapModal">
   <div class="modal-content" style="max-height: 92vh; display: flex; flex-direction: column;">
     <div class="modal-header">
@@ -1412,9 +1463,21 @@ body, html {
     </div>
 
     <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
-      <div style="font-size: 13px; color: #CBD5E1; line-height: 1.5; background: rgba(30,41,59,0.6); padding: 10px 14px; border-radius: 12px;">
-        <div>Current AOI Bounds: <b id="aoiBoundsText" style="color:#00F0FF;">Viewing Extent</b></div>
-        <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Download tiles into device memory for 100% offline navigation in remote seismic zones.</div>
+      <!-- AOI Area Selector Mode (Screen View vs Custom Drawn Box) -->
+      <div>
+        <label class="form-label" style="margin-bottom: 6px;">Area of Interest (AOI) Mode</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+          <button type="button" class="btn btn-secondary" id="btnAoiModeScreen" onclick="setAoiSelectionMode('screen')" style="font-size: 11px; padding: 8px; border-color: #00F0FF; color: #00F0FF;">
+            📱 Current Screen View
+          </button>
+          <button type="button" class="btn btn-secondary" id="btnAoiModeCustom" onclick="startAoiBoxSelection()" style="font-size: 11px; padding: 8px;">
+            📐 Draw Box on Map
+          </button>
+        </div>
+        <div style="font-size: 11px; color: #CBD5E1; background: rgba(15,23,42,0.8); border: 1px solid rgba(255,255,255,0.1); padding: 8px 10px; border-radius: 8px;">
+          <div id="aoiBoundsText">Viewing Extent</div>
+          <div id="aoiAreaKmText" style="color: #10B981; font-weight: 700; margin-top: 2px;"></div>
+        </div>
       </div>
 
       <!-- Storage Memory Meter & Quota -->
@@ -1610,342 +1673,25 @@ body, html {
 <!-- JAVASCRIPT CORE ENGINE                                                    -->
 <!-- ========================================================================= -->
 <script>
-// =========================================================================
-// 🗺️ COMPLETE 26-LAYER GIS & REMOTE SENSING CATALOG (TOP-LEVEL INITIALIZATION)
-// =========================================================================
-const BASEMAP_CATEGORIES = [
-  { id: 'all', name: 'All Maps', icon: '🌐' },
-  { id: 'satellite', name: 'Satellite & Imagery', icon: '🛰️' },
-  { id: 'elevation', name: 'DEM & Topo', icon: '🏔️' },
-  { id: 'spectral', name: 'Spectral & Indices', icon: '🌿' },
-  { id: 'streets', name: 'Roads & Scouting', icon: '🗺️' },
-  { id: 'canvas', name: 'Vector Canvas', icon: '📐' }
-];
-
-const BASEMAP_OPTIONS = [
-  // --- 🛰️ SATELLITE & IMAGERY ---
-  {
-    id: 'esri-sat',
-    category: 'satellite',
-    name: 'Satellite (ESRI World Imagery)',
-    icon: '🛰️',
-    badge: 'High-Res Aerial',
-    desc: 'High-resolution worldwide satellite and aerial photography',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'google-sat',
-    category: 'satellite',
-    name: 'Google Maps Satellite',
-    icon: '🛰️',
-    badge: 'Google Global',
-    desc: 'Detailed global satellite imagery from Google Maps',
-    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    options: { maxZoom: 20, attribution: '&copy; Google' }
-  },
-  {
-    id: 'google-hybrid',
-    category: 'satellite',
-    name: 'Google Maps Hybrid',
-    icon: '🛰️',
-    badge: 'Imagery + Labels',
-    desc: 'High-resolution satellite imagery overlaid with road network and labels',
-    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    options: { maxZoom: 20, attribution: '&copy; Google' }
-  },
-  {
-    id: 'sentinel-cloudless',
-    category: 'satellite',
-    name: 'Sentinel-2 Cloudless (Copernicus 10m)',
-    icon: '🌍',
-    badge: 'ESA Copernicus',
-    desc: 'Global cloudless 10-meter multispectral mosaic from ESA Sentinel-2',
-    url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
-    options: { maxZoom: 16, attribution: '&copy; EOX & ESA Sentinel' }
-  },
-  {
-    id: 'terrain-draped',
-    category: 'satellite',
-    name: 'Terrain Draped Imagery (3D Shaded)',
-    icon: '🌄',
-    badge: 'Satellite + DEM Hillshade',
-    desc: 'ESRI World Imagery draped over elevation hillshade for 3D relief perception',
-    type: 'draped',
-    baseLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
-    overlayLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    overlayBlend: 'multiply',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-
-  // --- 🏔️ DEM, TOPOGRAPHY & ELEVATION ---
-  {
-    id: 'hillshade',
-    category: 'elevation',
-    name: 'Topographic Shading (ESRI Hillshade)',
-    icon: '⛰️',
-    badge: 'DEM Relief',
-    desc: 'Multi-directional illuminated shaded relief from global digital elevation models',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'opentopo',
-    category: 'elevation',
-    name: 'Contour Lines & Topo (OpenTopoMap)',
-    icon: '📈',
-    badge: 'Elevation Contours',
-    desc: 'Topographic map rendering elevation contour lines, heights, and terrain shading',
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    options: { maxZoom: 17, subdomains: ['a', 'b', 'c'], attribution: '&copy; OpenTopoMap' }
-  },
-  {
-    id: 'color-elevation',
-    category: 'elevation',
-    name: 'Color Elevation (Hypsometric Tint)',
-    icon: '🌈',
-    badge: 'Elevation Gradient',
-    desc: 'Physical relief map showing elevation heights and geomorphic landforms in color',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 16, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'slope-aspect',
-    category: 'elevation',
-    name: 'Slope & Aspect Analysis Shading',
-    icon: '📐',
-    badge: 'Terrain Derivative',
-    desc: 'High-contrast terrain slope steepness and ridge aspect enhancement filter',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'contrast(190%) brightness(95%) invert(10%) drop-shadow(0 0 1px #00f0ff)',
-    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'esri-topo',
-    category: 'elevation',
-    name: 'ESRI World Topographic Map',
-    icon: '🏔️',
-    badge: 'Esri Topo',
-    desc: 'Comprehensive topographic basemap with elevation contours and geographic names',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'esri-terrain',
-    category: 'elevation',
-    name: 'ESRI World Terrain Base',
-    icon: '🗻',
-    badge: 'Clean Relief',
-    desc: 'Minimal shaded relief base map designed for vector feature overlay',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 13, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'usgs-topo',
-    category: 'elevation',
-    name: 'USGS National Topographic Map',
-    icon: '🧭',
-    badge: 'USGS Quad',
-    desc: 'US Geological Survey official topographic contours, hydrography, and trails',
-    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 16, attribution: '&copy; USGS' }
-  },
-
-  // --- 🌿 SPECTRAL INDICES & REMOTE SENSING ---
-  {
-    id: 'ndvi',
-    category: 'spectral',
-    name: 'NDVI (Normalized Difference Vegetation Index)',
-    icon: '🌱',
-    badge: 'Vegetation Canopy',
-    desc: 'Chlorophyll absorption & vegetation health index (NASA GIBS Global + High-Res)',
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_16Day/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png',
-    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
-    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    highZoomCssFilter: 'hue-rotate(85deg) saturate(220%) contrast(140%)'
-  },
-  {
-    id: 'ndmi',
-    category: 'spectral',
-    name: 'NDMI (Normalized Difference Moisture Index)',
-    icon: '💧',
-    badge: 'Canopy & Soil Moisture',
-    desc: 'Highlights water content in plant canopies and ground moisture saturation',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(170deg) saturate(180%) contrast(130%) brightness(105%)',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'ndwi',
-    category: 'spectral',
-    name: 'NDWI (Normalized Difference Water Index)',
-    icon: '🌊',
-    badge: 'Water Bodies & Wadis',
-    desc: 'Delineates surface water bodies, irrigation networks, ephemeral streams and wadis',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(195deg) saturate(320%) contrast(160%) brightness(95%)',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'evi',
-    category: 'spectral',
-    name: 'EVI (Enhanced Vegetation Index)',
-    icon: '🌲',
-    badge: 'High-Biomass Canopy',
-    desc: 'Optimized vegetation index with atmospheric correction for dense forest and foliage',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(75deg) saturate(280%) contrast(150%)',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'savi',
-    category: 'spectral',
-    name: 'SAVI (Soil-Adjusted Vegetation Index)',
-    icon: '🌾',
-    badge: 'Arid & Desert Zones',
-    desc: 'Corrects for soil background brightness in arid and semi-arid seismic survey areas',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'sepia(30%) hue-rotate(60deg) saturate(230%) contrast(125%)',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'scl',
-    category: 'spectral',
-    name: 'Scene Classification Layer (SCL)',
-    icon: '🎨',
-    badge: 'Land Cover Classes',
-    desc: 'Classified map separating water, bare soil, sparse vegetation, dense canopy, and rock',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'contrast(170%) saturate(250%) invert(5%)',
-    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'elev-spectral',
-    category: 'spectral',
-    name: 'Elevation-Masked Spectral Index',
-    icon: '🏔️🌱',
-    badge: 'Relief + Vegetation',
-    desc: 'Hypsometric terrain shading combined with vegetation spectral reflectance',
-    type: 'draped',
-    baseLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
-    overlayLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    overlayBlend: 'color-burn',
-    overlayFilter: 'hue-rotate(80deg) saturate(200%)',
-    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'nasa-falsecolor',
-    category: 'spectral',
-    name: 'NASA False Color Infrared (Bands 7-2-1)',
-    icon: '🔴',
-    badge: 'SWIR / NIR / Red',
-    desc: 'NASA MODIS Surface Reflectance Bands 7-2-1 for geological variation, burn scars, and moisture',
-    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_SurfaceReflectance_Bands721/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
-    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
-    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    highZoomCssFilter: 'hue-rotate(290deg) saturate(240%) contrast(135%)'
-  },
-
-  // --- 🗺️ ROADS, SCOUTING & INFRASTRUCTURE ---
-  {
-    id: 'osm',
-    category: 'streets',
-    name: 'OpenStreetMap Standard',
-    icon: '🗺️',
-    badge: 'Global Streets',
-    desc: 'Global open road, trail, city, and infrastructure vector data map',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap' }
-  },
-  {
-    id: 'google-streets',
-    category: 'streets',
-    name: 'Google Maps Streets',
-    icon: '🛣️',
-    badge: 'Google Roads',
-    desc: 'Google road networks, points of interest, highways, and administrative boundaries',
-    url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    options: { maxZoom: 20, attribution: '&copy; Google' }
-  },
-  {
-    id: 'google-terrain',
-    category: 'streets',
-    name: 'Google Maps Terrain',
-    icon: '⛰️🛣️',
-    badge: 'Google Physical',
-    desc: 'Google physical terrain map with elevation contours, shaded relief, and roads',
-    url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
-    options: { maxZoom: 20, attribution: '&copy; Google' }
-  },
-  {
-    id: 'cyclosm',
-    category: 'streets',
-    name: 'CyclOSM (Field Tracks & Minor Roads)',
-    icon: '🚵',
-    badge: 'Field & Rural Tracks',
-    desc: 'Emphasizes unpaved rural roads, desert/bush tracks, gradients, and elevation paths',
-    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
-    options: { maxZoom: 19, attribution: '&copy; CyclOSM' }
-  },
-  {
-    id: 'carto-dark',
-    category: 'streets',
-    name: 'Carto Dark Matter (Night Mode)',
-    icon: '🌑',
-    badge: 'High-Contrast Dark',
-    desc: 'Minimal dark basemap providing superior visibility for neon vector lines and points',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
-  },
-  {
-    id: 'carto-light',
-    category: 'streets',
-    name: 'Carto Positron (Clean Light)',
-    icon: '📄',
-    badge: 'Clean Grayscale',
-    desc: 'Subtle light gray basemap that highlights seismic source and receiver lines',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
-  },
-
-  // --- 📐 VECTOR CANVAS ---
-  {
-    id: 'none',
-    category: 'canvas',
-    name: 'No Basemap (Blank Canvas)',
-    icon: '🚫',
-    badge: 'Vector Only',
-    desc: 'Blank dark high-contrast canvas (#0b132b) for vector survey lines with zero bandwidth usage',
-    url: null,
-    options: {}
-  }
-];
-
-// Basemap Active State & Migration
+// --- GLOBAL APPLICATION STATE ---
+let map = null;
+let tileLayerCurrent = null;
+let tileLayerIndex = 0;
 let baseTileLayer = null;
 let overlayTileLayer = null;
-let activeBasemapCategory = 'all';
-let basemapSearchQuery = '';
 
-let savedBasemap = 'esri-sat';
+let activeBasemapId = 'esri-sat';
 try {
-  const rawSaved = localStorage.getItem('qfn_active_basemap');
-  if (rawSaved === '0' || rawSaved === 'esri' || rawSaved === 'satellite') savedBasemap = 'esri-sat';
-  else if (rawSaved === '1' || rawSaved === 'osm') savedBasemap = 'osm';
-  else if (rawSaved === '2' || rawSaved === 'topo') savedBasemap = 'esri-topo';
-  else if (rawSaved === '-1' || rawSaved === 'none') savedBasemap = 'none';
-  else if (rawSaved && BASEMAP_OPTIONS.some(b => b.id === rawSaved)) savedBasemap = rawSaved;
+  const saved = localStorage.getItem('qfn_active_basemap');
+  if (saved && typeof saved === 'string') {
+    if (saved === '0' || saved === 'esri') activeBasemapId = 'esri-sat';
+    else if (saved === '1' || saved === 'osm') activeBasemapId = 'osm';
+    else if (saved === '2' || saved === 'topo') activeBasemapId = 'esri-topo';
+    else if (saved === '-1' || saved === 'none') activeBasemapId = 'none';
+    else activeBasemapId = saved;
+  }
 } catch (_) {}
-let activeBasemapId = savedBasemap;
 
-// Interactive AOI Selection State
-let currentAoiCustomBounds = null;
-let isSelectingAoiBox = false;
-let aoiBoxCorner1 = null;
-let aoiBoxPreview = null;
-let aoiCachedRectangles = [];
-
-// Unified Toast Notification System
 function showToast(msg) {
   let toast = document.getElementById('qfnToast');
   if (!toast) {
@@ -1965,11 +1711,6 @@ function showToast(msg) {
 }
 window.showNotification = showToast;
 window.showToast = showToast;
-
-// --- GLOBAL APPLICATION STATE ---
-let map = null;
-let tileLayerCurrent = null;
-let tileLayerIndex = 0;
 
 // Dynamic Project Manager State
 let projects = [];
@@ -2019,6 +1760,11 @@ let isSnappingEnabled = true;      // Item 6: Real-time digitizing snapping
 const SNAP_PIXEL_TOLERANCE = 24;   // 24px touch/stylus tolerance
 let activeSnapIndicator = null;
 let wptCoordinateSource = 'gps';   // Item 3: 'gps' or 'cursor'
+let currentAoiCustomBounds = null;
+let isSelectingAoiBox = false;
+let aoiBoxCorner1 = null;
+let aoiBoxPreview = null;
+let aoiCachedRectangles = [];
 let dbMapCache = null;             // Item 7: IndexedDB Tile Cache
 const CACHE_DB_NAME = 'QuikFieldNotes_TileCache_v2';
 let isDownloadingAoi = false;
@@ -2362,6 +2108,319 @@ function resetDefaultZoom() {
   }
 }
 
+const BASEMAP_CATEGORIES = [
+  { id: 'all', name: 'All Maps', icon: '🌐' },
+  { id: 'satellite', name: 'Satellite & Imagery', icon: '🛰️' },
+  { id: 'elevation', name: 'DEM & Topo', icon: '🏔️' },
+  { id: 'spectral', name: 'Spectral & Indices', icon: '🌿' },
+  { id: 'streets', name: 'Roads & Scouting', icon: '🗺️' },
+  { id: 'canvas', name: 'Vector Canvas', icon: '📐' }
+];
+
+const BASEMAP_OPTIONS = [
+  // --- 🛰️ SATELLITE & IMAGERY ---
+  {
+    id: 'esri-sat',
+    category: 'satellite',
+    name: 'Satellite (ESRI World Imagery)',
+    icon: '🛰️',
+    badge: 'High-Res Aerial',
+    desc: 'High-resolution worldwide satellite and aerial photography',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'google-sat',
+    category: 'satellite',
+    name: 'Google Maps Satellite',
+    icon: '🛰️',
+    badge: 'Google Global',
+    desc: 'Detailed global satellite imagery from Google Maps',
+    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'google-hybrid',
+    category: 'satellite',
+    name: 'Google Maps Hybrid',
+    icon: '🛰️',
+    badge: 'Imagery + Labels',
+    desc: 'High-resolution satellite imagery overlaid with road network and labels',
+    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'sentinel-cloudless',
+    category: 'satellite',
+    name: 'Sentinel-2 Cloudless (Copernicus 10m)',
+    icon: '🌍',
+    badge: 'ESA Copernicus',
+    desc: 'Global cloudless 10-meter multispectral mosaic from ESA Sentinel-2',
+    url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
+    options: { maxZoom: 16, attribution: '&copy; EOX & ESA Sentinel' }
+  },
+  {
+    id: 'terrain-draped',
+    category: 'satellite',
+    name: 'Terrain Draped Imagery (3D Shaded)',
+    icon: '🌄',
+    badge: 'Satellite + DEM Hillshade',
+    desc: 'ESRI World Imagery draped over elevation hillshade for 3D relief perception',
+    type: 'draped',
+    baseLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    overlayLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    overlayBlend: 'multiply',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+
+  // --- 🏔️ DEM, TOPOGRAPHY & ELEVATION ---
+  {
+    id: 'hillshade',
+    category: 'elevation',
+    name: 'Topographic Shading (ESRI Hillshade)',
+    icon: '⛰️',
+    badge: 'DEM Relief',
+    desc: 'Multi-directional illuminated shaded relief from global digital elevation models',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'opentopo',
+    category: 'elevation',
+    name: 'Contour Lines & Topo (OpenTopoMap)',
+    icon: '📈',
+    badge: 'Elevation Contours',
+    desc: 'Topographic map rendering elevation contour lines, heights, and terrain shading',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 17, subdomains: ['a', 'b', 'c'], attribution: '&copy; OpenTopoMap' }
+  },
+  {
+    id: 'color-elevation',
+    category: 'elevation',
+    name: 'Color Elevation (Hypsometric Tint)',
+    icon: '🌈',
+    badge: 'Elevation Gradient',
+    desc: 'Physical relief map showing elevation heights and geomorphic landforms in color',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 16, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'slope-aspect',
+    category: 'elevation',
+    name: 'Slope & Aspect Analysis Shading',
+    icon: '📐',
+    badge: 'Terrain Derivative',
+    desc: 'High-contrast terrain slope steepness and ridge aspect enhancement filter',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'contrast(190%) brightness(95%) invert(10%) drop-shadow(0 0 1px #00f0ff)',
+    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'esri-topo',
+    category: 'elevation',
+    name: 'ESRI World Topographic Map',
+    icon: '🏔️',
+    badge: 'Esri Topo',
+    desc: 'Comprehensive topographic basemap with elevation contours and geographic names',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'esri-terrain',
+    category: 'elevation',
+    name: 'ESRI World Terrain Base',
+    icon: '🗻',
+    badge: 'Clean Relief',
+    desc: 'Minimal shaded relief base map designed for vector feature overlay',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 13, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'usgs-topo',
+    category: 'elevation',
+    name: 'USGS National Topographic Map',
+    icon: '🧭',
+    badge: 'USGS Quad',
+    desc: 'US Geological Survey official topographic contours, hydrography, and trails',
+    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 16, attribution: '&copy; USGS' }
+  },
+
+  // --- 🌿 SPECTRAL INDICES & REMOTE SENSING ---
+  {
+    id: 'ndvi',
+    category: 'spectral',
+    name: 'NDVI (Normalized Difference Vegetation Index)',
+    icon: '🌱',
+    badge: 'Vegetation Canopy',
+    desc: 'Chlorophyll absorption & vegetation health index (NASA GIBS Global + High-Res)',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_16Day/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png',
+    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
+    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    highZoomCssFilter: 'hue-rotate(85deg) saturate(220%) contrast(140%)'
+  },
+  {
+    id: 'ndmi',
+    category: 'spectral',
+    name: 'NDMI (Normalized Difference Moisture Index)',
+    icon: '💧',
+    badge: 'Canopy & Soil Moisture',
+    desc: 'Highlights water content in plant canopies and ground moisture saturation',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(170deg) saturate(180%) contrast(130%) brightness(105%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'ndwi',
+    category: 'spectral',
+    name: 'NDWI (Normalized Difference Water Index)',
+    icon: '🌊',
+    badge: 'Water Bodies & Wadis',
+    desc: 'Delineates surface water bodies, irrigation networks, ephemeral streams and wadis',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(195deg) saturate(320%) contrast(160%) brightness(95%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'evi',
+    category: 'spectral',
+    name: 'EVI (Enhanced Vegetation Index)',
+    icon: '🌲',
+    badge: 'High-Biomass Canopy',
+    desc: 'Optimized vegetation index with atmospheric correction for dense forest and foliage',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(75deg) saturate(280%) contrast(150%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'savi',
+    category: 'spectral',
+    name: 'SAVI (Soil-Adjusted Vegetation Index)',
+    icon: '🌾',
+    badge: 'Arid & Desert Zones',
+    desc: 'Corrects for soil background brightness in arid and semi-arid seismic survey areas',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'sepia(30%) hue-rotate(60deg) saturate(230%) contrast(125%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'scl',
+    category: 'spectral',
+    name: 'Scene Classification Layer (SCL)',
+    icon: '🎨',
+    badge: 'Land Cover Classes',
+    desc: 'Classified map separating water, bare soil, sparse vegetation, dense canopy, and rock',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'contrast(170%) saturate(250%) invert(5%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'elev-spectral',
+    category: 'spectral',
+    name: 'Elevation-Masked Spectral Index',
+    icon: '🏔️🌱',
+    badge: 'Relief + Vegetation',
+    desc: 'Hypsometric terrain shading combined with vegetation spectral reflectance',
+    type: 'draped',
+    baseLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    overlayLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    overlayBlend: 'color-burn',
+    overlayFilter: 'hue-rotate(80deg) saturate(200%)',
+    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'nasa-falsecolor',
+    category: 'spectral',
+    name: 'NASA False Color Infrared (Bands 7-2-1)',
+    icon: '🔴',
+    badge: 'SWIR / NIR / Red',
+    desc: 'NASA MODIS Surface Reflectance Bands 7-2-1 for geological variation, burn scars, and moisture',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_SurfaceReflectance_Bands721/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
+    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    highZoomCssFilter: 'hue-rotate(290deg) saturate(240%) contrast(135%)'
+  },
+
+  // --- 🗺️ ROADS, SCOUTING & INFRASTRUCTURE ---
+  {
+    id: 'osm',
+    category: 'streets',
+    name: 'OpenStreetMap Standard',
+    icon: '🗺️',
+    badge: 'Global Streets',
+    desc: 'Global open road, trail, city, and infrastructure vector data map',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap' }
+  },
+  {
+    id: 'google-streets',
+    category: 'streets',
+    name: 'Google Maps Streets',
+    icon: '🛣️',
+    badge: 'Google Roads',
+    desc: 'Google road networks, points of interest, highways, and administrative boundaries',
+    url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'google-terrain',
+    category: 'streets',
+    name: 'Google Maps Terrain',
+    icon: '⛰️🛣️',
+    badge: 'Google Physical',
+    desc: 'Google physical terrain map with elevation contours, shaded relief, and roads',
+    url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'cyclosm',
+    category: 'streets',
+    name: 'CyclOSM (Field Tracks & Minor Roads)',
+    icon: '🚵',
+    badge: 'Field & Rural Tracks',
+    desc: 'Emphasizes unpaved rural roads, desert/bush tracks, gradients, and elevation paths',
+    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '&copy; CyclOSM' }
+  },
+  {
+    id: 'carto-dark',
+    category: 'streets',
+    name: 'Carto Dark Matter (Night Mode)',
+    icon: '🌑',
+    badge: 'High-Contrast Dark',
+    desc: 'Minimal dark basemap providing superior visibility for neon vector lines and points',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
+  },
+  {
+    id: 'carto-light',
+    category: 'streets',
+    name: 'Carto Positron (Clean Light)',
+    icon: '📄',
+    badge: 'Clean Grayscale',
+    desc: 'Subtle light gray basemap that highlights seismic source and receiver lines',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
+  },
+
+  // --- 📐 VECTOR CANVAS ---
+  {
+    id: 'none',
+    category: 'canvas',
+    name: 'No Basemap (Blank Canvas)',
+    icon: '🚫',
+    badge: 'Vector Only',
+    desc: 'Blank dark high-contrast canvas (#0b132b) for vector survey lines with zero bandwidth usage',
+    url: null,
+    options: {}
+  }
+];
+
+// activeBasemapId declared at top
+let activeBasemapCategory = 'all';
+let basemapSearchQuery = '';
+// overlayTileLayer declared at top
+
 function initMap() {
   map = L.map('map', {
     zoomControl: false,
@@ -2396,50 +2455,25 @@ function initMap() {
   }
 }
 
-function createOptimizedTileLayer(provider, basemapId) {
+function createOptimizedTileLayer(provider, idx) {
   const layer = L.tileLayer(provider.url, {
-    ...(provider.options || {}),
-    minZoom: 3,
-    maxZoom: provider.options?.maxZoom || 19,
+    ...provider.options,
+    minZoom: 4,
+    maxZoom: 19,
     updateWhenIdle: true,
-    keepBuffer: 3
+    updateWhenZooming: false,
+    keepBuffer: 2
   });
 
+  const originalCreateTile = layer.createTile;
   layer.createTile = function(coords, done) {
-    const tile = document.createElement('img');
-    tile.alt = '';
-    tile.setAttribute('role', 'presentation');
+    const tile = originalCreateTile.call(this, coords, done);
+    const tileKey = `${idx}_${coords.z}_${coords.x}_${coords.y}`;
 
-    const tileKey = `${basemapId}_${coords.z}_${coords.x}_${coords.y}`;
-
-    // 1. Check offline IndexedDB cache first
     getCachedTile(tileKey).then(blob => {
       if (blob) {
-        tile.onload = function() { done(null, tile); };
-        tile.onerror = function() { done(null, tile); };
         tile.src = URL.createObjectURL(blob);
-      } else {
-        // 2. Fetch live tile from network
-        tile.onload = function() {
-          done(null, tile);
-          // Background auto-cache if network fetch succeeds
-          if (dbMapCache && tile.src && !tile.src.startsWith('blob:')) {
-            try {
-              fetch(tile.src).then(r => r.ok ? r.blob() : null).then(b => {
-                if (b) saveCachedTile(tileKey, b);
-              }).catch(() => {});
-            } catch (_) {}
-          }
-        };
-        tile.onerror = function() {
-          done(null, tile);
-        };
-        tile.src = layer.getTileUrl(coords);
       }
-    }).catch(() => {
-      tile.onload = function() { done(null, tile); };
-      tile.onerror = function() { done(null, tile); };
-      tile.src = layer.getTileUrl(coords);
     });
 
     return tile;
@@ -2448,8 +2482,9 @@ function createOptimizedTileLayer(provider, basemapId) {
   return layer;
 }
 
+
 // =========================================================================
-// BASEMAP SELECTION & OFFLINE DATA MANAGER
+// BASEMAP SELECTION & REMOTE SENSING ENGINE (26 SPECIALIZED LAYERS)
 // =========================================================================
 function openBasemapModal() {
   renderBasemapCategories();
@@ -2518,7 +2553,7 @@ function renderBasemapCards() {
   if (filtered.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 24px; color: #94A3B8; font-size: 12px;">
-        No basemaps match "<b>${basemapSearchQuery}</b>".
+        No basemaps match "<b>${basemapSearchQuery}</b>". Try another keyword.
       </div>
     `;
     return;
@@ -2542,65 +2577,66 @@ function renderBasemapCards() {
 }
 
 function selectBasemapById(id) {
-  const option = BASEMAP_OPTIONS.find(b => b.id === id) || BASEMAP_OPTIONS[0];
-  activeBasemapId = option.id;
-
+  activeBasemapId = id;
   try {
-    localStorage.setItem('qfn_active_basemap', option.id);
-  } catch (_) {}
+    localStorage.setItem('qfn_active_basemap', id);
+  } catch (e) {}
 
   // Remove existing tile layers
   if (baseTileLayer) {
-    try { map.removeLayer(baseTileLayer); } catch (_) {}
+    try { map.removeLayer(baseTileLayer); } catch (e) {}
     baseTileLayer = null;
   }
   if (tileLayerCurrent) {
-    try { map.removeLayer(tileLayerCurrent); } catch (_) {}
+    try { map.removeLayer(tileLayerCurrent); } catch (e) {}
     tileLayerCurrent = null;
   }
   if (overlayTileLayer) {
-    try { map.removeLayer(overlayTileLayer); } catch (_) {}
+    try { map.removeLayer(overlayTileLayer); } catch (e) {}
     overlayTileLayer = null;
   }
 
-  // Reset any custom CSS filters on tilePane
-  const tilePane = map && map.getPane ? map.getPane('tilePane') : null;
+  // Reset any custom CSS filters on tile container
+  const tilePane = map.getPane ? map.getPane('tilePane') : null;
   if (tilePane) {
     tilePane.style.filter = '';
   }
 
-  if (option.id === 'none' || !option.url) {
-    // Blank Vector Canvas mode
-    const mapEl = document.getElementById('map');
-    if (mapEl) mapEl.style.background = '#0B132B';
+  const option = BASEMAP_OPTIONS.find(b => b.id === id);
+  if (!option || option.url === null) {
+    // Blank canvas mode (No Basemap)
     renderBasemapCards();
     closeModal('basemapModal');
-    showToast('Active: No Basemap (Blank Vector Canvas)');
+    showNotification('No Basemap Active (Blank Vector Canvas)');
     return;
   }
 
   if (option.type === 'draped') {
     // Dual layer: Base hillshade + overlay imagery with blend mode
     baseTileLayer = L.tileLayer(option.baseLayerUrl, {
-      ...(option.options || {}),
+      ...option.options,
       minZoom: 3,
-      maxZoom: option.options?.maxZoom || 19,
+      maxZoom: option.options.maxZoom || 19,
       updateWhenIdle: true
     }).addTo(map);
     baseTileLayer.bringToBack();
 
     overlayTileLayer = L.tileLayer(option.overlayLayerUrl, {
-      ...(option.options || {}),
+      ...option.options,
       minZoom: 3,
-      maxZoom: option.options?.maxZoom || 19,
+      maxZoom: option.options.maxZoom || 19,
       className: option.overlayBlend === 'color-burn' ? 'leaflet-color-burn-layer' : 'leaflet-draped-layer',
       updateWhenIdle: true
     }).addTo(map);
 
     tileLayerCurrent = overlayTileLayer;
+    if (option.overlayFilter && overlayTileLayer.getContainer) {
+      const c = overlayTileLayer.getContainer();
+      if (c) c.style.filter = option.overlayFilter;
+    }
   } else {
-    // Single optimized layer with IndexedDB-first caching
-    tileLayerCurrent = createOptimizedTileLayer(option, option.id).addTo(map);
+    // Standard or filtered single tile layer
+    tileLayerCurrent = createOptimizedTileLayer(option, id).addTo(map);
     tileLayerCurrent.bringToBack();
 
     if (option.cssFilter && tilePane) {
@@ -2610,23 +2646,1733 @@ function selectBasemapById(id) {
 
   renderBasemapCards();
   closeModal('basemapModal');
-  showToast(`Active Map: ${option.name}`);
+  showNotification(`Switched Basemap: ${option.name}`);
 }
 
 function cycleMapLayer() {
   openBasemapModal();
 }
 
+function clearMapGraphics() {
+  map.eachLayer(layer => {
+    if (layer !== tileLayerCurrent && layer !== gpsMarker && layer !== accuracyCircle && layer !== navGuidanceLine) {
+      if (layer._qfnFeature) {
+        map.removeLayer(layer);
+      }
+    }
+  });
+}
+
+// --- COMPASS, ROTATION & NORTH-FIX ENGINE (STABILIZED HDG MODE) ---
+let lastHeadingTime = 0;
+let lastAppliedHeading = 0;
+
+function initDeviceOrientation() {
+  if (window.DeviceOrientationEvent) {
+    // Only listen to ONE event to prevent double-firing jitter at 120Hz
+    if ('ondeviceorientationabsolute' in window) {
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+  }
+}
+
+function angleDifference(target, current) {
+  let diff = (target - current) % 360;
+  if (diff < -180) diff += 360;
+  if (diff > 180) diff -= 360;
+  return diff;
+}
+
+function handleOrientation(e) {
+  let rawHeading = null;
+  if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
+    rawHeading = e.webkitCompassHeading; // iOS Safari
+  } else if (e.alpha !== null && !isNaN(e.alpha)) {
+    rawHeading = (360 - e.alpha) % 360; // Android Chrome
+  }
+
+  if (rawHeading === null || isNaN(rawHeading)) return;
+
+  currentHeading = Math.round((rawHeading + 360) % 360);
+  const currentBearing = map && typeof map.getBearing === 'function' ? map.getBearing() : 0;
+  updateCompassDisplay(currentBearing);
+
+  // In HDG mode, smoothly rotate canvas with low-pass filter and deadband
+  if (compassOrientationMode === 'heading-up' && map && typeof map.setBearing === 'function') {
+    const now = Date.now();
+    // Throttle updates to at most once per 120ms to eliminate visual canvas jumping
+    if (now - lastHeadingTime > 120) {
+      const diff = angleDifference(currentHeading, lastAppliedHeading);
+      // Deadband: ignore resting sensor noise fluctuations smaller than 2.0 degrees
+      if (Math.abs(diff) >= 2.0) {
+        // Low-pass filter (0.35 blend)
+        const smoothed = (lastAppliedHeading + (diff * 0.35) + 360) % 360;
+        lastAppliedHeading = smoothed;
+        lastHeadingTime = now;
+        map.setBearing(smoothed);
+      }
+    }
+  }
+}
+
+function updateCompassDisplay(deg) {
+  const arrow = document.getElementById('compassArrow');
+  const degText = document.getElementById('compassDeg');
+  // Needle points to True North relative to map canvas
+  if (arrow) arrow.style.transform = `rotate(${-deg}deg)`;
+  if (degText) degText.textContent = `${Math.round((deg + 360) % 360)}°`;
+}
+
+// User clicked North Arrow -> Fix/Snap orientation back to True North
+function onCompassClicked() {
+  if (map && typeof map.setBearing === 'function') {
+    map.setBearing(0);
+  }
+  compassOrientationMode = 'manual';
+  lastAppliedHeading = 0;
+  const badge = document.getElementById('compassModeBadge');
+  if (badge) {
+    badge.textContent = 'NORTH';
+    badge.style.background = '#0284C7';
+  }
+  updateCompassDisplay(0);
+}
+
+// Toggle between Free Rotation / North mode and Magnetometer Heading mode
+function toggleCompassOrientation() {
+  const badge = document.getElementById('compassModeBadge');
+  if (compassOrientationMode === 'manual') {
+    compassOrientationMode = 'heading-up';
+    badge.textContent = 'HDG';
+    badge.style.background = '#10B981';
+    lastAppliedHeading = currentHeading;
+    if (map && typeof map.setBearing === 'function') {
+      map.setBearing(currentHeading);
+    }
+  } else {
+    compassOrientationMode = 'manual';
+    badge.textContent = 'NORTH';
+    badge.style.background = '#0284C7';
+    onCompassClicked();
+  }
+}
+
+// --- NAVIGATION ENGINE ---
+function startNavigationTo(lat, lon, name) {
+  navTarget = { lat: lat, lon: lon, name: name || 'Destination' };
+
+  const banner = document.getElementById('navBanner');
+  banner.style.display = 'flex';
+  document.getElementById('navTargetName').textContent = navTarget.name;
+
+  updateNavCalculations();
+}
+
+function cancelNavigation() {
+  navTarget = null;
+  const banner = document.getElementById('navBanner');
+  banner.style.display = 'none';
+  if (navGuidanceLine) {
+    map.removeLayer(navGuidanceLine);
+    navGuidanceLine = null;
+  }
+}
+
+function updateNavCalculations() {
+  if (!navTarget) return;
+
+  const d = calcDistanceMeters(currentLat, currentLon, navTarget.lat, navTarget.lon);
+  const brg = calcBearingDegrees(currentLat, currentLon, navTarget.lat, navTarget.lon);
+
+  const distStr = d >= 1000 ? (d / 1000).toFixed(2) + ' km' : Math.round(d) + ' m';
+  document.getElementById('navDist').textContent = distStr;
+  document.getElementById('navBrg').textContent = Math.round(brg) + '°';
+
+  if (navGuidanceLine) map.removeLayer(navGuidanceLine);
+  navGuidanceLine = L.polyline([[currentLat, currentLon], [navTarget.lat, navTarget.lon]], {
+    color: '#00F0FF',
+    weight: 3,
+    dashArray: '8, 8',
+    opacity: 0.9
+  }).addTo(map);
+}
+
+function calcDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi/2) * Math.sin(deltaPhi/2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda/2) * Math.sin(deltaLambda/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function calcBearingDegrees(lat1, lon1, lat2, lon2) {
+  const y = Math.sin((lon2 - lon1) * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180);
+  const x = Math.cos(lat1 * Math.PI / 180) * Math.sin(lat2 * Math.PI / 180) -
+            Math.sin(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.cos((lon2 - lon1) * Math.PI / 180);
+  const brg = Math.atan2(y, x) * 180 / Math.PI;
+  return (brg + 360) % 360;
+}
+
+// --- GNSS GEOLOCATION TRACKING ---
+function initGeolocation() {
+  if (!navigator.geolocation) {
+    document.getElementById('gnssBadge').textContent = 'GNSS: Unsupported';
+    return;
+  }
+
+  watchId = navigator.geolocation.watchPosition(
+    onGpsSuccess,
+    onGpsError,
+    { enableHighAccuracy: true, timeout: 60000, maximumAge: 0 }
+  );
+}
+
+function onGpsSuccess(pos) {
+  currentLat = pos.coords.latitude;
+  currentLon = pos.coords.longitude;
+  currentAlt = pos.coords.altitude || 0;
+  currentAccuracy = pos.coords.accuracy || 5;
+
+  if (pos.coords.heading && !isNaN(pos.coords.heading)) {
+    currentHeading = Math.round(pos.coords.heading);
+  }
+
+  // Update HUD
+  document.getElementById('gnssDot').style.background = '#10B981';
+  document.getElementById('gnssBadge').textContent = `±${Math.round(currentAccuracy)}m`;
+
+  // Update Position Marker
+  if (!gpsMarker) {
+    gpsMarker = L.circleMarker([currentLat, currentLon], {
+      radius: 9,
+      fillColor: '#00F0FF',
+      color: '#FFFFFF',
+      weight: 2.5,
+      opacity: 1,
+      fillOpacity: 0.95
+    }).addTo(map);
+  } else {
+    gpsMarker.setLatLng([currentLat, currentLon]);
+  }
+
+  // Update Accuracy Circle
+  if (!accuracyCircle) {
+    accuracyCircle = L.circle([currentLat, currentLon], {
+      radius: currentAccuracy,
+      color: '#38BDF8',
+      fillColor: '#38BDF8',
+      fillOpacity: 0.15,
+      weight: 1.5
+    }).addTo(map);
+  } else {
+    accuracyCircle.setLatLng([currentLat, currentLon]);
+    accuracyCircle.setRadius(currentAccuracy);
+  }
+
+  // Track Recording Point
+  if (isRecordingTrack) {
+    activeTrackPoints.push([currentLat, currentLon]);
+    if (!activeTrackPolyline) {
+      activeTrackPolyline = L.polyline(activeTrackPoints, { color: '#00F0FF', weight: 3.5 }).addTo(map);
+    } else {
+      activeTrackPolyline.setLatLngs(activeTrackPoints);
+    }
+  }
+
+  if (navTarget) updateNavCalculations();
+
+  // Item 2: Auto-Follow / Hold GPS Logic
+  if (isAutoFollowGps && currentLat && currentLon && map) {
+    map.panTo([currentLat, currentLon], { animate: true, duration: 0.5 });
+  }
+}
+
+// User-controlled Auto-Follow GPS toggle
+function toggleAutoFollowGps() {
+  setAutoFollowGps(!isAutoFollowGps);
+  if (isAutoFollowGps && currentLat && currentLon && map) {
+    map.setView([currentLat, currentLon], map.getZoom(), { animate: true });
+  }
+}
+
+function setAutoFollowGps(enabled) {
+  isAutoFollowGps = enabled;
+  const btn = document.getElementById('btnFollowGps');
+  if (btn) {
+    if (isAutoFollowGps) {
+      btn.classList.add('active-state');
+      btn.title = 'Auto-Follow GPS: ON (Map pans with moving position)';
+    } else {
+      btn.classList.remove('active-state');
+      btn.title = 'Auto-Follow GPS: OFF (Map stays held at one place)';
+    }
+  }
+}
+
+function onGpsError(err) {
+  document.getElementById('gnssDot').style.background = '#EF4444';
+  document.getElementById('gnssBadge').textContent = 'GNSS: Searching...';
+}
+
+function centerOnGps() {
+  if (map && currentLat && currentLon) {
+    map.setView([currentLat, currentLon], 16, { animate: true });
+  }
+}
+
+// --- TRACK RECORDING ---
+function toggleTrackRecording() {
+  const btn = document.getElementById('btnTrackRecord');
+  const icon = document.getElementById('trackIcon');
+  const label = document.getElementById('trackLabel');
+
+  if (!isRecordingTrack) {
+    isRecordingTrack = true;
+    activeTrackPoints = [[currentLat, currentLon]];
+    btn.classList.add('active');
+    icon.textContent = '⏹️';
+    label.textContent = 'Stop';
+  } else {
+    isRecordingTrack = false;
+    btn.classList.remove('active');
+    icon.textContent = '⏺️';
+    label.textContent = 'Track';
+
+    if (activeTrackPoints.length >= 2) {
+      const trackId = 'trk_' + Date.now();
+      const trackObj = {
+        id: trackId,
+        name: 'Track ' + new Date().toLocaleTimeString(),
+        points: [...activeTrackPoints],
+        timestamp: new Date().toISOString()
+      };
+      tracks.push(trackObj);
+      saveActiveProjectData();
+      renderAllProjectLayers();
+    }
+    activeTrackPoints = [];
+    activeTrackPolyline = null;
+  }
+}
+
+// --- MAP CLICK HANDLER (WITH REAL-TIME SNAPPING) ---
+function onMapClicked(e) {
+  if (isSelectingAoiBox) {
+    handleAoiMapClick(e);
+    return;
+  }
+
+  if (isDrawing) {
+    let pt = e.latlng;
+    if (isSnappingEnabled) {
+      try {
+        pt = findSnapPoint(e.latlng);
+      } catch (err) {
+        console.warn("Snap error:", err);
+        pt = e.latlng;
+      }
+    }
+    drawVertices.push([pt.lat, pt.lng]);
+    updateDrawPreview();
+    return;
+  }
+
+  lastClickedLatLng = e.latlng;
+  const popover = document.getElementById('mapClickPopover');
+  const point = map.latLngToContainerPoint(e.latlng);
+
+  popover.style.left = Math.min(point.x, window.innerWidth - 180) + 'px';
+  popover.style.top = Math.min(point.y, window.innerHeight - 160) + 'px';
+  popover.style.display = 'flex';
+
+  setTimeout(() => {
+    window.addEventListener('click', hidePopoverOnClickOutside, { once: true });
+  }, 100);
+}
+
+function hidePopoverOnClickOutside(e) {
+  const popover = document.getElementById('mapClickPopover');
+  if (!popover.contains(e.target)) {
+    popover.style.display = 'none';
+  }
+}
+
+function addWaypointAtClickedPoint() {
+  document.getElementById('mapClickPopover').style.display = 'none';
+  if (lastClickedLatLng) {
+    openWaypointModalWithCoords(lastClickedLatLng.lat, lastClickedLatLng.lng);
+  }
+}
+
+function startNavToClickedPoint() {
+  document.getElementById('mapClickPopover').style.display = 'none';
+  if (lastClickedLatLng) {
+    startNavigationTo(lastClickedLatLng.lat, lastClickedLatLng.lng, 'Pinned Point');
+  }
+}
+
+function startDrawAtClickedPoint() {
+  document.getElementById('mapClickPopover').style.display = 'none';
+  startDrawingMode('polygon');
+  if (lastClickedLatLng) {
+    drawVertices.push([lastClickedLatLng.lat, lastClickedLatLng.lng]);
+    updateDrawPreview();
+  }
+}
+
+// --- WAYPOINT MODAL & STORAGE ---
+function openQuickWaypointModal() {
+  openWaypointModalWithCoords(currentLat, currentLon);
+}
+
+function openWaypointModalWithCoords(lat, lon) {
+  document.getElementById('wptNameInput').value = 'WP-' + (waypoints.length + 1).toString().padStart(3, '0');
+  document.getElementById('wptNotesInput').value = '';
+  const accElem = document.getElementById('wptGpsAcc');
+  if (accElem) accElem.textContent = Math.round(currentAccuracy || 5);
+
+  window._tempWptCoords = { lat: lat, lon: lon };
+  setWptCoordinateSource('gps');
+  populateCategorySelects();
+  openModal('waypointModal');
+}
+
+function setWptCoordinateSource(source) {
+  wptCoordinateSource = source;
+  const btnGps = document.getElementById('btnWptSourceGps');
+  const btnCursor = document.getElementById('btnWptSourceCursor');
+  const label = document.getElementById('wptSourceLabel');
+
+  if (source === 'gps') {
+    if (btnGps) {
+      btnGps.style.background = 'rgba(0, 240, 255, 0.25)';
+      btnGps.style.borderColor = '#00F0FF';
+      btnGps.style.color = '#00F0FF';
+      btnGps.style.fontWeight = '800';
+    }
+    if (btnCursor) {
+      btnCursor.style.background = 'rgba(30,41,59,0.8)';
+      btnCursor.style.borderColor = 'rgba(255,255,255,0.15)';
+      btnCursor.style.color = '#CBD5E1';
+      btnCursor.style.fontWeight = 'normal';
+    }
+    if (label) label.textContent = 'GPS';
+    const lat = currentLat || (window._tempWptCoords ? window._tempWptCoords.lat : 0);
+    const lon = currentLon || (window._tempWptCoords ? window._tempWptCoords.lon : 0);
+    window._tempWptCoords = { lat: lat, lon: lon };
+    document.getElementById('wptCoordsLabel').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+    document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+  } else {
+    if (btnCursor) {
+      btnCursor.style.background = 'rgba(0, 240, 255, 0.25)';
+      btnCursor.style.borderColor = '#00F0FF';
+      btnCursor.style.color = '#00F0FF';
+      btnCursor.style.fontWeight = '800';
+    }
+    if (btnGps) {
+      btnGps.style.background = 'rgba(30,41,59,0.8)';
+      btnGps.style.borderColor = 'rgba(255,255,255,0.15)';
+      btnGps.style.color = '#CBD5E1';
+      btnGps.style.fontWeight = 'normal';
+    }
+    if (label) label.textContent = 'Cursor / Crosshair';
+    const center = map ? map.getCenter() : { lat: currentLat, lng: currentLon };
+    window._tempWptCoords = { lat: center.lat, lon: center.lng };
+    document.getElementById('wptCoordsLabel').textContent = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
+    document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+  }
+}
+
+function recordWaypointAtCursor() {
+  if (!map) return;
+  const center = map.getCenter();
+  openWaypointModalWithCoords(center.lat, center.lng);
+  setWptCoordinateSource('cursor');
+}
+
+function confirmSaveWaypoint() {
+  const name = document.getElementById('wptNameInput').value.trim() || 'Waypoint';
+  const notes = document.getElementById('wptNotesInput').value.trim();
+  const catSelect = document.getElementById('wptCategorySelect');
+  const catId = catSelect ? catSelect.value : 'general';
+
+  const coords = window._tempWptCoords || { lat: currentLat, lon: currentLon };
+
+  const wpt = {
+    id: 'wpt_' + Date.now(),
+    name: name,
+    categoryId: catId,
+    notes: notes,
+    lat: coords.lat,
+    lon: coords.lon,
+    elevation: currentAlt,
+    timestamp: new Date().toISOString()
+  };
+
+  waypoints.push(wpt);
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  closeModal('waypointModal');
+}
+
+// --- PHOTO CAPTURE & NOTES MODAL ---
+function triggerCameraCapture() {
+  document.getElementById('cameraInput').click();
+}
+
+function onPhotoCaptured(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const dataUrl = evt.target.result;
+    tempCapturedPhoto = {
+      id: 'photo_' + Date.now(),
+      dataUrl: dataUrl,
+      lat: currentLat,
+      lon: currentLon,
+      elevation: currentAlt,
+      timestamp: new Date().toISOString(),
+      comments: '',
+      categoryId: 'general'
+    };
+
+    if (autoPromptPhotoNote) {
+      document.getElementById('photoModalPreview').src = dataUrl;
+      document.getElementById('photoCoordsLabel').textContent = `Lat: ${currentLat.toFixed(5)}, Lon: ${currentLon.toFixed(5)}`;
+      document.getElementById('photoTimeLabel').textContent = new Date().toLocaleTimeString();
+      document.getElementById('photoCommentInput').value = '';
+      openModal('photoModal');
+    } else {
+      finalizeSavePhoto('');
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+function confirmSavePhotoNote() {
+  const comments = document.getElementById('photoCommentInput').value.trim();
+  const activeChip = document.querySelector('#photoCategoryChips .chip-badge.active');
+  if (tempCapturedPhoto && activeChip) {
+    tempCapturedPhoto.categoryId = activeChip.dataset.categoryId;
+  }
+  finalizeSavePhoto(comments);
+  closeModal('photoModal');
+}
+
+function skipPhotoNote() {
+  finalizeSavePhoto('');
+  closeModal('photoModal');
+}
+
+function finalizeSavePhoto(comments) {
+  if (!tempCapturedPhoto) return;
+  tempCapturedPhoto.comments = comments;
+  photos.push(tempCapturedPhoto);
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  tempCapturedPhoto = null;
+}
+
+function togglePhotoNoteSetting(enabled) {
+  autoPromptPhotoNote = enabled;
+}
+
+// --- DIGITIZING (DRAW LINE / POLYGON) ---
+function promptDrawMode() {
+  const choice = confirm("Press OK to draw a Polygon (Area), or Cancel to draw a Line (Trail/Track).");
+  startDrawingMode(choice ? 'polygon' : 'line');
+}
+
+function startDrawingMode(type) {
+  isDrawing = true;
+  drawType = type;
+  drawVertices = [];
+  document.getElementById('drawToolbar').style.display = 'flex';
+  document.getElementById('drawStatusText').textContent = `Drawing ${type}: 0 pts`;
+}
+
+
+// --- GIS VECTOR SNAPPING ENGINE ---
+function toggleSnapEngine() {
+  isSnappingEnabled = !isSnappingEnabled;
+  const btn = document.getElementById('btnSnapToggle');
+  if (btn) {
+    if (isSnappingEnabled) {
+      btn.textContent = '🧲 Snap: ON';
+      btn.style.background = 'rgba(16, 185, 129, 0.25)';
+      btn.style.borderColor = '#10B981';
+      btn.style.color = '#10B981';
+    } else {
+      btn.textContent = '🧲 Snap: OFF';
+      btn.style.background = 'rgba(100, 116, 139, 0.25)';
+      btn.style.borderColor = '#64748B';
+      btn.style.color = '#94A3B8';
+    }
+  }
+}
+
+function findSnapPoint(clickedLatLng) {
+  if (!isSnappingEnabled || !map) return clickedLatLng;
+
+  try {
+    const clickPx = map.latLngToContainerPoint(clickedLatLng);
+    let bestDist = SNAP_PIXEL_TOLERANCE;
+    let bestPt = null;
+
+    // 1. Snap to Waypoints
+    if (Array.isArray(waypoints)) {
+      waypoints.forEach(w => {
+        if (w.lat && w.lon) {
+          const ptPx = map.latLngToContainerPoint([w.lat, w.lon]);
+          const dist = clickPx.distanceTo(ptPx);
+          if (dist < bestDist) {
+            bestDist = dist;
+            bestPt = L.latLng(w.lat, w.lon);
+          }
+        }
+      });
+    }
+
+    // 2. Snap to Existing Digitized Feature Vertices
+    if (Array.isArray(digitizedFeatures)) {
+      digitizedFeatures.forEach(feat => {
+        (feat.vertices || []).forEach(v => {
+          if (Array.isArray(v) && v.length >= 2) {
+            const ptPx = map.latLngToContainerPoint(v);
+            const dist = clickPx.distanceTo(ptPx);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestPt = L.latLng(v[0], v[1]);
+            }
+          }
+        });
+      });
+    }
+
+    // 3. Snap to First Vertex of Current Polygon (Clean Closure)
+    if (drawType === 'polygon' && Array.isArray(drawVertices) && drawVertices.length >= 2) {
+      const firstV = drawVertices[0];
+      if (Array.isArray(firstV) && firstV.length >= 2) {
+        const ptPx = map.latLngToContainerPoint(firstV);
+        const dist = clickPx.distanceTo(ptPx);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPt = L.latLng(firstV[0], firstV[1]);
+        }
+      }
+    }
+
+    // 4. Snap to Imported Overlays (Shapefiles, GPX, KML, GeoJSON)
+    if (typeof importedOverlays !== 'undefined' && Array.isArray(importedOverlays)) {
+      importedOverlays.forEach(ov => {
+        if (ov && ov.visible && ov.layer && typeof ov.layer.eachLayer === 'function') {
+          ov.layer.eachLayer(l => {
+            if (l.getLatLng) {
+              const ptPx = map.latLngToContainerPoint(l.getLatLng());
+              const dist = clickPx.distanceTo(ptPx);
+              if (dist < bestDist) { bestDist = dist; bestPt = l.getLatLng(); }
+            } else if (l.getLatLngs) {
+              flattenLatLngs(l.getLatLngs()).forEach(ll => {
+                const ptPx = map.latLngToContainerPoint(ll);
+                const dist = clickPx.distanceTo(ptPx);
+                if (dist < bestDist) { bestDist = dist; bestPt = ll; }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    if (bestPt) {
+      flashSnapIndicator(bestPt);
+      if (navigator.vibrate) try { navigator.vibrate(25); } catch(_) {}
+      return bestPt;
+    }
+  } catch (err) {
+    console.warn("Snap calculation error:", err);
+  }
+
+  return clickedLatLng;
+}
+
+function flattenLatLngs(coords) {
+  const result = [];
+  function recurse(c) {
+    if (!c) return;
+    if (c.lat !== undefined && c.lng !== undefined) {
+      result.push(c);
+    } else if (Array.isArray(c)) {
+      c.forEach(recurse);
+    }
+  }
+  recurse(coords);
+  return result;
+}
+
+function flashSnapIndicator(latLng) {
+  if (activeSnapIndicator) map.removeLayer(activeSnapIndicator);
+  activeSnapIndicator = L.circleMarker(latLng, {
+    radius: 12,
+    color: '#00F0FF',
+    fillColor: '#00F0FF',
+    fillOpacity: 0.35,
+    weight: 2.5
+  }).addTo(map);
+
+  setTimeout(() => {
+    if (activeSnapIndicator) {
+      map.removeLayer(activeSnapIndicator);
+      activeSnapIndicator = null;
+    }
+  }, 400);
+}
+
+function updateDrawPreview() {
+  document.getElementById('drawStatusText').textContent = `Drawing ${drawType}: ${drawVertices.length} pts`;
+
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+
+  if (drawVertices.length >= 1) {
+    if (drawType === 'polygon' && drawVertices.length >= 3) {
+      drawPreviewLayer = L.polygon(drawVertices, { color: '#00F0FF', weight: 2.5, fillColor: '#00F0FF', fillOpacity: 0.25 }).addTo(map);
+    } else {
+      drawPreviewLayer = L.polyline(drawVertices, { color: '#00F0FF', weight: 2.5, dashArray: '6, 6' }).addTo(map);
+    }
+  }
+}
+
+function undoDrawVertex() {
+  if (drawVertices.length > 0) {
+    drawVertices.pop();
+    updateDrawPreview();
+  }
+}
+
+function cancelDrawing() {
+  isDrawing = false;
+  drawVertices = [];
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  document.getElementById('drawToolbar').style.display = 'none';
+}
+
+function finishDrawing() {
+  if (drawType === 'polygon' && drawVertices.length < 3) {
+    alert("Polygons require at least 3 points.");
+    return;
+  }
+  if (drawType === 'line' && drawVertices.length < 2) {
+    alert("Lines require at least 2 points.");
+    return;
+  }
+
+  isDrawing = false;
+  document.getElementById('drawToolbar').style.display = 'none';
+
+  document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
+  document.getElementById('drawCommentsInput').value = '';
+  document.getElementById('drawGeomInfo').textContent = `${drawType.toUpperCase()} with ${drawVertices.length} vertices`;
+
+  openModal('drawModal');
+}
+
+function confirmSaveDigitizedFeature() {
+  const name = document.getElementById('drawFeatureName').value.trim() || 'Digitized Feature';
+  const category = document.getElementById('drawFeatureCategory').value;
+  const comments = document.getElementById('drawCommentsInput').value.trim();
+
+  const feature = {
+    id: 'feat_' + Date.now(),
+    type: drawType,
+    name: name,
+    category: category,
+    comments: comments,
+    vertices: [...drawVertices],
+    timestamp: new Date().toISOString()
+  };
+
+  digitizedFeatures.push(feature);
+  saveActiveProjectData();
+
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  drawPreviewLayer = null;
+  drawVertices = [];
+
+  renderAllProjectLayers();
+  closeModal('drawModal');
+}
+
+// --- RENDER ALL PROJECT LAYERS ON MAP ---
+function renderAllProjectLayers() {
+  clearMapGraphics();
+
+  // 1. Waypoints (Discreet 6px vector circle markers)
+  waypoints.forEach(w => {
+    const cat = getCategoryById(w.categoryId);
+    const marker = L.circleMarker([w.lat, w.lon], {
+      radius: 6,
+      fillColor: cat.color,
+      color: '#FFFFFF',
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.95
+    }).addTo(map);
+
+    marker._qfnFeature = { type: 'waypoint', data: w };
+    marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+  });
+
+  // 2. Photos (Small camera badge)
+  photos.forEach(p => {
+    const icon = L.divIcon({
+      className: 'small-photo-marker',
+      html: '📷',
+      iconSize: [18, 18],
+      iconAnchor: [9, 9]
+    });
+    const marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
+    marker._qfnFeature = { type: 'photo', data: p };
+    marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+  });
+
+  // 3. Tracks
+  tracks.forEach(t => {
+    const poly = L.polyline(t.points, { color: '#38BDF8', weight: 2.5, opacity: 0.85 }).addTo(map);
+    poly._qfnFeature = { type: 'track', data: t };
+    poly.on('click', () => showFeatureInfo(poly._qfnFeature));
+  });
+
+  // 4. Digitized Polygons & Lines
+  digitizedFeatures.forEach(f => {
+    let layer = null;
+    if (f.type === 'polygon') {
+      layer = L.polygon(f.vertices, { color: '#EAB308', weight: 2, fillColor: '#EAB308', fillOpacity: 0.25 }).addTo(map);
+    } else {
+      layer = L.polyline(f.vertices, { color: '#10B981', weight: 2.5, dashArray: '6, 4' }).addTo(map);
+    }
+    layer._qfnFeature = { type: 'digitized', data: f };
+    layer.on('click', () => showFeatureInfo(layer._qfnFeature));
+  });
+}
+
+// --- FEATURE INFO MODAL (CLICK ANY MAP OBJECT) ---
+function showFeatureInfo(featRef) {
+  activeFeatureRef = featRef;
+  const title = document.getElementById('infoModalTitle');
+  const body = document.getElementById('infoModalBody');
+  const data = featRef.data;
+
+  if (featRef.type === 'waypoint') {
+    const cat = getCategoryById(data.categoryId);
+    title.innerHTML = `📍 Waypoint: ${data.name}`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Category:</b> <span style="color:${cat.color}; font-weight:800;">${cat.icon} ${cat.name}</span></div>
+        <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
+        <div><b>Elevation:</b> ${Math.round(data.elevation || 0)} m</div>
+        <div><b>Recorded:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Notes:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
+          ${data.notes || '<i>No notes recorded.</i>'}
+        </div>
+      </div>
+    `;
+  } else if (featRef.type === 'photo') {
+    title.innerHTML = `📷 Photo Observation`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <img src="${data.dataUrl}" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 10px; border: 1.5px solid var(--border-glass);">
+        <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
+        <div><b>Time:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Comments:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
+          ${data.comments || '<i>No comments recorded.</i>'}
+        </div>
+      </div>
+    `;
+  } else if (featRef.type === 'digitized') {
+    title.innerHTML = `✏️ Digitized: ${data.name}`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Type:</b> ${data.type.toUpperCase()}</div>
+        <div><b>Category:</b> ${data.category}</div>
+        <div><b>Vertices:</b> ${data.vertices.length} points</div>
+        <div><b>Created:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Feedback:</div>
+        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
+          ${data.comments || '<i>No feedback recorded.</i>'}
+        </div>
+      </div>
+    `;
+  } else if (featRef.type === 'track') {
+    title.innerHTML = `⏺️ Track: ${data.name}`;
+    body.innerHTML = `
+      <div style="font-size: 14px; line-height: 1.8;">
+        <div><b>Total Points:</b> ${data.points.length}</div>
+        <div><b>Started:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+      </div>
+    `;
+  }
+
+  document.getElementById('btnDeleteFeature').style.display = 'inline-flex';
+  document.getElementById('btnNavToFeature').style.display = 'inline-flex';
+  openModal('featureInfoModal');
+}
+
+function startNavToCurrentFeature() {
+  if (!activeFeatureRef) return;
+  const d = activeFeatureRef.data;
+  let lat = null, lon = null, name = 'Target';
+
+  if (d.lat && d.lon) {
+    lat = d.lat; lon = d.lon; name = d.name || 'Waypoint';
+  } else if (d.vertices && d.vertices.length > 0) {
+    lat = d.vertices[0][0]; lon = d.vertices[0][1]; name = d.name || 'Feature';
+  }
+
+  if (lat && lon) {
+    closeModal('featureInfoModal');
+    startNavigationTo(lat, lon, name);
+  }
+}
+
+function deleteCurrentFeature() {
+  if (!activeFeatureRef) return;
+  if (!confirm("Delete this feature permanently?")) return;
+
+  const d = activeFeatureRef.data;
+  if (activeFeatureRef.type === 'waypoint') {
+    waypoints = waypoints.filter(w => w.id !== d.id);
+  } else if (activeFeatureRef.type === 'photo') {
+    photos = photos.filter(p => p.id !== d.id);
+  } else if (activeFeatureRef.type === 'digitized') {
+    digitizedFeatures = digitizedFeatures.filter(f => f.id !== d.id);
+  } else if (activeFeatureRef.type === 'track') {
+    tracks = tracks.filter(t => t.id !== d.id);
+  }
+
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  closeModal('featureInfoModal');
+}
+
+// --- LOCAL OVERLAYS (SHAPEFILE, GPX, KML, GEOJSON) ---
+function triggerOverlayUpload() {
+  document.getElementById('overlayFileInput').click();
+}
+
+function onOverlayFileSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const fileName = file.name;
+  const ext = fileName.split('.').pop().toLowerCase();
+  const reader = new FileReader();
+
+  if (ext === 'zip') {
+    reader.onload = function(evt) {
+      if (window.shp) {
+        window.shp(evt.target.result).then(geojson => {
+          addGeoJsonOverlay(fileName, geojson);
+        }).catch(err => alert("Error parsing shapefile zip: " + err));
+      } else {
+        alert("Shapefile parser is initializing, please retry.");
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  } else if (ext === 'gpx') {
+    reader.onload = function(evt) {
+      parseAndAddGpxOverlay(fileName, evt.target.result);
+    };
+    reader.readAsText(file);
+  } else if (ext === 'kml') {
+    reader.onload = function(evt) {
+      parseAndAddKmlOverlay(fileName, evt.target.result);
+    };
+    reader.readAsText(file);
+  } else if (ext === 'geojson' || ext === 'json') {
+    reader.onload = function(evt) {
+      try {
+        const geojson = JSON.parse(evt.target.result);
+        addGeoJsonOverlay(fileName, geojson);
+      } catch (err) { alert("Invalid GeoJSON: " + err); }
+    };
+    reader.readAsText(file);
+  } else {
+    alert("Unsupported file type. Please upload .zip (Shapefile), .gpx, .kml, or .geojson.");
+  }
+}
+
+function addGeoJsonOverlay(name, geojson) {
+  const layerId = 'overlay_' + Date.now();
+  const layer = L.geoJSON(geojson, {
+    style: { color: '#F59E0B', weight: 2.5, fillOpacity: 0.25 },
+    pointToLayer: function(f, latlng) {
+      return L.circleMarker(latlng, { radius: 6, fillColor: '#F59E0B', color: '#FFF', weight: 1.5 });
+    },
+    onEachFeature: function(feature, layer) {
+      layer.on('click', () => {
+        showOverlayFeatureInfo(name, feature.properties || {});
+      });
+    }
+  }).addTo(map);
+
+  importedOverlays.push({
+    id: layerId,
+    name: name,
+    layer: layer,
+    visible: true,
+    opacity: 1
+  });
+
+  renderOverlaysList();
+  if (layer.getBounds().isValid()) {
+    map.fitBounds(layer.getBounds());
+  }
+}
+
+function parseAndAddGpxOverlay(name, xmlString) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlString, "application/xml");
+  const wpts = xml.getElementsByTagName("wpt");
+  const trkpts = xml.getElementsByTagName("trkpt");
+
+  const group = L.featureGroup();
+
+  for (let i = 0; i < wpts.length; i++) {
+    const lat = parseFloat(wpts[i].getAttribute("lat"));
+    const lon = parseFloat(wpts[i].getAttribute("lon"));
+    const nameEl = wpts[i].getElementsByTagName("name")[0];
+    const wptName = nameEl ? nameEl.textContent : "Waypoint";
+    const m = L.circleMarker([lat, lon], { radius: 6, fillColor: '#10B981', color: '#FFF', weight: 1.5 });
+    m.bindPopup(wptName);
+    group.addLayer(m);
+  }
+
+  const trackCoords = [];
+  for (let i = 0; i < trkpts.length; i++) {
+    const lat = parseFloat(trkpts[i].getAttribute("lat"));
+    const lon = parseFloat(trkpts[i].getAttribute("lon"));
+    trackCoords.push([lat, lon]);
+  }
+  if (trackCoords.length > 0) {
+    const poly = L.polyline(trackCoords, { color: '#10B981', weight: 3 });
+    group.addLayer(poly);
+  }
+
+  group.addTo(map);
+  const layerId = 'overlay_' + Date.now();
+  importedOverlays.push({
+    id: layerId,
+    name: name,
+    layer: group,
+    visible: true,
+    opacity: 1
+  });
+
+  renderOverlaysList();
+  if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+}
+
+function parseAndAddKmlOverlay(name, xmlString) {
+  const parser = new DOMParser();
+  const xml = parser.parseFromString(xmlString, "application/xml");
+  const placemarks = xml.getElementsByTagName("Placemark");
+  const group = L.featureGroup();
+
+  for (let i = 0; i < placemarks.length; i++) {
+    const coordsEl = placemarks[i].getElementsByTagName("coordinates")[0];
+    if (coordsEl) {
+      const coordStr = coordsEl.textContent.trim().split(/\s+/);
+      const pts = coordStr.map(c => {
+        const parts = c.split(',');
+        return [parseFloat(parts[1]), parseFloat(parts[0])];
+      }).filter(p => !isNaN(p[0]) && !isNaN(p[1]));
+
+      if (pts.length === 1) {
+        const m = L.circleMarker(pts[0], { radius: 6, fillColor: '#EC4899', color: '#FFF', weight: 1.5 });
+        group.addLayer(m);
+      } else if (pts.length > 1) {
+        const poly = L.polyline(pts, { color: '#EC4899', weight: 3 });
+        group.addLayer(poly);
+      }
+    }
+  }
+
+  group.addTo(map);
+  const layerId = 'overlay_' + Date.now();
+  importedOverlays.push({
+    id: layerId,
+    name: name,
+    layer: group,
+    visible: true,
+    opacity: 1
+  });
+
+  renderOverlaysList();
+  if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+}
+
+function renderOverlaysList() {
+  const container = document.getElementById('overlaysList');
+  if (!container) return;
+
+  if (importedOverlays.length === 0) {
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">No local overlay layers added yet. Tap <b>Add Layer</b> to load files.</div>';
+    return;
+  }
+
+  container.innerHTML = '';
+  importedOverlays.forEach((ov, idx) => {
+    const row = document.createElement('div');
+    row.className = 'layer-row';
+    row.innerHTML = `
+      <div class="layer-header-row">
+        <div style="font-size: 14px; font-weight: 800; color: #FFFFFF;">🗺️ ${ov.name}</div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="toggleOverlayVisibility(${idx})">
+            ${ov.visible ? '👁️ On' : '🚫 Off'}
+          </button>
+          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="removeOverlay(${idx})">🗑️</button>
+        </div>
+      </div>
+      <div class="layer-slider-row">
+        <span>Opacity:</span>
+        <input type="range" min="0" max="1" step="0.05" value="${ov.opacity}" oninput="setOverlayOpacity(${idx}, this.value)">
+        <span style="min-width: 38px; text-align: right;">${Math.round(ov.opacity * 100)}%</span>
+      </div>
+    `;
+    container.appendChild(row);
+  });
+}
+
+function toggleOverlayVisibility(idx) {
+  const ov = importedOverlays[idx];
+  ov.visible = !ov.visible;
+  if (ov.visible) {
+    map.addLayer(ov.layer);
+  } else {
+    map.removeLayer(ov.layer);
+  }
+  renderOverlaysList();
+}
+
+function setOverlayOpacity(idx, val) {
+  const ov = importedOverlays[idx];
+  ov.opacity = parseFloat(val);
+  if (ov.layer.setStyle) {
+    ov.layer.setStyle({ opacity: ov.opacity, fillOpacity: ov.opacity * 0.35 });
+  }
+  renderOverlaysList();
+}
+
+function removeOverlay(idx) {
+  const ov = importedOverlays[idx];
+  map.removeLayer(ov.layer);
+  importedOverlays.splice(idx, 1);
+  renderOverlaysList();
+}
+
+function showOverlayFeatureInfo(layerName, props) {
+  const title = document.getElementById('infoModalTitle');
+  const body = document.getElementById('infoModalBody');
+  title.innerHTML = `🗺️ ${layerName}`;
+
+  let rows = '';
+  for (const k in props) {
+    rows += `<div><b>${k}:</b> ${props[k]}</div>`;
+  }
+  body.innerHTML = `
+    <div style="font-size: 14px; line-height: 1.8;">
+      ${rows || '<i>No attribute properties found.</i>'}
+    </div>
+  `;
+  document.getElementById('btnDeleteFeature').style.display = 'none';
+  document.getElementById('btnNavToFeature').style.display = 'none';
+  openModal('featureInfoModal');
+}
+
+// --- SPEECH-TO-TEXT DICTATION ENGINE ---
+function initSpeechEngine() {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SpeechRecognition) return;
+
+  recognition = new SpeechRecognition();
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.lang = navigator.language || 'en-US';
+
+  recognition.onresult = function(e) {
+    let transcript = '';
+    for (let i = e.resultIndex; i < e.results.length; ++i) {
+      transcript += e.results[i][0].transcript;
+    }
+    handleSpeechResult(transcript);
+  };
+
+  recognition.onerror = function() {
+    stopDictation();
+  };
+  recognition.onend = function() {
+    if (isDictating) stopDictation();
+  };
+}
+
+function onSpeechLocaleChanged() {
+  const sel = document.getElementById('speechLocaleSelect');
+  if (recognition) {
+    recognition.lang = sel.value === 'auto' ? (navigator.language || 'en-US') : sel.value;
+  }
+}
+
+function toggleVoiceDictation() {
+  if (isDictating) {
+    stopDictation();
+  } else {
+    startDictation('dock');
+  }
+}
+
+function toggleWaypointDictation() {
+  if (isDictating) stopDictation(); else startDictation('waypoint');
+}
+
+function togglePhotoDictation() {
+  if (isDictating) stopDictation(); else startDictation('photo');
+}
+
+function toggleDrawDictation() {
+  if (isDictating) stopDictation(); else startDictation('draw');
+}
+
+function startDictation(target) {
+  activeDictationTarget = target;
+  isDictating = true;
+  updateDictationUI(true);
+
+  // 1. Android Native Flutter WebView Bridge (100% Reliable in APK)
+  if (window.NativeSpeechBridge) {
+    try {
+      window.NativeSpeechBridge.postMessage('start');
+      return;
+    } catch (e) {
+      console.warn('Native speech postMessage failed:', e);
+    }
+  }
+
+  // 2. Standard Web Speech API (Chrome / Safari / Web Browser)
+  if (recognition) {
+    try {
+      recognition.start();
+      return;
+    } catch (e) {}
+  }
+
+  // 3. Fallback: Open Seismic Terms & Keyword Quick Pad
+  isDictating = false;
+  updateDictationUI(false);
+  openSeismicPad(target === 'waypoint' ? 'wptNotesInput' : (target === 'photo' ? 'photoCommentInput' : 'drawCommentsInput'));
+}
+
+function stopDictation() {
+  isDictating = false;
+  if (window.NativeSpeechBridge) {
+    try { window.NativeSpeechBridge.postMessage('stop'); } catch(e) {}
+  }
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+  }
+  updateDictationUI(false);
+}
+
+// Android Native Speech Callbacks
+window.onNativeSpeechResult = function(text, isFinal) {
+  handleSpeechResult(text);
+  if (isFinal) {
+    setTimeout(() => { stopDictation(); }, 1200);
+  }
+};
+
+window.onNativeSpeechError = function(err) {
+  console.warn('Native speech error:', err);
+  stopDictation();
+};
+
+window.onNativeSpeechStatus = function(status) {
+  if (status === 'done' || status === 'notListening') {
+    stopDictation();
+  }
+};
+
+// Seismic Keyword Pad Helper
+function openSeismicPad(targetInputId) {
+  activeVoiceTargetId = targetInputId;
+  const targetElem = document.getElementById(targetInputId);
+  const preview = document.getElementById('seismicVoicePreview');
+  if (preview && targetElem) preview.value = targetElem.value;
+  openModal('seismicVoiceModal');
+}
+
+function insertSeismicTerm(term) {
+  const preview = document.getElementById('seismicVoicePreview');
+  if (!preview) return;
+  const current = preview.value.trim();
+  preview.value = current ? `${current}; ${term}` : term;
+}
+
+function confirmSeismicVoiceText() {
+  const preview = document.getElementById('seismicVoicePreview');
+  if (preview && activeVoiceTargetId) {
+    const target = document.getElementById(activeVoiceTargetId);
+    if (target) target.value = preview.value;
+  }
+  closeModal('seismicVoiceModal');
+}
+
+function stopDictation() {
+  isDictating = false;
+  if (recognition) {
+    try { recognition.stop(); } catch(e) {}
+  }
+  updateDictationUI(false);
+}
+
+function updateDictationUI(active) {
+  const dockBtn = document.getElementById('btnVoiceDock');
+  const dockIcon = document.getElementById('micIconDock');
+  const dockLabel = document.getElementById('micLabelDock');
+
+  if (active) {
+    dockBtn.style.background = '#EF4444';
+    dockIcon.textContent = '⏹️';
+    dockLabel.textContent = 'Listening...';
+  } else {
+    dockBtn.style.background = 'linear-gradient(135deg, #0284C7, #00F0FF)';
+    dockIcon.textContent = '🎙️';
+    dockLabel.textContent = 'Dictate';
+  }
+}
+
+function handleSpeechResult(rawText) {
+  const clean = cleanDictationText(rawText);
+
+  if (activeDictationTarget === 'waypoint') {
+    document.getElementById('wptNotesInput').value = clean;
+  } else if (activeDictationTarget === 'photo') {
+    document.getElementById('photoCommentInput').value = clean;
+  } else if (activeDictationTarget === 'draw') {
+    document.getElementById('drawCommentsInput').value = clean;
+  } else if (activeDictationTarget === 'dock') {
+    openWaypointModalWithCoords(currentLat, currentLon);
+    document.getElementById('wptNotesInput').value = clean;
+    stopDictation();
+  }
+}
+
+function cleanDictationText(txt) {
+  return txt
+    .replace(/\bseismic\b/gi, "Seismic")
+    .replace(/\bgeophone\b/gi, "Geophone")
+    .replace(/\bvibroseis\b/gi, "Vibroseis")
+    .replace(/\bsabkha\b/gi, "Sabkha")
+    .replace(/\bwadi\b/gi, "Wadi")
+    .replace(/\bpipeline\b/gi, "Pipeline");
+}
+
+// --- MULTI-FORMAT EXPORT ENGINE ---
+function openExportModal() {
+  document.getElementById('exportProjectName').textContent = currentProjectName;
+  openModal('exportModal');
+}
+
+// 1. Export Package (.scoutpkg)
+function exportScoutPackage() {
+  const zip = new JSZip();
+
+  const manifest = {
+    packageName: currentProjectName,
+    exportDate: new Date().toISOString(),
+    generator: "Quik Field Notes",
+    author: "Field Operator",
+    waypoints: waypoints,
+    tracks: tracks,
+    digitizedFeatures: digitizedFeatures
+  };
+
+  zip.file("manifest.json", JSON.stringify(manifest, null, 2));
+  zip.file("waypoints.json", JSON.stringify(waypoints, null, 2));
+  zip.file("tracks.json", JSON.stringify(tracks, null, 2));
+  zip.file("digitized.json", JSON.stringify(digitizedFeatures, null, 2));
+
+  const photosFolder = zip.folder("photos");
+  const photosMeta = [];
+
+  photos.forEach((p, idx) => {
+    const filename = `photo_${idx + 1}.jpg`;
+    photosMeta.push({
+      filename: filename,
+      lat: p.lat,
+      lon: p.lon,
+      elevation: p.elevation,
+      timestamp: p.timestamp,
+      comments: p.comments,
+      categoryId: p.categoryId
+    });
+
+    const base64Data = p.dataUrl.split(',')[1];
+    if (base64Data) {
+      photosFolder.file(filename, base64Data, { base64: true });
+    }
+  });
+
+  zip.file("photos.json", JSON.stringify(photosMeta, null, 2));
+
+  zip.generateAsync({ type: "blob" }).then(content => {
+    downloadBlob(content, `${sanitizeFileName(currentProjectName)}_Field_Package.scoutpkg`);
+  });
+}
+
+// 2. Export Field Notes CSV
+function exportFieldNotesCsv() {
+  let csv = '\uFEFF';
+  csv += 'Project,Type,ID,Name,Category,Latitude,Longitude,Elevation_m,Timestamp,Comments_Notes\r\n';
+
+  waypoints.forEach(w => {
+    const cat = getCategoryById(w.categoryId);
+    csv += `"${escapeCsv(currentProjectName)}","Waypoint","${w.id}","${escapeCsv(w.name)}","${escapeCsv(cat.name)}",${w.lat.toFixed(6)},${w.lon.toFixed(6)},${Math.round(w.elevation || 0)},"${w.timestamp}","${escapeCsv(w.notes)}"\r\n`;
+  });
+
+  photos.forEach((p, idx) => {
+    const cat = getCategoryById(p.categoryId);
+    csv += `"${escapeCsv(currentProjectName)}","Photo","${p.id}","Photo ${idx+1}","${escapeCsv(cat.name)}",${p.lat.toFixed(6)},${p.lon.toFixed(6)},${Math.round(p.elevation || 0)},"${p.timestamp}","${escapeCsv(p.comments)}"\r\n`;
+  });
+
+  digitizedFeatures.forEach(f => {
+    const center = f.vertices && f.vertices.length > 0 ? f.vertices[0] : [0, 0];
+    csv += `"${escapeCsv(currentProjectName)}","Digitized_${f.type}","${f.id}","${escapeCsv(f.name)}","${escapeCsv(f.category)}",${center[0].toFixed(6)},${center[1].toFixed(6)},0,"${f.timestamp}","${escapeCsv(f.comments)}"\r\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Field_Notes.csv`);
+}
+
+// 3. Export GPX Format
+function exportGpxData() {
+  let gpx = '<?xml version="1.0" encoding="UTF-8"?>\r\n';
+  gpx += '<gpx version="1.1" creator="Quik Field Notes" xmlns="http://www.topografix.com/GPX/1/1">\r\n';
+  gpx += `  <metadata><name>${escapeXml(currentProjectName)}</name><time>${new Date().toISOString()}</time></metadata>\r\n`;
+
+  waypoints.forEach(w => {
+    const cat = getCategoryById(w.categoryId);
+    gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\r\n`;
+    gpx += `    <name>${escapeXml(w.name)}</name>\r\n`;
+    gpx += `    <desc>${escapeXml(w.notes || '')}</desc>\r\n`;
+    gpx += `    <type>${escapeXml(cat.name)}</type>\r\n`;
+    if (w.elevation) gpx += `    <ele>${w.elevation}</ele>\r\n`;
+    gpx += `    <time>${w.timestamp}</time>\r\n`;
+    gpx += `  </wpt>\r\n`;
+  });
+
+  tracks.forEach(t => {
+    gpx += `  <trk>\r\n    <name>${escapeXml(t.name)}</name>\r\n    <trkseg>\r\n`;
+    t.points.forEach(pt => {
+      gpx += `      <trkpt lat="${pt[0]}" lon="${pt[1]}"></trkpt>\r\n`;
+    });
+    gpx += `    </trkseg>\r\n  </trk>\r\n`;
+  });
+
+  gpx += '</gpx>';
+
+  const blob = new Blob([gpx], { type: 'application/gpx+xml;charset=utf-8;' });
+  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Field_Data.gpx`);
+}
+
+// 4. Export GeoJSON Data
+function exportGeoJsonData() {
+  const fc = {
+    type: "FeatureCollection",
+    features: []
+  };
+
+  waypoints.forEach(w => {
+    fc.features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [w.lon, w.lat] },
+      properties: { name: w.name, category: getCategoryById(w.categoryId).name, notes: w.notes, timestamp: w.timestamp }
+    });
+  });
+
+  digitizedFeatures.forEach(f => {
+    const coords = f.vertices.map(v => [v[1], v[0]]);
+    if (f.type === 'polygon') {
+      if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
+        coords.push([...coords[0]]);
+      }
+      fc.features.push({
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [coords] },
+        properties: { name: f.name, category: f.category, comments: f.comments, timestamp: f.timestamp }
+      });
+    } else {
+      fc.features.push({
+        type: "Feature",
+        geometry: { type: "LineString", coordinates: coords },
+        properties: { name: f.name, category: f.category, comments: f.comments, timestamp: f.timestamp }
+      });
+    }
+  });
+
+  const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json;charset=utf-8;' });
+  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Digitized_Layers.geojson`);
+}
+
+// 5. Export Photos Zip
+
 // =========================================================================
-// AOI MODAL & TILE DOWNLOAD ENGINE (INDEXEDDB PERSISTENCE)
+// OFFLINE BASEMAP CACHE & STORAGE MEMORY ENGINE (INDEXEDDB)
 // =========================================================================
+function initMapCacheDb() {
+  return new Promise((resolve) => {
+    if (!window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    const req = window.indexedDB.open(CACHE_DB_NAME, 1);
+    req.onupgradeneeded = function(e) {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains('tiles')) {
+        db.createObjectStore('tiles', { keyPath: 'key' });
+      }
+    };
+    req.onsuccess = function(e) {
+      dbMapCache = e.target.result;
+      resolve(dbMapCache);
+    };
+    req.onerror = function() {
+      resolve(null);
+    };
+  });
+}
+
+function getCachedTile(key) {
+  return new Promise((resolve) => {
+    if (!dbMapCache) { resolve(null); return; }
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readonly');
+      const store = tx.objectStore('tiles');
+      const req = store.get(key);
+      req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+      req.onerror = () => resolve(null);
+    } catch (_) { resolve(null); }
+  });
+}
+
+function saveCachedTile(key, blob) {
+  return new Promise((resolve) => {
+    if (!dbMapCache) { resolve(); return; }
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readwrite');
+      const store = tx.objectStore('tiles');
+      store.put({ key: key, blob: blob, size: blob.size, timestamp: Date.now() });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (_) { resolve(); }
+  });
+}
+
+// Device Storage Quota & Analysis (W3C navigator.storage)
+async function analyzeDeviceStorage() {
+  let usageMB = 0;
+  let quotaMB = 0;
+  let freeMB = 0;
+
+  if (navigator.storage && navigator.storage.estimate) {
+    try {
+      const estimate = await navigator.storage.estimate();
+      usageMB = ((estimate.usage || 0) / (1024 * 1024)).toFixed(1);
+      quotaMB = ((estimate.quota || 0) / (1024 * 1024)).toFixed(1);
+      freeMB = Math.max(0, quotaMB - usageMB).toFixed(1);
+    } catch (_) {}
+  }
+
+  // Count tiles in cache
+  let cachedTileCount = 0;
+  let cachedBytes = 0;
+  if (dbMapCache) {
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readonly');
+      const store = tx.objectStore('tiles');
+      const req = store.openCursor();
+      await new Promise((res) => {
+        req.onsuccess = function(e) {
+          const cursor = e.target.result;
+          if (cursor) {
+            cachedTileCount++;
+            cachedBytes += (cursor.value.size || 25000);
+            cursor.continue();
+          } else {
+            res();
+          }
+        };
+        req.onerror = () => res();
+      });
+    } catch (_) {}
+  }
+  const cachedMB = (cachedBytes / (1024 * 1024)).toFixed(1);
+
+  // Update UI Elements
+  const summary = document.getElementById('storageSummaryText');
+  const usedText = document.getElementById('storageUsedText');
+  const freeText = document.getElementById('storageFreeText');
+  const fill = document.getElementById('storageMeterFill');
+  const alertBox = document.getElementById('storageLowAlert');
+
+  if (summary) summary.textContent = `${cachedTileCount} tiles (${cachedMB} MB cached)`;
+  if (usedText) usedText.textContent = `Used: ${usageMB} MB / ${quotaMB} MB`;
+  if (freeText) freeText.textContent = `Free: ${freeMB} MB`;
+
+  if (fill && quotaMB > 0) {
+    const pct = Math.min(100, (usageMB / quotaMB) * 100).toFixed(0);
+    fill.style.width = pct + '%';
+    if (pct > 85 || freeMB < 50) {
+      fill.classList.add('warn');
+      if (alertBox) alertBox.style.display = 'block';
+    } else {
+      fill.classList.remove('warn');
+      if (alertBox) alertBox.style.display = 'none';
+    }
+  }
+
+  return { freeMB: parseFloat(freeMB), usageMB: parseFloat(usageMB) };
+}
+
+function clearTileCache() {
+  if (!confirm("Clear all cached offline map tiles to free up device memory?")) return;
+  if (!dbMapCache) return;
+  try {
+    const tx = dbMapCache.transaction('tiles', 'readwrite');
+    const store = tx.objectStore('tiles');
+    store.clear();
+    tx.oncomplete = function() {
+      alert("Offline map cache cleared successfully!");
+      analyzeDeviceStorage();
+    };
+  } catch (e) {
+    alert("Error clearing cache: " + e.message);
+  }
+}
+
+// AOI Modal Management
+// =========================================================================
+// INTERACTIVE AOI BOX SELECTION ENGINE
+// =========================================================================
+function handleAoiMapClick(e) {
+  if (!aoiBoxCorner1) {
+    aoiBoxCorner1 = e.latlng;
+    const bannerTxt = document.getElementById('aoiBannerText');
+    if (bannerTxt) bannerTxt.textContent = '📍 Corner 1 set! Now tap opposite corner to create AOI box';
+    showToast('Corner 1 set. Tap opposite corner.');
+  } else {
+    const corner2 = e.latlng;
+    currentAoiCustomBounds = L.latLngBounds(aoiBoxCorner1, corner2);
+    if (aoiBoxPreview && map) {
+      try { map.removeLayer(aoiBoxPreview); } catch (_) {}
+    }
+    aoiBoxPreview = L.rectangle(currentAoiCustomBounds, {
+      color: '#00F0FF',
+      weight: 2.5,
+      dashArray: '6, 6',
+      fillColor: '#00F0FF',
+      fillOpacity: 0.15
+    }).addTo(map);
+
+    const sw = currentAoiCustomBounds.getSouthWest();
+    const ne = currentAoiCustomBounds.getNorthEast();
+    const nw = L.latLng(ne.lat, sw.lng);
+    const widthKm = (nw.distanceTo(ne) / 1000).toFixed(2);
+    const heightKm = (sw.distanceTo(nw) / 1000).toFixed(2);
+    const areaKm2 = (widthKm * heightKm).toFixed(2);
+
+    const dimsElem = document.getElementById('aoiActionDimensions');
+    if (dimsElem) dimsElem.textContent = `AOI: ${widthKm}×${heightKm} km (${areaKm2} km²)`;
+
+    const banner = document.getElementById('aoiSelectionBanner');
+    if (banner) banner.style.display = 'none';
+
+    const pill = document.getElementById('aoiActionPill');
+    if (pill) pill.style.display = 'flex';
+
+    isSelectingAoiBox = false;
+    aoiBoxCorner1 = null;
+    showToast(`AOI Box Defined: ${areaKm2} km²`);
+  }
+}
+
+function confirmAoiSelection() {
+  const pill = document.getElementById('aoiActionPill');
+  if (pill) pill.style.display = 'none';
+  openAoiModal();
+}
+
+function cancelAoiSelection() {
+  isSelectingAoiBox = false;
+  aoiBoxCorner1 = null;
+  const banner = document.getElementById('aoiSelectionBanner');
+  if (banner) banner.style.display = 'none';
+  const pill = document.getElementById('aoiActionPill');
+  if (pill) pill.style.display = 'none';
+}
+
+function clearAoiSelection() {
+  cancelAoiSelection();
+  if (aoiBoxPreview && map) {
+    try { map.removeLayer(aoiBoxPreview); } catch (_) {}
+    aoiBoxPreview = null;
+  }
+  currentAoiCustomBounds = null;
+  showToast('AOI Box Cleared');
+}
+
+function setAoiSelectionMode(mode) {
+  const btnScreen = document.getElementById('btnAoiModeScreen');
+  const btnCustom = document.getElementById('btnAoiModeCustom');
+  if (mode === 'screen') {
+    currentAoiCustomBounds = null;
+    if (aoiBoxPreview && map) {
+      try { map.removeLayer(aoiBoxPreview); } catch (_) {}
+      aoiBoxPreview = null;
+    }
+    if (btnScreen) { btnScreen.style.borderColor = '#00F0FF'; btnScreen.style.color = '#00F0FF'; }
+    if (btnCustom) { btnCustom.style.borderColor = 'rgba(255,255,255,0.15)'; btnCustom.style.color = '#CBD5E1'; }
+    updateAoiEstimate();
+  }
+}
+
+function startAoiBoxSelection() {
+  closeModal('aoiModal');
+  closeModal('basemapModal');
+  isSelectingAoiBox = true;
+  aoiBoxCorner1 = null;
+  const banner = document.getElementById('aoiSelectionBanner');
+  if (banner) {
+    banner.style.display = 'flex';
+    const bannerTxt = document.getElementById('aoiBannerText');
+    if (bannerTxt) bannerTxt.textContent = '📐 Tap 1st corner on map to start AOI box';
+  }
+  showToast('Tap Corner 1 on map');
+}
 
 function openAoiModal() {
   if (!map) return;
-  const targetOpt = BASEMAP_OPTIONS.find(b => b.id === activeBasemapId) || BASEMAP_OPTIONS[0];
-  const targetNameElem = document.getElementById('aoiTargetBasemapName');
-  if (targetNameElem) targetNameElem.textContent = targetOpt.name;
-
   const bounds = currentAoiCustomBounds || map.getBounds();
   const btnScreen = document.getElementById('btnAoiModeScreen');
   const btnCustom = document.getElementById('btnAoiModeCustom');
@@ -2686,26 +4432,25 @@ function updateAoiEstimate() {
   const countElem = document.getElementById('aoiTileCountText');
   const sizeElem = document.getElementById('aoiDownloadSizeText');
   if (countElem) countElem.textContent = totalTiles.toLocaleString();
-  if (sizeElem) sizeElem.textContent = estMB + ' MB';
+  if (sizeElem) sizeElem.textContent = estMB;
 }
 
-function cancelAoiDownload() {
-  cancelAoiFlag = true;
-  isDownloadingAoi = false;
-  const progContainer = document.getElementById('aoiProgressContainer');
-  if (progContainer) progContainer.style.display = 'none';
-  const btn = document.getElementById('btnStartAoiDownload');
-  if (btn) btn.textContent = '🚀 Cache AOI Now';
-  showToast('Download cancelled');
+function latLonToTileXY(lat, lon, zoom) {
+  const n = Math.pow(2, zoom);
+  const rad = lat * Math.PI / 180;
+  const x = Math.floor((lon + 180) / 360 * n);
+  const y = Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n);
+  return { x: x, y: y };
 }
 
+// AOI Tile Downloader
 async function startAoiDownload() {
   if (isDownloadingAoi) return;
   const storage = await analyzeDeviceStorage();
   const sizeElem = document.getElementById('aoiDownloadSizeText');
   const requiredMB = parseFloat(sizeElem ? sizeElem.textContent : '10');
 
-  if (storage.freeMB > 0 && storage.freeMB < requiredMB + 15) {
+  if (storage.freeMB > 0 && storage.freeMB < requiredMB + 20) {
     if (!confirm(`Warning: Free space (${storage.freeMB} MB) is close to download size (${requiredMB} MB). Proceed anyway?`)) {
       return;
     }
@@ -2723,7 +4468,6 @@ async function startAoiDownload() {
   for (let z = minZ; z <= maxZ; z++) {
     const minTile = latLonToTileXY(bounds.getNorth(), bounds.getWest(), z);
     const maxTile = latLonToTileXY(bounds.getSouth(), bounds.getEast(), z);
-
     const minX = Math.min(minTile.x, maxTile.x);
     const maxX = Math.max(minTile.x, maxTile.x);
     const minY = Math.min(minTile.y, maxTile.y);
@@ -2734,11 +4478,6 @@ async function startAoiDownload() {
         tileList.push({ z: z, x: x, y: y });
       }
     }
-  }
-
-  if (tileList.length === 0) {
-    showToast('No tiles to download');
-    return;
   }
 
   isDownloadingAoi = true;
@@ -2752,22 +4491,21 @@ async function startAoiDownload() {
   if (progContainer) progContainer.style.display = 'block';
   if (btn) btn.textContent = 'Downloading...';
 
-  const provider = BASEMAP_OPTIONS.find(b => b.id === activeBasemapId) || BASEMAP_OPTIONS[0];
+  const provider = TILE_PROVIDERS[tileLayerIndex];
   let completed = 0;
 
   for (const t of tileList) {
     if (cancelAoiFlag) break;
-    const tileKey = `${activeBasemapId}_${t.z}_${t.x}_${t.y}`;
+    const tileKey = `${tileLayerIndex}_${t.z}_${t.x}_${t.y}`;
     const cached = await getCachedTile(tileKey);
-    if (!cached && provider.url) {
+    if (!cached) {
       let tileUrl = provider.url.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y);
       if (provider.url.includes('{s}')) {
-        const subs = (provider.options && provider.options.subdomains) || ['a', 'b', 'c'];
-        const s = Array.isArray(subs) ? subs[Math.floor(Math.random() * subs.length)] : subs[0];
-        tileUrl = tileUrl.replace('{s}', s);
+        const sub = ['a', 'b', 'c'][Math.floor(Math.random() * 3)];
+        tileUrl = tileUrl.replace('{s}', sub);
       }
       try {
-        const resp = await fetch(tileUrl);
+        const resp = await fetch(tileUrl, { mode: 'cors' });
         if (resp.ok) {
           const blob = await resp.blob();
           await saveCachedTile(tileKey, blob);
@@ -2778,33 +4516,13 @@ async function startAoiDownload() {
     const pct = Math.floor((completed / tileList.length) * 100);
     if (progBar) progBar.style.width = pct + '%';
     if (progPct) progPct.textContent = pct + '%';
-    if (progLabel) progLabel.textContent = `Cached ${completed}/${tileList.length} tiles (${pct}%)`;
+    if (progLabel) progLabel.textContent = `Downloaded ${completed} of ${tileList.length} tiles`;
   }
 
   isDownloadingAoi = false;
   if (btn) btn.textContent = '🚀 Cache AOI Now';
-  if (progLabel) progLabel.textContent = 'Cache complete! Available 100% offline.';
+  if (progLabel) progLabel.textContent = 'Cache download complete! Ready for 100% offline field navigation.';
   analyzeDeviceStorage();
-
-  // Add persistent green boundary on map
-  try {
-    const offlineBox = L.rectangle(bounds, {
-      color: '#10B981',
-      weight: 2,
-      dashArray: '5,5',
-      fillColor: '#10B981',
-      fillOpacity: 0.08
-    }).addTo(map);
-    offlineBox.bindTooltip(`💾 Offline Cache: ${provider.name} (Z${minZ}-${maxZ})`, { permanent: false });
-    aoiCachedRectangles.push(offlineBox);
-  } catch (_) {}
-
-  // Force redraw so cached tiles immediately appear on canvas
-  if (tileLayerCurrent && tileLayerCurrent.redraw) {
-    tileLayerCurrent.redraw();
-  }
-
-  showToast(`Offline Cache Ready: ${completed} tiles`);
 }
 
 // Export Georeferenced Basemap (.png + .pgw + .prj)
