@@ -393,6 +393,64 @@ body, html {
   border-color: #10B981 !important;
 }
 
+
+/* Basemap Selection Cards */
+.basemap-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.basemap-card:active {
+  transform: scale(0.98);
+}
+.basemap-card.active {
+  background: rgba(2, 132, 199, 0.25);
+  border-color: #00F0FF;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.3);
+}
+.basemap-card-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.basemap-card-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+.basemap-card-name {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+.basemap-card-desc {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+.basemap-card-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: transparent;
+  transition: all 0.15s ease;
+}
+.basemap-card.active .basemap-card-check {
+  background: #00F0FF;
+  border-color: #00F0FF;
+  color: #0A0F1D;
+  font-weight: 900;
+}
+
 /* Storage Bar Meter */
 .storage-meter-track {
   width: 100%;
@@ -822,7 +880,7 @@ body, html {
   <div class="hud-actions">
     <button class="btn-icon-hud active-state" id="btnFollowGps" onclick="toggleAutoFollowGps()" title="Auto-Follow GPS: ON (Tap to Hold Map)">🛰️</button>
     <button class="btn-icon-hud" id="btnOfflineAOI" onclick="openAoiModal()" title="Offline Basemap AOI & Storage Caching">📥</button>
-    <button class="btn-icon-hud" onclick="cycleMapLayer()" title="Switch Map Background">🗺️</button>
+    <button class="btn-icon-hud" onclick="openBasemapModal()" title="Basemap & Offline Map Data">🗺️</button>
     <button class="btn-icon-hud" onclick="openSettingsModal()" title="Settings & Layers">⚙️</button>
   </div>
 </div>
@@ -1206,6 +1264,85 @@ body, html {
 <!-- ========================================================================= -->
 <!-- MODAL: OFFLINE BASEMAP AOI DOWNLOADER & STORAGE MANAGER                     -->
 <!-- ========================================================================= -->
+<!-- ========================================================================= -->
+<!-- MODAL: BASEMAP SELECTION & OFFLINE MAP DATA DOWNLOADER                    -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="basemapModal">
+  <div class="modal-content" style="max-height: 90vh;">
+    <div class="modal-header">
+      <div class="modal-title">🗺️ Basemap & Offline Map Data</div>
+      <button class="modal-close" onclick="closeModal('basemapModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
+      <!-- Section 1: Choose Active Basemap -->
+      <div>
+        <label class="form-label" style="margin-bottom: 8px;">Select Map Background Style</label>
+        <div style="display: flex; flex-direction: column; gap: 8px;" id="basemapCardsList">
+          <!-- Populated dynamically with Satellite, OSM, Topo, No Basemap -->
+        </div>
+      </div>
+
+      <!-- Section 2: Prominent Basemap & Vector Data Download -->
+      <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid var(--accent); border-radius: 14px; padding: 12px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span style="font-size: 18px;">📥</span>
+          <span style="font-size: 13px; font-weight: 800; color: #00F0FF;">Offline Maps & Data Downloader</span>
+        </div>
+        <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 10px; line-height: 1.5;">
+          Download and cache basemap tiles into device storage for 100% offline navigation in remote seismic zones, or export data.
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="btn btn-primary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="closeModal('basemapModal'); openAoiModal();">
+            <span style="font-size: 20px;">🚀</span>
+            <div>
+              <div style="font-weight: 800;">Download / Cache Basemap AOI</div>
+              <div style="font-size: 10px; color: #0A0F1D;">Select detail level & store tiles into local memory for offline field use.</div>
+            </div>
+          </button>
+
+          <button class="btn btn-secondary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="exportAoiBasemapPackage()">
+            <span style="font-size: 20px;">🖼️</span>
+            <div>
+              <div style="font-weight: 800; color: #FFF;">Export Basemap as Georeferenced Image (.zip)</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Calibrated PNG with ESRI World File (.pgw) & WGS84 PRJ.</div>
+            </div>
+          </button>
+
+          <button class="btn btn-secondary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="exportShapefilesZip()">
+            <span style="font-size: 20px;">📁</span>
+            <div>
+              <div style="font-weight: 800; color: #FFF;">Export Vector Data as ESRI Shapefiles (.zip)</div>
+              <div style="font-size: 10px; color: var(--text-muted);">All waypoints, lines, and polygons (.shp, .shx, .dbf, .prj) for GIS.</div>
+            </div>
+          </button>
+
+          <button class="btn btn-secondary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="exportKmlData()">
+            <span style="font-size: 20px;">🌐</span>
+            <div>
+              <div style="font-weight: 800; color: #FFF;">Export Vector Data as Google Earth KML (.kml)</div>
+              <div style="font-size: 10px; color: var(--text-muted);">Standard 3D vector map file for Google Earth & global GIS.</div>
+            </div>
+          </button>
+        </div>
+
+        <!-- Storage Status & Clear Cache -->
+        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-size: 11px; color: var(--text-muted);">
+            Cache: <b id="basemapCacheStatusText" style="color: #00F0FF;">Checking...</b>
+          </div>
+          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px; min-height: 28px;" onclick="clearTileCache()">🧹 Clear Cache</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('basemapModal')">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-overlay" id="aoiModal">
   <div class="modal-content" style="max-height: 90vh;">
     <div class="modal-header">
@@ -1869,6 +2006,71 @@ function createOptimizedTileLayer(provider, idx) {
   return layer;
 }
 
+
+// =========================================================================
+// BASEMAP SELECTION & OFFLINE DATA MANAGER
+// =========================================================================
+const BASEMAP_OPTIONS = [
+  { id: 0, name: "Satellite (ESRI World Imagery)", icon: "🛰️", desc: "High-resolution satellite & aerial imagery", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' } },
+  { id: 1, name: "OpenStreetMap", icon: "🗺️", desc: "Standard street & topographic vector map", url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", options: { maxZoom: 19, attribution: '&copy; OpenStreetMap' } },
+  { id: 2, name: "Terrain / Topo (ESRI)", icon: "🏔️", desc: "Elevation contours & hillshade relief", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' } },
+  { id: -1, name: "No Basemap (Blank Canvas)", icon: "🚫", desc: "Vector features only - dark high-contrast canvas", url: null, options: {} }
+];
+
+let activeBasemapId = 0;
+
+function openBasemapModal() {
+  renderBasemapCards();
+  analyzeDeviceStorage().then(storage => {
+    const cachedElem = document.getElementById('basemapCacheStatusText');
+    if (cachedElem) {
+      cachedElem.textContent = document.getElementById('storageSummaryText')?.textContent || '0 cached tiles';
+    }
+  });
+  openModal('basemapModal');
+}
+
+function renderBasemapCards() {
+  const container = document.getElementById('basemapCardsList');
+  if (!container) return;
+  container.innerHTML = BASEMAP_OPTIONS.map(b => `
+    <div class="basemap-card ${b.id === activeBasemapId ? 'active' : ''}" onclick="selectBasemapById(${b.id})">
+      <div class="basemap-card-info">
+        <span class="basemap-card-icon">${b.icon}</span>
+        <div>
+          <div class="basemap-card-name">${b.name}</div>
+          <div class="basemap-card-desc">${b.desc}</div>
+        </div>
+      </div>
+      <div class="basemap-card-check">✓</div>
+    </div>
+  `).join('');
+}
+
+function selectBasemapById(id) {
+  activeBasemapId = id;
+  if (baseTileLayer) {
+    map.removeLayer(baseTileLayer);
+    baseTileLayer = null;
+  }
+  if (tileLayerCurrent) {
+    map.removeLayer(tileLayerCurrent);
+    tileLayerCurrent = null;
+  }
+
+  const option = BASEMAP_OPTIONS.find(b => b.id === id);
+  if (option && option.url) {
+    tileLayerIndex = id;
+    tileLayerCurrent = createOptimizedTileLayer(option, id).addTo(map);
+    tileLayerCurrent.bringToBack();
+  } else {
+    // No Basemap selected (Blank Canvas)
+    tileLayerIndex = -1;
+  }
+  renderBasemapCards();
+  closeModal('basemapModal');
+}
+
 function cycleMapLayer() {
   tileLayerIndex = (tileLayerIndex + 1) % TILE_PROVIDERS.length;
   if (tileLayerCurrent) map.removeLayer(tileLayerCurrent);
@@ -1886,26 +2088,56 @@ function clearMapGraphics() {
   });
 }
 
-// --- COMPASS, ROTATION & NORTH-FIX ENGINE ---
+// --- COMPASS, ROTATION & NORTH-FIX ENGINE (STABILIZED HDG MODE) ---
+let lastHeadingTime = 0;
+let lastAppliedHeading = 0;
+
 function initDeviceOrientation() {
   if (window.DeviceOrientationEvent) {
-    window.addEventListener('deviceorientationabsolute', handleOrientation, true);
-    window.addEventListener('deviceorientation', handleOrientation, true);
+    // Only listen to ONE event to prevent double-firing jitter at 120Hz
+    if ('ondeviceorientationabsolute' in window) {
+      window.addEventListener('deviceorientationabsolute', handleOrientation, true);
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
   }
 }
 
+function angleDifference(target, current) {
+  let diff = (target - current) % 360;
+  if (diff < -180) diff += 360;
+  if (diff > 180) diff -= 360;
+  return diff;
+}
+
 function handleOrientation(e) {
-  let heading = null;
-  if (e.webkitCompassHeading) {
-    heading = e.webkitCompassHeading; // iOS Safari
-  } else if (e.alpha !== null) {
-    heading = 360 - e.alpha; // Android Chrome
+  let rawHeading = null;
+  if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
+    rawHeading = e.webkitCompassHeading; // iOS Safari
+  } else if (e.alpha !== null && !isNaN(e.alpha)) {
+    rawHeading = (360 - e.alpha) % 360; // Android Chrome
   }
 
-  if (heading !== null && !isNaN(heading)) {
-    currentHeading = Math.round(heading);
-    if (compassOrientationMode === 'heading-up' && map && typeof map.setBearing === 'function') {
-      map.setBearing(currentHeading);
+  if (rawHeading === null || isNaN(rawHeading)) return;
+
+  currentHeading = Math.round((rawHeading + 360) % 360);
+  const currentBearing = map && typeof map.getBearing === 'function' ? map.getBearing() : 0;
+  updateCompassDisplay(currentBearing);
+
+  // In HDG mode, smoothly rotate canvas with low-pass filter and deadband
+  if (compassOrientationMode === 'heading-up' && map && typeof map.setBearing === 'function') {
+    const now = Date.now();
+    // Throttle updates to at most once per 120ms to eliminate visual canvas jumping
+    if (now - lastHeadingTime > 120) {
+      const diff = angleDifference(currentHeading, lastAppliedHeading);
+      // Deadband: ignore resting sensor noise fluctuations smaller than 2.0 degrees
+      if (Math.abs(diff) >= 2.0) {
+        // Low-pass filter (0.35 blend)
+        const smoothed = (lastAppliedHeading + (diff * 0.35) + 360) % 360;
+        lastAppliedHeading = smoothed;
+        lastHeadingTime = now;
+        map.setBearing(smoothed);
+      }
     }
   }
 }
@@ -1924,6 +2156,7 @@ function onCompassClicked() {
     map.setBearing(0);
   }
   compassOrientationMode = 'manual';
+  lastAppliedHeading = 0;
   const badge = document.getElementById('compassModeBadge');
   if (badge) {
     badge.textContent = 'NORTH';
@@ -1939,6 +2172,7 @@ function toggleCompassOrientation() {
     compassOrientationMode = 'heading-up';
     badge.textContent = 'HDG';
     badge.style.background = '#10B981';
+    lastAppliedHeading = currentHeading;
     if (map && typeof map.setBearing === 'function') {
       map.setBearing(currentHeading);
     }
@@ -2157,7 +2391,15 @@ function toggleTrackRecording() {
 // --- MAP CLICK HANDLER (WITH REAL-TIME SNAPPING) ---
 function onMapClicked(e) {
   if (isDrawing) {
-    const pt = isSnappingEnabled ? findSnapPoint(e.latlng) : e.latlng;
+    let pt = e.latlng;
+    if (isSnappingEnabled) {
+      try {
+        pt = findSnapPoint(e.latlng);
+      } catch (err) {
+        console.warn("Snap error:", err);
+        pt = e.latlng;
+      }
+    }
     drawVertices.push([pt.lat, pt.lng]);
     updateDrawPreview();
     return;
@@ -2402,76 +2644,99 @@ function toggleSnapEngine() {
 function findSnapPoint(clickedLatLng) {
   if (!isSnappingEnabled || !map) return clickedLatLng;
 
-  const clickPx = map.latLngToContainerPoint(clickedLatLng);
-  let bestDist = SNAP_PIXEL_TOLERANCE;
-  let bestPt = null;
+  try {
+    const clickPx = map.latLngToContainerPoint(clickedLatLng);
+    let bestDist = SNAP_PIXEL_TOLERANCE;
+    let bestPt = null;
 
-  // 1. Snap to Waypoints
-  waypoints.forEach(w => {
-    const ptPx = map.latLngToContainerPoint([w.lat, w.lon]);
-    const dist = clickPx.distanceTo(ptPx);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestPt = L.latLng(w.lat, w.lon);
-    }
-  });
-
-  // 2. Snap to Existing Digitized Feature Vertices
-  digitizedFeatures.forEach(feat => {
-    (feat.vertices || []).forEach(v => {
-      const ptPx = map.latLngToContainerPoint(v);
-      const dist = clickPx.distanceTo(ptPx);
-      if (dist < bestDist) {
-        bestDist = dist;
-        bestPt = L.latLng(v[0], v[1]);
-      }
-    });
-  });
-
-  // 3. Snap to First Vertex of Current Polygon (Clean Closure)
-  if (drawType === 'polygon' && drawVertices.length >= 2) {
-    const firstV = drawVertices[0];
-    const ptPx = map.latLngToContainerPoint(firstV);
-    const dist = clickPx.distanceTo(ptPx);
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestPt = L.latLng(firstV[0], firstV[1]);
-    }
-  }
-
-  // 4. Snap to Loaded Basemap Overlay Features (Shapefiles, GPX, KML, GeoJSON)
-  loadedOverlayLayers.forEach(overlay => {
-    if (overlay.geojson && overlay.geojson.features) {
-      overlay.geojson.features.forEach(f => {
-        extractCoordsForSnap(f.geometry).forEach(c => {
-          const ptPx = map.latLngToContainerPoint([c[1], c[0]]);
+    // 1. Snap to Waypoints
+    if (Array.isArray(waypoints)) {
+      waypoints.forEach(w => {
+        if (w.lat && w.lon) {
+          const ptPx = map.latLngToContainerPoint([w.lat, w.lon]);
           const dist = clickPx.distanceTo(ptPx);
           if (dist < bestDist) {
             bestDist = dist;
-            bestPt = L.latLng(c[1], c[0]);
+            bestPt = L.latLng(w.lat, w.lon);
+          }
+        }
+      });
+    }
+
+    // 2. Snap to Existing Digitized Feature Vertices
+    if (Array.isArray(digitizedFeatures)) {
+      digitizedFeatures.forEach(feat => {
+        (feat.vertices || []).forEach(v => {
+          if (Array.isArray(v) && v.length >= 2) {
+            const ptPx = map.latLngToContainerPoint(v);
+            const dist = clickPx.distanceTo(ptPx);
+            if (dist < bestDist) {
+              bestDist = dist;
+              bestPt = L.latLng(v[0], v[1]);
+            }
           }
         });
       });
     }
-  });
 
-  if (bestPt) {
-    flashSnapIndicator(bestPt);
-    if (navigator.vibrate) try { navigator.vibrate(25); } catch(_) {}
-    return bestPt;
+    // 3. Snap to First Vertex of Current Polygon (Clean Closure)
+    if (drawType === 'polygon' && Array.isArray(drawVertices) && drawVertices.length >= 2) {
+      const firstV = drawVertices[0];
+      if (Array.isArray(firstV) && firstV.length >= 2) {
+        const ptPx = map.latLngToContainerPoint(firstV);
+        const dist = clickPx.distanceTo(ptPx);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestPt = L.latLng(firstV[0], firstV[1]);
+        }
+      }
+    }
+
+    // 4. Snap to Imported Overlays (Shapefiles, GPX, KML, GeoJSON)
+    if (typeof importedOverlays !== 'undefined' && Array.isArray(importedOverlays)) {
+      importedOverlays.forEach(ov => {
+        if (ov && ov.visible && ov.layer && typeof ov.layer.eachLayer === 'function') {
+          ov.layer.eachLayer(l => {
+            if (l.getLatLng) {
+              const ptPx = map.latLngToContainerPoint(l.getLatLng());
+              const dist = clickPx.distanceTo(ptPx);
+              if (dist < bestDist) { bestDist = dist; bestPt = l.getLatLng(); }
+            } else if (l.getLatLngs) {
+              flattenLatLngs(l.getLatLngs()).forEach(ll => {
+                const ptPx = map.latLngToContainerPoint(ll);
+                const dist = clickPx.distanceTo(ptPx);
+                if (dist < bestDist) { bestDist = dist; bestPt = ll; }
+              });
+            }
+          });
+        }
+      });
+    }
+
+    if (bestPt) {
+      flashSnapIndicator(bestPt);
+      if (navigator.vibrate) try { navigator.vibrate(25); } catch(_) {}
+      return bestPt;
+    }
+  } catch (err) {
+    console.warn("Snap calculation error:", err);
   }
+
   return clickedLatLng;
 }
 
-function extractCoordsForSnap(geom) {
-  if (!geom || !geom.coordinates) return [];
-  const coords = [];
+function flattenLatLngs(coords) {
+  const result = [];
   function recurse(c) {
-    if (typeof c[0] === 'number') coords.push(c);
-    else c.forEach(recurse);
+    if (!c) return;
+    if (c.lat !== undefined && c.lng !== undefined) {
+      result.push(c);
+    } else if (Array.isArray(c)) {
+      c.forEach(recurse);
+    }
   }
-  recurse(geom.coordinates);
-  return coords;
+  recurse(coords);
+  return result;
 }
 
 function flashSnapIndicator(latLng) {
