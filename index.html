@@ -394,12 +394,72 @@ body, html {
 }
 
 
-/* Basemap Selection Cards */
+/* Basemap Selection & Search Styles */
+.basemap-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 8px 12px;
+}
+.basemap-search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  font-size: 13px;
+  outline: none;
+}
+.basemap-search-box input::placeholder {
+  color: #94A3B8;
+}
+.basemap-chips-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: none;
+}
+.basemap-chips-bar::-webkit-scrollbar {
+  display: none;
+}
+.basemap-chip {
+  padding: 5px 11px;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #CBD5E1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.basemap-chip.active {
+  background: rgba(0, 240, 255, 0.2);
+  border-color: #00F0FF;
+  color: #00F0FF;
+}
+.basemap-badge {
+  display: inline-block;
+  padding: 2px 7px;
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 6px;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: #00F0FF;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 6px;
+}
 .basemap-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 14px;
+  padding: 11px 13px;
   background: rgba(30, 41, 59, 0.7);
   border: 1.5px solid rgba(255, 255, 255, 0.12);
   border-radius: 14px;
@@ -418,19 +478,28 @@ body, html {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 1;
 }
 .basemap-card-icon {
   font-size: 22px;
   line-height: 1;
+  min-width: 26px;
+  text-align: center;
 }
 .basemap-card-name {
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 800;
   color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
 }
 .basemap-card-desc {
   font-size: 10.5px;
   color: var(--text-muted);
+  line-height: 1.35;
+  margin-top: 2px;
 }
 .basemap-card-check {
   width: 22px;
@@ -443,12 +512,20 @@ body, html {
   font-size: 12px;
   color: transparent;
   transition: all 0.15s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 .basemap-card.active .basemap-card-check {
   background: #00F0FF;
   border-color: #00F0FF;
-  color: #0A0F1D;
+  color: #0B132B;
   font-weight: 900;
+}
+.leaflet-draped-layer {
+  mix-blend-mode: multiply !important;
+}
+.leaflet-color-burn-layer {
+  mix-blend-mode: color-burn !important;
 }
 
 /* Storage Bar Meter */
@@ -1268,81 +1345,65 @@ body, html {
 <!-- MODAL: BASEMAP SELECTION & OFFLINE MAP DATA DOWNLOADER                    -->
 <!-- ========================================================================= -->
 <div class="modal-overlay" id="basemapModal">
-  <div class="modal-content" style="max-height: 90vh;">
+  <div class="modal-content" style="max-height: 92vh; display: flex; flex-direction: column;">
     <div class="modal-header">
-      <div class="modal-title">🗺️ Basemap & Offline Map Data</div>
+      <div class="modal-title">🗺️ Basemaps & Remote Sensing</div>
       <button class="modal-close" onclick="closeModal('basemapModal')">&times;</button>
     </div>
 
-    <div class="modal-body" style="display: flex; flex-direction: column; gap: 14px;">
-      <!-- Section 1: Choose Active Basemap -->
-      <div>
-        <label class="form-label" style="margin-bottom: 8px;">Select Map Background Style</label>
-        <div style="display: flex; flex-direction: column; gap: 8px;" id="basemapCardsList">
-          <!-- Populated dynamically with Satellite, OSM, Topo, No Basemap -->
-        </div>
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+      <!-- Search Filter Bar -->
+      <div class="basemap-search-box">
+        <span>🔍</span>
+        <input type="text" id="basemapSearchInput" placeholder="Search imagery, DEM, NDVI, contours..." oninput="filterBasemaps()" />
+        <button id="basemapClearSearchBtn" onclick="clearBasemapSearch()" style="background:none; border:none; color:#94A3B8; font-size:14px; cursor:pointer; display:none;">✕</button>
       </div>
 
-      <!-- Section 2: Prominent Basemap & Vector Data Download -->
-      <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid var(--accent); border-radius: 14px; padding: 12px;">
-        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
-          <span style="font-size: 18px;">📥</span>
-          <span style="font-size: 13px; font-weight: 800; color: #00F0FF;">Offline Maps & Data Downloader</span>
+      <!-- Category Filter Chips -->
+      <div class="basemap-chips-bar" id="basemapChipsContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Basemap Cards List (Scrollable) -->
+      <div style="display: flex; flex-direction: column; gap: 8px; max-height: 38vh; overflow-y: auto; padding-right: 2px;" id="basemapCardsList">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Prominent Basemap & Vector Data Download Section -->
+      <div style="background: rgba(15, 23, 42, 0.85); border: 1.5px solid var(--accent); border-radius: 14px; padding: 12px; margin-top: 4px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 18px;">📥</span>
+            <span style="font-size: 13px; font-weight: 800; color: #00F0FF;">Offline Maps & Data Downloader</span>
+          </div>
+          <span style="font-size: 10.5px; color: #10B981; font-weight: 700;" id="basemapCacheStatusText">Ready</span>
         </div>
-        <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 10px; line-height: 1.5;">
-          Download and cache basemap tiles into device storage for 100% offline navigation in remote seismic zones, or export data.
+        <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 10px; line-height: 1.4;">
+          Caches current basemap layer into device storage for 100% offline navigation in remote seismic zones.
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 8px;">
-          <button class="btn btn-primary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="closeModal('basemapModal'); openAoiModal();">
-            <span style="font-size: 20px;">🚀</span>
-            <div>
-              <div style="font-weight: 800;">Download / Cache Basemap AOI</div>
-              <div style="font-size: 10px; color: #0A0F1D;">Select detail level & store tiles into local memory for offline field use.</div>
-            </div>
+          <button class="btn btn-primary" onclick="closeModal('basemapModal'); openModal('aoiModal');" style="width: 100%; justify-content: center; padding: 10px; font-size: 12px; font-weight: 800; background: linear-gradient(135deg, #0284C7, #00F0FF); color: #0B132B;">
+            ⚡ Download Active Basemap AOI
           </button>
-
-          <button class="btn btn-secondary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="exportAoiBasemapPackage()">
-            <span style="font-size: 20px;">🖼️</span>
-            <div>
-              <div style="font-weight: 800; color: #FFF;">Export Basemap as Georeferenced Image (.zip)</div>
-              <div style="font-size: 10px; color: var(--text-muted);">Calibrated PNG with ESRI World File (.pgw) & WGS84 PRJ.</div>
-            </div>
-          </button>
-
-          <button class="btn btn-secondary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="exportShapefilesZip()">
-            <span style="font-size: 20px;">📁</span>
-            <div>
-              <div style="font-weight: 800; color: #FFF;">Export Vector Data as ESRI Shapefiles (.zip)</div>
-              <div style="font-size: 10px; color: var(--text-muted);">All waypoints, lines, and polygons (.shp, .shx, .dbf, .prj) for GIS.</div>
-            </div>
-          </button>
-
-          <button class="btn btn-secondary" style="padding: 10px 14px; font-size: 12px; justify-content: flex-start; text-align: left;" onclick="exportKmlData()">
-            <span style="font-size: 20px;">🌐</span>
-            <div>
-              <div style="font-weight: 800; color: #FFF;">Export Vector Data as Google Earth KML (.kml)</div>
-              <div style="font-size: 10px; color: var(--text-muted);">Standard 3D vector map file for Google Earth & global GIS.</div>
-            </div>
-          </button>
-        </div>
-
-        <!-- Storage Status & Clear Cache -->
-        <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center;">
-          <div style="font-size: 11px; color: var(--text-muted);">
-            Cache: <b id="basemapCacheStatusText" style="color: #00F0FF;">Checking...</b>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <button class="btn btn-secondary" onclick="exportCapturedBasemapImage()" style="justify-content: center; padding: 8px; font-size: 11px;">
+              🖼️ Export Georef Image
+            </button>
+            <button class="btn btn-secondary" onclick="exportVectorShapefile()" style="justify-content: center; padding: 8px; font-size: 11px;">
+              📐 Export Shapefile / KML
+            </button>
           </div>
-          <button class="btn btn-danger" style="padding: 4px 10px; font-size: 11px; min-height: 28px;" onclick="clearTileCache()">🧹 Clear Cache</button>
         </div>
       </div>
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('basemapModal')">Close</button>
     </div>
   </div>
 </div>
 
+<!-- =========================================================================
+     MODAL: OFFLINE AOI CACHE & STORAGE ANALYZER
+     ========================================================================= -->
 <div class="modal-overlay" id="aoiModal">
   <div class="modal-content" style="max-height: 90vh;">
     <div class="modal-header">
@@ -1955,7 +2016,7 @@ function initMap() {
     bearing: 0
   }).setView([currentLat, currentLon], 15);
 
-  tileLayerCurrent = createOptimizedTileLayer(TILE_PROVIDERS[0], 0).addTo(map);
+  selectBasemapById(activeBasemapId);
 
   // Map Click Listener
   map.on('click', onMapClicked);
@@ -2008,37 +2069,403 @@ function createOptimizedTileLayer(provider, idx) {
 
 
 // =========================================================================
-// BASEMAP SELECTION & OFFLINE DATA MANAGER
+// BASEMAP SELECTION & REMOTE SENSING ENGINE (26 SPECIALIZED LAYERS)
 // =========================================================================
-const BASEMAP_OPTIONS = [
-  { id: 0, name: "Satellite (ESRI World Imagery)", icon: "🛰️", desc: "High-resolution satellite & aerial imagery", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' } },
-  { id: 1, name: "OpenStreetMap", icon: "🗺️", desc: "Standard street & topographic vector map", url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", options: { maxZoom: 19, attribution: '&copy; OpenStreetMap' } },
-  { id: 2, name: "Terrain / Topo (ESRI)", icon: "🏔️", desc: "Elevation contours & hillshade relief", url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' } },
-  { id: -1, name: "No Basemap (Blank Canvas)", icon: "🚫", desc: "Vector features only - dark high-contrast canvas", url: null, options: {} }
+const BASEMAP_CATEGORIES = [
+  { id: 'all', name: 'All Maps', icon: '🌐' },
+  { id: 'satellite', name: 'Satellite & Imagery', icon: '🛰️' },
+  { id: 'elevation', name: 'DEM & Topo', icon: '🏔️' },
+  { id: 'spectral', name: 'Spectral & Indices', icon: '🌿' },
+  { id: 'streets', name: 'Roads & Scouting', icon: '🗺️' },
+  { id: 'canvas', name: 'Vector Canvas', icon: '📐' }
 ];
 
-let activeBasemapId = 0;
+const BASEMAP_OPTIONS = [
+  // --- 🛰️ SATELLITE & IMAGERY ---
+  {
+    id: 'esri-sat',
+    category: 'satellite',
+    name: 'Satellite (ESRI World Imagery)',
+    icon: '🛰️',
+    badge: 'High-Res Aerial',
+    desc: 'High-resolution worldwide satellite and aerial photography',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'google-sat',
+    category: 'satellite',
+    name: 'Google Maps Satellite',
+    icon: '🛰️',
+    badge: 'Google Global',
+    desc: 'Detailed global satellite imagery from Google Maps',
+    url: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'google-hybrid',
+    category: 'satellite',
+    name: 'Google Maps Hybrid',
+    icon: '🛰️',
+    badge: 'Imagery + Labels',
+    desc: 'High-resolution satellite imagery overlaid with road network and labels',
+    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'sentinel-cloudless',
+    category: 'satellite',
+    name: 'Sentinel-2 Cloudless (Copernicus 10m)',
+    icon: '🌍',
+    badge: 'ESA Copernicus',
+    desc: 'Global cloudless 10-meter multispectral mosaic from ESA Sentinel-2',
+    url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
+    options: { maxZoom: 16, attribution: '&copy; EOX & ESA Sentinel' }
+  },
+  {
+    id: 'terrain-draped',
+    category: 'satellite',
+    name: 'Terrain Draped Imagery (3D Shaded)',
+    icon: '🌄',
+    badge: 'Satellite + DEM Hillshade',
+    desc: 'ESRI World Imagery draped over elevation hillshade for 3D relief perception',
+    type: 'draped',
+    baseLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    overlayLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    overlayBlend: 'multiply',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+
+  // --- 🏔️ DEM, TOPOGRAPHY & ELEVATION ---
+  {
+    id: 'hillshade',
+    category: 'elevation',
+    name: 'Topographic Shading (ESRI Hillshade)',
+    icon: '⛰️',
+    badge: 'DEM Relief',
+    desc: 'Multi-directional illuminated shaded relief from global digital elevation models',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'opentopo',
+    category: 'elevation',
+    name: 'Contour Lines & Topo (OpenTopoMap)',
+    icon: '📈',
+    badge: 'Elevation Contours',
+    desc: 'Topographic map rendering elevation contour lines, heights, and terrain shading',
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 17, subdomains: ['a', 'b', 'c'], attribution: '&copy; OpenTopoMap' }
+  },
+  {
+    id: 'color-elevation',
+    category: 'elevation',
+    name: 'Color Elevation (Hypsometric Tint)',
+    icon: '🌈',
+    badge: 'Elevation Gradient',
+    desc: 'Physical relief map showing elevation heights and geomorphic landforms in color',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 16, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'slope-aspect',
+    category: 'elevation',
+    name: 'Slope & Aspect Analysis Shading',
+    icon: '📐',
+    badge: 'Terrain Derivative',
+    desc: 'High-contrast terrain slope steepness and ridge aspect enhancement filter',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'contrast(190%) brightness(95%) invert(10%) drop-shadow(0 0 1px #00f0ff)',
+    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'esri-topo',
+    category: 'elevation',
+    name: 'ESRI World Topographic Map',
+    icon: '🏔️',
+    badge: 'Esri Topo',
+    desc: 'Comprehensive topographic basemap with elevation contours and geographic names',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'esri-terrain',
+    category: 'elevation',
+    name: 'ESRI World Terrain Base',
+    icon: '🗻',
+    badge: 'Clean Relief',
+    desc: 'Minimal shaded relief base map designed for vector feature overlay',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 13, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'usgs-topo',
+    category: 'elevation',
+    name: 'USGS National Topographic Map',
+    icon: '🧭',
+    badge: 'USGS Quad',
+    desc: 'US Geological Survey official topographic contours, hydrography, and trails',
+    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 16, attribution: '&copy; USGS' }
+  },
+
+  // --- 🌿 SPECTRAL INDICES & REMOTE SENSING ---
+  {
+    id: 'ndvi',
+    category: 'spectral',
+    name: 'NDVI (Normalized Difference Vegetation Index)',
+    icon: '🌱',
+    badge: 'Vegetation Canopy',
+    desc: 'Chlorophyll absorption & vegetation health index (NASA GIBS Global + High-Res)',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_NDVI_16Day/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.png',
+    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
+    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    highZoomCssFilter: 'hue-rotate(85deg) saturate(220%) contrast(140%)'
+  },
+  {
+    id: 'ndmi',
+    category: 'spectral',
+    name: 'NDMI (Normalized Difference Moisture Index)',
+    icon: '💧',
+    badge: 'Canopy & Soil Moisture',
+    desc: 'Highlights water content in plant canopies and ground moisture saturation',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(170deg) saturate(180%) contrast(130%) brightness(105%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'ndwi',
+    category: 'spectral',
+    name: 'NDWI (Normalized Difference Water Index)',
+    icon: '🌊',
+    badge: 'Water Bodies & Wadis',
+    desc: 'Delineates surface water bodies, irrigation networks, ephemeral streams and wadis',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(195deg) saturate(320%) contrast(160%) brightness(95%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'evi',
+    category: 'spectral',
+    name: 'EVI (Enhanced Vegetation Index)',
+    icon: '🌲',
+    badge: 'High-Biomass Canopy',
+    desc: 'Optimized vegetation index with atmospheric correction for dense forest and foliage',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'hue-rotate(75deg) saturate(280%) contrast(150%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'savi',
+    category: 'spectral',
+    name: 'SAVI (Soil-Adjusted Vegetation Index)',
+    icon: '🌾',
+    badge: 'Arid & Desert Zones',
+    desc: 'Corrects for soil background brightness in arid and semi-arid seismic survey areas',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'sepia(30%) hue-rotate(60deg) saturate(230%) contrast(125%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'scl',
+    category: 'spectral',
+    name: 'Scene Classification Layer (SCL)',
+    icon: '🎨',
+    badge: 'Land Cover Classes',
+    desc: 'Classified map separating water, bare soil, sparse vegetation, dense canopy, and rock',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    cssFilter: 'contrast(170%) saturate(250%) invert(5%)',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'elev-spectral',
+    category: 'spectral',
+    name: 'Elevation-Masked Spectral Index',
+    icon: '🏔️🌱',
+    badge: 'Relief + Vegetation',
+    desc: 'Hypsometric terrain shading combined with vegetation spectral reflectance',
+    type: 'draped',
+    baseLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    overlayLayerUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    overlayBlend: 'color-burn',
+    overlayFilter: 'hue-rotate(80deg) saturate(200%)',
+    options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
+  },
+  {
+    id: 'nasa-falsecolor',
+    category: 'spectral',
+    name: 'NASA False Color Infrared (Bands 7-2-1)',
+    icon: '🔴',
+    badge: 'SWIR / NIR / Red',
+    desc: 'NASA MODIS Surface Reflectance Bands 7-2-1 for geological variation, burn scars, and moisture',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_SurfaceReflectance_Bands721/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+    options: { maxZoom: 9, attribution: '&copy; NASA EOSDIS GIBS' },
+    highZoomFallbackUrl: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    highZoomCssFilter: 'hue-rotate(290deg) saturate(240%) contrast(135%)'
+  },
+
+  // --- 🗺️ ROADS, SCOUTING & INFRASTRUCTURE ---
+  {
+    id: 'osm',
+    category: 'streets',
+    name: 'OpenStreetMap Standard',
+    icon: '🗺️',
+    badge: 'Global Streets',
+    desc: 'Global open road, trail, city, and infrastructure vector data map',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '&copy; OpenStreetMap' }
+  },
+  {
+    id: 'google-streets',
+    category: 'streets',
+    name: 'Google Maps Streets',
+    icon: '🛣️',
+    badge: 'Google Roads',
+    desc: 'Google road networks, points of interest, highways, and administrative boundaries',
+    url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'google-terrain',
+    category: 'streets',
+    name: 'Google Maps Terrain',
+    icon: '⛰️🛣️',
+    badge: 'Google Physical',
+    desc: 'Google physical terrain map with elevation contours, shaded relief, and roads',
+    url: 'https://mt1.google.com/vt/lyrs=p&x={x}&y={y}&z={z}',
+    options: { maxZoom: 20, attribution: '&copy; Google' }
+  },
+  {
+    id: 'cyclosm',
+    category: 'streets',
+    name: 'CyclOSM (Field Tracks & Minor Roads)',
+    icon: '🚵',
+    badge: 'Field & Rural Tracks',
+    desc: 'Emphasizes unpaved rural roads, desert/bush tracks, gradients, and elevation paths',
+    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    options: { maxZoom: 19, attribution: '&copy; CyclOSM' }
+  },
+  {
+    id: 'carto-dark',
+    category: 'streets',
+    name: 'Carto Dark Matter (Night Mode)',
+    icon: '🌑',
+    badge: 'High-Contrast Dark',
+    desc: 'Minimal dark basemap providing superior visibility for neon vector lines and points',
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
+  },
+  {
+    id: 'carto-light',
+    category: 'streets',
+    name: 'Carto Positron (Clean Light)',
+    icon: '📄',
+    badge: 'Clean Grayscale',
+    desc: 'Subtle light gray basemap that highlights seismic source and receiver lines',
+    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
+  },
+
+  // --- 📐 VECTOR CANVAS ---
+  {
+    id: 'none',
+    category: 'canvas',
+    name: 'No Basemap (Blank Canvas)',
+    icon: '🚫',
+    badge: 'Vector Only',
+    desc: 'Blank dark high-contrast canvas (#0b132b) for vector survey lines with zero bandwidth usage',
+    url: null,
+    options: {}
+  }
+];
+
+let activeBasemapId = localStorage.getItem('qfn_active_basemap') || 'esri-sat';
+let activeBasemapCategory = 'all';
+let basemapSearchQuery = '';
+let overlayTileLayer = null;
 
 function openBasemapModal() {
+  renderBasemapCategories();
   renderBasemapCards();
   analyzeDeviceStorage().then(storage => {
     const cachedElem = document.getElementById('basemapCacheStatusText');
     if (cachedElem) {
-      cachedElem.textContent = document.getElementById('storageSummaryText')?.textContent || '0 cached tiles';
+      cachedElem.textContent = document.getElementById('storageSummaryText')?.textContent || 'Storage Ready';
     }
   });
   openModal('basemapModal');
 }
 
+function renderBasemapCategories() {
+  const container = document.getElementById('basemapChipsContainer');
+  if (!container) return;
+  container.innerHTML = BASEMAP_CATEGORIES.map(cat => {
+    const count = cat.id === 'all' ? BASEMAP_OPTIONS.length : BASEMAP_OPTIONS.filter(b => b.category === cat.id).length;
+    return `
+      <div class="basemap-chip ${cat.id === activeBasemapCategory ? 'active' : ''}" onclick="selectBasemapCategory('${cat.id}')">
+        <span>${cat.icon}</span> ${cat.name} (${count})
+      </div>
+    `;
+  }).join('');
+}
+
+function selectBasemapCategory(catId) {
+  activeBasemapCategory = catId;
+  renderBasemapCategories();
+  renderBasemapCards();
+}
+
+function filterBasemaps() {
+  const input = document.getElementById('basemapSearchInput');
+  const clearBtn = document.getElementById('basemapClearSearchBtn');
+  basemapSearchQuery = (input ? input.value : '').toLowerCase().trim();
+  if (clearBtn) clearBtn.style.display = basemapSearchQuery ? 'block' : 'none';
+  renderBasemapCards();
+}
+
+function clearBasemapSearch() {
+  const input = document.getElementById('basemapSearchInput');
+  if (input) input.value = '';
+  basemapSearchQuery = '';
+  const clearBtn = document.getElementById('basemapClearSearchBtn');
+  if (clearBtn) clearBtn.style.display = 'none';
+  renderBasemapCards();
+}
+
 function renderBasemapCards() {
   const container = document.getElementById('basemapCardsList');
   if (!container) return;
-  container.innerHTML = BASEMAP_OPTIONS.map(b => `
-    <div class="basemap-card ${b.id === activeBasemapId ? 'active' : ''}" onclick="selectBasemapById(${b.id})">
+
+  let filtered = BASEMAP_OPTIONS;
+  if (activeBasemapCategory !== 'all') {
+    filtered = filtered.filter(b => b.category === activeBasemapCategory);
+  }
+  if (basemapSearchQuery) {
+    filtered = filtered.filter(b => 
+      b.name.toLowerCase().includes(basemapSearchQuery) || 
+      b.desc.toLowerCase().includes(basemapSearchQuery) || 
+      (b.badge && b.badge.toLowerCase().includes(basemapSearchQuery))
+    );
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 24px; color: #94A3B8; font-size: 12px;">
+        No basemaps match "<b>${basemapSearchQuery}</b>". Try another keyword.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(b => `
+    <div class="basemap-card ${b.id === activeBasemapId ? 'active' : ''}" onclick="selectBasemapById('${b.id}')">
       <div class="basemap-card-info">
         <span class="basemap-card-icon">${b.icon}</span>
         <div>
-          <div class="basemap-card-name">${b.name}</div>
+          <div class="basemap-card-name">
+            ${b.name}
+            ${b.badge ? `<span class="basemap-badge">${b.badge}</span>` : ''}
+          </div>
           <div class="basemap-card-desc">${b.desc}</div>
         </div>
       </div>
@@ -2049,33 +2476,79 @@ function renderBasemapCards() {
 
 function selectBasemapById(id) {
   activeBasemapId = id;
+  try {
+    localStorage.setItem('qfn_active_basemap', id);
+  } catch (e) {}
+
+  // Remove existing tile layers
   if (baseTileLayer) {
-    map.removeLayer(baseTileLayer);
+    try { map.removeLayer(baseTileLayer); } catch (e) {}
     baseTileLayer = null;
   }
   if (tileLayerCurrent) {
-    map.removeLayer(tileLayerCurrent);
+    try { map.removeLayer(tileLayerCurrent); } catch (e) {}
     tileLayerCurrent = null;
+  }
+  if (overlayTileLayer) {
+    try { map.removeLayer(overlayTileLayer); } catch (e) {}
+    overlayTileLayer = null;
+  }
+
+  // Reset any custom CSS filters on tile container
+  const tilePane = map.getPane ? map.getPane('tilePane') : null;
+  if (tilePane) {
+    tilePane.style.filter = '';
   }
 
   const option = BASEMAP_OPTIONS.find(b => b.id === id);
-  if (option && option.url) {
-    tileLayerIndex = id;
+  if (!option || option.url === null) {
+    // Blank canvas mode (No Basemap)
+    renderBasemapCards();
+    closeModal('basemapModal');
+    showNotification('No Basemap Active (Blank Vector Canvas)');
+    return;
+  }
+
+  if (option.type === 'draped') {
+    // Dual layer: Base hillshade + overlay imagery with blend mode
+    baseTileLayer = L.tileLayer(option.baseLayerUrl, {
+      ...option.options,
+      minZoom: 3,
+      maxZoom: option.options.maxZoom || 19,
+      updateWhenIdle: true
+    }).addTo(map);
+    baseTileLayer.bringToBack();
+
+    overlayTileLayer = L.tileLayer(option.overlayLayerUrl, {
+      ...option.options,
+      minZoom: 3,
+      maxZoom: option.options.maxZoom || 19,
+      className: option.overlayBlend === 'color-burn' ? 'leaflet-color-burn-layer' : 'leaflet-draped-layer',
+      updateWhenIdle: true
+    }).addTo(map);
+
+    tileLayerCurrent = overlayTileLayer;
+    if (option.overlayFilter && overlayTileLayer.getContainer) {
+      const c = overlayTileLayer.getContainer();
+      if (c) c.style.filter = option.overlayFilter;
+    }
+  } else {
+    // Standard or filtered single tile layer
     tileLayerCurrent = createOptimizedTileLayer(option, id).addTo(map);
     tileLayerCurrent.bringToBack();
-  } else {
-    // No Basemap selected (Blank Canvas)
-    tileLayerIndex = -1;
+
+    if (option.cssFilter && tilePane) {
+      tilePane.style.filter = option.cssFilter;
+    }
   }
+
   renderBasemapCards();
   closeModal('basemapModal');
+  showNotification(`Switched Basemap: ${option.name}`);
 }
 
 function cycleMapLayer() {
-  tileLayerIndex = (tileLayerIndex + 1) % TILE_PROVIDERS.length;
-  if (tileLayerCurrent) map.removeLayer(tileLayerCurrent);
-  tileLayerCurrent = createOptimizedTileLayer(TILE_PROVIDERS[tileLayerIndex], tileLayerIndex).addTo(map);
-  tileLayerCurrent.bringToBack();
+  openBasemapModal();
 }
 
 function clearMapGraphics() {
