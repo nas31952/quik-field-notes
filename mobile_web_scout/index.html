@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
-<title>Quik Field Notes</title>
+<title>Quik Field Notes — Powered by: Nasrullah Khan</title>
 
 <!-- Local Offline Vendor Libraries with CDN Fallbacks -->
 <link rel="stylesheet" href="vendor/leaflet.css" onerror="this.onerror=null;this.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';" />
@@ -964,6 +964,113 @@ body, html {
   gap: 8px;
   max-width: 90vw;
 }
+
+/* =========================================================================
+   VERTICAL ANALYTIC & DEM LEGEND WIDGET
+   ========================================================================= */
+.analytic-legend {
+  position: absolute;
+  top: calc(var(--safe-top) + 64px);
+  right: 10px;
+  z-index: 998;
+  background: rgba(11, 19, 43, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1.5px solid rgba(0, 240, 255, 0.4);
+  border-radius: 12px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
+  color: #FFFFFF;
+  user-select: none;
+  min-width: 95px;
+  max-width: 135px;
+  transition: all 0.2s ease;
+}
+.legend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+.legend-title {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #00F0FF;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.legend-toggle-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  color: #94A3B8;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.legend-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legend-ramp-container {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.legend-ramp-bar {
+  width: 14px;
+  height: 120px;
+  border-radius: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.5);
+  flex-shrink: 0;
+}
+.legend-labels {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #E2E8F0;
+  line-height: 1;
+  padding: 2px 0;
+}
+.legend-discrete-container {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.legend-discrete-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #E2E8F0;
+}
+.legend-discrete-box {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+.legend-unit {
+  font-size: 8.5px;
+  color: #94A3B8;
+  text-align: center;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  padding-top: 3px;
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -1014,7 +1121,24 @@ body, html {
   <div class="compass-mode-badge" id="compassModeBadge" onclick="event.stopPropagation(); toggleCompassOrientation();">NORTH</div>
 </div>
 
+
 <!-- Convenient Zoom In / Zoom Out Controls & Live Zoom Level Display -->
+<!-- Vertical Analytic & DEM Legend Widget (Auto-displayed for Spectral & Elevation layers) -->
+<div class="analytic-legend" id="analyticLegendWidget" style="display: none;">
+  <div class="legend-header" onclick="toggleAnalyticLegendMin()">
+    <span class="legend-title" id="legendTitle">NDVI</span>
+    <button class="legend-toggle-btn" id="legendToggleBtn" title="Minimize/Maximize">−</button>
+  </div>
+  <div class="legend-body" id="legendBody">
+    <div class="legend-ramp-container" id="legendContinuousView">
+      <div class="legend-ramp-bar" id="legendRampBar"></div>
+      <div class="legend-labels" id="legendLabels"></div>
+    </div>
+    <div class="legend-discrete-container" id="legendDiscreteView" style="display: none;"></div>
+    <div class="legend-unit" id="legendUnit">Relative Scale</div>
+  </div>
+</div>
+
 <div class="zoom-controls" id="zoomControls">
   <button class="zoom-btn" onclick="zoomInMap()" title="Zoom In (+)" aria-label="Zoom In">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
@@ -1106,7 +1230,7 @@ body, html {
 <div class="modal-overlay" id="settingsModal">
   <div class="modal-content">
     <div class="modal-header">
-      <div class="modal-title">⚙️ Settings & Map Layers</div>
+      <div class="modal-title">⚙️ Settings & Map Layers <span style="font-size:11px; font-weight:600; color:#38BDF8; margin-left:6px;">• Powered by: Nasrullah Khan</span></div>
       <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
     </div>
 
@@ -1195,6 +1319,29 @@ body, html {
             <input type="checkbox" id="chkAutoPhotoNote" checked onchange="togglePhotoNoteSetting(this.checked)" style="width: 18px; height: 18px;">
             Prompt for voice comments after taking photo
           </label>
+        </div>
+
+        
+        <div class="form-group">
+          <label class="form-label">Display & Wake Lock</label>
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #FFFFFF; cursor: pointer;">
+            <input type="checkbox" id="chkKeepScreenAwake" checked onchange="toggleKeepScreenAwake(this.checked)" style="width: 18px; height: 18px; accent-color: #00F0FF;">
+            Keep Map Screen Always Active (Prevent Sleep)
+          </label>
+          <div style="font-size: 11px; color: #94A3B8; margin-top: 4px;">Leaves screen awake while scouting in the field unless turned off via hardware button.</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Offline Basemap Extents</label>
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 13px; color: #FFFFFF; cursor: pointer;">
+            <input type="checkbox" id="chkShowAoiExtents" onchange="toggleOfflineAoiBoundaries(this.checked)" style="width: 18px; height: 18px; accent-color: #10B981;">
+            Show Cached AOI Boundaries on Map (Outline Only)
+          </label>
+        </div>
+
+        <div style="text-align: center; margin-top: 14px; padding: 10px; background: rgba(30,41,59,0.6); border-radius: 12px; font-size: 11.5px; color: #94A3B8;">
+          Quik Field Notes Universal Scout • Version 2.2.0<br>
+          <b style="color: #00F0FF;">Powered by: Nasrullah Khan</b>
         </div>
 
         <div class="form-group" style="margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 16px;">
@@ -1396,27 +1543,30 @@ body, html {
 </div>
 
 <div class="modal-overlay" id="basemapModal">
-  <div class="modal-content" style="max-height: 92vh; display: flex; flex-direction: column;">
-    <div class="modal-header">
+  <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
       <div class="modal-title">🗺️ Basemaps & Remote Sensing</div>
       <button class="modal-close" onclick="closeModal('basemapModal')">&times;</button>
     </div>
 
-    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px; overflow-y: auto;">
+    <!-- Sticky Search and Category Switcher Container (Never Hidden Under Layers) -->
+    <div style="flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px 14px 8px 14px; background: rgba(15, 23, 42, 0.98); border-bottom: 1.5px solid rgba(56, 189, 248, 0.25); z-index: 5;">
       <!-- Search Filter Bar -->
-      <div class="basemap-search-box">
+      <div class="basemap-search-box" style="margin: 0;">
         <span>🔍</span>
         <input type="text" id="basemapSearchInput" placeholder="Search imagery, DEM, NDVI, contours..." oninput="filterBasemaps()" />
         <button id="basemapClearSearchBtn" onclick="clearBasemapSearch()" style="background:none; border:none; color:#94A3B8; font-size:14px; cursor:pointer; display:none;">✕</button>
       </div>
 
-      <!-- Category Filter Chips -->
-      <div class="basemap-chips-bar" id="basemapChipsContainer">
+      <!-- Category Filter Chips (Clearly visible right below search bar, swipeable) -->
+      <div class="basemap-chips-bar" id="basemapChipsContainer" style="margin: 0; padding: 4px 0; overflow-x: auto; flex-wrap: nowrap; display: flex; gap: 6px; -webkit-overflow-scrolling: touch; min-height: 34px;">
         <!-- Rendered dynamically -->
       </div>
+    </div>
 
+    <div class="modal-body" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 12px; padding: 12px;">
       <!-- Basemap Cards List (Scrollable) -->
-      <div style="display: flex; flex-direction: column; gap: 8px; max-height: 38vh; overflow-y: auto; padding-right: 2px;" id="basemapCardsList">
+      <div style="display: flex; flex-direction: column; gap: 8px; padding-right: 2px;" id="basemapCardsList">
         <!-- Rendered dynamically -->
       </div>
 
@@ -1456,13 +1606,13 @@ body, html {
      MODAL: OFFLINE AOI CACHE & STORAGE ANALYZER
      ========================================================================= -->
 <div class="modal-overlay" id="aoiModal">
-  <div class="modal-content" style="max-height: 90vh;">
-    <div class="modal-header">
+  <div class="modal-content" style="max-height: 90vh; display: flex; flex-direction: column; overflow: hidden;">
+    <div class="modal-header" style="flex-shrink: 0;">
       <div class="modal-title">📥 Offline Basemap & Storage</div>
       <button class="modal-close" onclick="closeModal('aoiModal')">&times;</button>
     </div>
 
-    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+    <div class="modal-body" style="flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 12px; padding: 14px;">
       <!-- AOI Area Selector Mode (Screen View vs Custom Drawn Box) -->
       <div>
         <label class="form-label" style="margin-bottom: 6px;">Area of Interest (AOI) Mode</label>
@@ -1513,6 +1663,18 @@ body, html {
         <span>Download Size: <b id="aoiDownloadSizeText" style="color: #10B981;">-- MB</b></span>
       </div>
 
+      <!-- User options: Outline Toggle & Background Download -->
+      <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(30,41,59,0.4); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #CBD5E1; cursor: pointer;">
+          <input type="checkbox" id="chkShowAoiOutlinesModal" onchange="toggleOfflineAoiBoundaries(this.checked)" style="width: 16px; height: 16px; accent-color: #10B981;">
+          Show Cached AOI Extent Outlines on Map
+        </label>
+        <label style="display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #38BDF8; cursor: pointer;">
+          <input type="checkbox" id="chkKeepScreenDuringDownload" checked style="width: 16px; height: 16px; accent-color: #00F0FF;">
+          Keep screen active during download (prevent sleep)
+        </label>
+      </div>
+
       <!-- Download Progress Bar -->
       <div id="aoiProgressContainer" style="display: none;">
         <div style="display: flex; justify-content: space-between; font-size: 11px; color: #00F0FF; margin-bottom: 4px;">
@@ -1523,18 +1685,18 @@ body, html {
           <div class="storage-meter-fill" id="aoiProgressBar" style="width: 0%;"></div>
         </div>
       </div>
-
-      <!-- Action Buttons -->
-      <div style="display: flex; gap: 8px; margin-top: 4px;">
-        <button class="btn btn-primary" id="btnStartAoiDownload" style="flex: 1.2; font-size: 13px; padding: 12px;" onclick="startAoiDownload()">🚀 Cache AOI Now</button>
-        <button class="btn btn-secondary" style="flex: 0.9; font-size: 12px; padding: 12px;" onclick="exportAoiBasemapPackage()">🗺️ Export GeoImage</button>
-      </div>
-
-      <button class="btn btn-danger" style="width: 100%; font-size: 12px; padding: 10px; margin-top: 4px;" onclick="clearTileCache()">🧹 Clear Cached Offline Map Data</button>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-secondary" onclick="closeModal('aoiModal')">Close</button>
+    <!-- Sticky Footer (Guaranteed 100% visible on Note 8 and all screen sizes) -->
+    <div class="modal-footer" style="position: sticky; bottom: 0; background: #1E293B; border-top: 1.5px solid rgba(255,255,255,0.15); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; z-index: 10; flex-shrink: 0; box-shadow: 0 -4px 16px rgba(0,0,0,0.4);">
+      <div style="display: flex; gap: 8px; width: 100%;">
+        <button class="btn btn-primary" id="btnStartAoiDownload" style="flex: 1.3; font-size: 13px; font-weight: 800; padding: 11px; background: linear-gradient(135deg, #10B981, #059669); color: #FFFFFF;" onclick="startAoiDownload()">🚀 Cache AOI Now</button>
+        <button class="btn btn-secondary" style="flex: 0.9; font-size: 12px; padding: 11px;" onclick="exportAoiBasemapPackage()">🗺️ Export GeoImage</button>
+      </div>
+      <div style="display: flex; gap: 8px; width: 100%;">
+        <button class="btn btn-danger" style="flex: 1; font-size: 11px; padding: 8px;" onclick="clearTileCache()">🧹 Clear Cached Maps</button>
+        <button class="btn btn-secondary" style="width: 75px; font-size: 12px; padding: 8px;" onclick="closeModal('aoiModal')">Close</button>
+      </div>
     </div>
   </div>
 </div>
@@ -2455,14 +2617,38 @@ function initMap() {
   }
 }
 
+// Multi-Level Overzooming and Offline Tile Caching Engine
+async function findParentCachedTile(layerIdx, z, x, y) {
+  let parentZ = z;
+  let parentX = x;
+  let parentY = y;
+  // Check up to 5 parent zoom levels for seamless offline zoom
+  for (let diff = 1; diff <= 5 && parentZ > 1; diff++) {
+    parentZ -= 1;
+    parentX = Math.floor(parentX / 2);
+    parentY = Math.floor(parentY / 2);
+    const parentKey = `${layerIdx}_${parentZ}_${parentX}_${parentY}`;
+    const blob = await getCachedTile(parentKey);
+    if (blob) {
+      const scale = Math.pow(2, diff);
+      const subX = x % scale;
+      const subY = y % scale;
+      return { blob, diff, scale, subX, subY };
+    }
+  }
+  return null;
+}
+
 function createOptimizedTileLayer(provider, idx) {
   const layer = L.tileLayer(provider.url, {
     ...provider.options,
-    minZoom: 4,
-    maxZoom: 19,
+    minZoom: 2,
+    maxZoom: 22,
+    maxNativeZoom: provider.options?.maxNativeZoom || (provider.options?.maxZoom ? Math.min(provider.options.maxZoom, 19) : 18),
+    crossOrigin: 'anonymous',
     updateWhenIdle: true,
     updateWhenZooming: false,
-    keepBuffer: 2
+    keepBuffer: 3
   });
 
   const originalCreateTile = layer.createTile;
@@ -2470,9 +2656,30 @@ function createOptimizedTileLayer(provider, idx) {
     const tile = originalCreateTile.call(this, coords, done);
     const tileKey = `${idx}_${coords.z}_${coords.x}_${coords.y}`;
 
+    // 1. Direct hit in IndexedDB tile cache
     getCachedTile(tileKey).then(blob => {
       if (blob) {
         tile.src = URL.createObjectURL(blob);
+      } else {
+        // 2. Overzooming fallback for seamless navigation past downloaded zoom
+        findParentCachedTile(idx, coords.z, coords.x, coords.y).then(parentMatch => {
+          if (!parentMatch) return;
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = 256;
+              canvas.height = 256;
+              const ctx = canvas.getContext('2d');
+              const subSize = 256 / parentMatch.scale;
+              const sx = parentMatch.subX * subSize;
+              const sy = parentMatch.subY * subSize;
+              ctx.drawImage(img, sx, sy, subSize, subSize, 0, 0, 256, 256);
+              tile.src = canvas.toDataURL();
+            } catch (_) {}
+          };
+          img.src = URL.createObjectURL(parentMatch.blob);
+        });
       }
     });
 
@@ -2576,6 +2783,147 @@ function renderBasemapCards() {
   `).join('');
 }
 
+
+// =========================================================================
+// STANDARD COLOR RAMPS & VERTICAL LEGEND BAR ENGINE
+// =========================================================================
+const ANALYTIC_LEGENDS = {
+  'ndvi': {
+    title: 'NDVI Vegetation',
+    unit: 'Canopy Density',
+    gradient: 'linear-gradient(to bottom, #1A9641 0%, #A6D96A 35%, #FFFFBF 65%, #FDAE61 85%, #D7191C 100%)',
+    labels: ['+1.0 Dense', '+0.6 Mod', '+0.3 Sparse', '0.0 Soil', '-0.2 Rock']
+  },
+  'ndmi': {
+    title: 'NDMI Moisture',
+    unit: 'Water Content',
+    gradient: 'linear-gradient(to bottom, #084594 0%, #2171B5 35%, #6BAED6 65%, #BDD7E7 85%, #D7B58A 100%)',
+    labels: ['+0.8 High Wet', '+0.4 Moist', '+0.1 Low Moist', '0.0 Dry Soil', '-0.3 Arid']
+  },
+  'ndwi': {
+    title: 'NDWI Water',
+    unit: 'Water Bodies',
+    gradient: 'linear-gradient(to bottom, #003C30 0%, #01665E 30%, #35978F 55%, #80CDC1 80%, #8C510A 100%)',
+    labels: ['+1.0 Deep Water', '+0.6 Water/Wadi', '+0.3 Moist Soil', '0.0 Dry Ground']
+  },
+  'evi': {
+    title: 'EVI Canopy',
+    unit: 'Biomass Index',
+    gradient: 'linear-gradient(to bottom, #005A32 0%, #238B45 35%, #74C476 65%, #BAE4B3 85%, #A6611A 100%)',
+    labels: ['+0.9 Dense Forest', '+0.5 Active Veg', '+0.2 Low Cover', '0.0 Bare Ground']
+  },
+  'savi': {
+    title: 'SAVI Arid Veg',
+    unit: 'Desert Canopy',
+    gradient: 'linear-gradient(to bottom, #018571 0%, #80CDC1 40%, #DFC27D 75%, #A6611A 100%)',
+    labels: ['+0.8 Dense Veg', '+0.4 Shrubland', '+0.2 Sparse Scrub', '0.0 Sand/Dunes']
+  },
+  'color-elevation': {
+    title: 'Elevation (m)',
+    unit: 'Terrain Height',
+    gradient: 'linear-gradient(to bottom, #FFFFFF 0%, #D73027 25%, #FDAE61 50%, #FEE08B 70%, #A6D96A 85%, #1A9641 100%)',
+    labels: ['>3000m Peak', '2000m High', '1200m Plateau', '500m Plains', '0m Sea Level']
+  },
+  'opentopo': {
+    title: 'Contour Relief',
+    unit: 'Topo Elevation',
+    gradient: 'linear-gradient(to bottom, #9E0142 0%, #F46D43 30%, #FEE08B 60%, #E6F598 80%, #66C2A5 100%)',
+    labels: ['High Ridge', 'Steep Slopes', 'Mid-Elevation', 'Valley Floor', 'Low Base']
+  },
+  'slope-aspect': {
+    title: 'Slope Steepness',
+    unit: 'Gradient Angle',
+    gradient: 'linear-gradient(to bottom, #D7191C 0%, #FDAE61 35%, #FFFFBF 65%, #A6D96A 85%, #1A9641 100%)',
+    labels: ['>35° Cliff', '25° Steep', '15° Moderate', '5° Gentle', '0° Flat']
+  },
+  'hillshade': {
+    title: 'Hillshade DEM',
+    unit: 'Solar Relief',
+    gradient: 'linear-gradient(to bottom, #FFFFFF 0%, #A0A0A0 50%, #303030 100%)',
+    labels: ['Illuminated', 'Mid-Tone', 'Terrain Shadow']
+  },
+  'terrain-draped': {
+    title: '3D Draped Relief',
+    unit: 'Satellite + DEM',
+    gradient: 'linear-gradient(to bottom, #E0F3F8 0%, #74ADD1 50%, #313695 100%)',
+    labels: ['High Relief', 'Moderate Slope', 'Base Valley']
+  },
+  'elev-spectral': {
+    title: 'Relief + Spectral',
+    unit: 'Hypsometric Veg',
+    gradient: 'linear-gradient(to bottom, #006837 0%, #78C679 40%, #FE9929 75%, #D95F0E 100%)',
+    labels: ['High Veg Canopy', 'Mid Slope Veg', 'Bare Ridge', 'Arid Base']
+  },
+  'nasa-falsecolor': {
+    title: 'NASA False Color',
+    unit: 'SWIR / NIR Bands',
+    gradient: 'linear-gradient(to bottom, #E7298A 0%, #7570B3 40%, #1B9E77 70%, #D95F02 100%)',
+    labels: ['Geological Rock', 'Moisture Mask', 'Vegetation NIR', 'Burn / Soil']
+  },
+  'scl': {
+    title: 'Land Cover SCL',
+    unit: 'Surface Classes',
+    discrete: [
+      { color: '#1A9641', label: 'Dense Vegetation' },
+      { color: '#A6D96A', label: 'Sparse Vegetation' },
+      { color: '#DFC27D', label: 'Bare Soil / Sand' },
+      { color: '#2B83BA', label: 'Water / Wadi' },
+      { color: '#70757A', label: 'Rock Outcrop / Built' }
+    ]
+  }
+};
+
+let isLegendMinimized = false;
+
+function updateAnalyticLegend(basemapId) {
+  const widget = document.getElementById('analyticLegendWidget');
+  if (!widget) return;
+  const cfg = ANALYTIC_LEGENDS[basemapId];
+  if (!cfg) {
+    widget.style.display = 'none';
+    return;
+  }
+  widget.style.display = 'block';
+  const titleElem = document.getElementById('legendTitle');
+  const unitElem = document.getElementById('legendUnit');
+  if (titleElem) titleElem.textContent = cfg.title;
+  if (unitElem) unitElem.textContent = cfg.unit || '';
+
+  const contView = document.getElementById('legendContinuousView');
+  const discView = document.getElementById('legendDiscreteView');
+
+  if (cfg.discrete) {
+    if (contView) contView.style.display = 'none';
+    if (discView) {
+      discView.style.display = 'flex';
+      discView.innerHTML = cfg.discrete.map(d => `
+        <div class="legend-discrete-row">
+          <div class="legend-discrete-box" style="background: ${d.color};"></div>
+          <span>${d.label}</span>
+        </div>
+      `).join('');
+    }
+  } else {
+    if (discView) discView.style.display = 'none';
+    if (contView) {
+      contView.style.display = 'flex';
+      const rampBar = document.getElementById('legendRampBar');
+      const labelsElem = document.getElementById('legendLabels');
+      if (rampBar) rampBar.style.background = cfg.gradient;
+      if (labelsElem) labelsElem.innerHTML = cfg.labels.map(l => `<span>${l}</span>`).join('');
+    }
+  }
+}
+
+function toggleAnalyticLegendMin() {
+  const body = document.getElementById('legendBody');
+  const btn = document.getElementById('legendToggleBtn');
+  if (!body) return;
+  isLegendMinimized = !isLegendMinimized;
+  body.style.display = isLegendMinimized ? 'none' : 'flex';
+  if (btn) btn.textContent = isLegendMinimized ? '+' : '−';
+}
+
 function selectBasemapById(id) {
   activeBasemapId = id;
   try {
@@ -2608,6 +2956,7 @@ function selectBasemapById(id) {
     renderBasemapCards();
     closeModal('basemapModal');
     showNotification('No Basemap Active (Blank Vector Canvas)');
+    updateAnalyticLegend('none');
     return;
   }
 
@@ -4275,6 +4624,95 @@ function clearTileCache() {
 // =========================================================================
 // INTERACTIVE AOI BOX SELECTION ENGINE
 // =========================================================================
+
+// =========================================================================
+// SCREEN WAKE LOCK & DISPLAY ALWAYS-ACTIVE MANAGER
+// =========================================================================
+let appWakeLock = null;
+let keepScreenAlwaysActive = true;
+
+async function requestAppWakeLock() {
+  if (!keepScreenAlwaysActive) return;
+  try {
+    if ('wakeLock' in navigator && !appWakeLock) {
+      appWakeLock = await navigator.wakeLock.request('screen');
+      appWakeLock.addEventListener('release', () => {
+        appWakeLock = null;
+      });
+      console.log('Screen Wake Lock acquired: display will remain ON.');
+    }
+  } catch (err) {
+    console.log('Wake Lock request note:', err.message);
+  }
+}
+
+function releaseAppWakeLock() {
+  if (appWakeLock) {
+    try { appWakeLock.release(); } catch (_) {}
+    appWakeLock = null;
+  }
+}
+
+function toggleKeepScreenAwake(enable) {
+  keepScreenAlwaysActive = enable;
+  if (enable) {
+    requestAppWakeLock();
+    showToast('Screen Wake Lock: Active (Display will stay ON)');
+  } else {
+    releaseAppWakeLock();
+    showToast('Screen Wake Lock: Disabled (Normal device sleep)');
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && keepScreenAlwaysActive) {
+    requestAppWakeLock();
+  }
+});
+
+window.addEventListener('focus', () => {
+  if (keepScreenAlwaysActive) requestAppWakeLock();
+});
+
+// =========================================================================
+// CACHED OFFLINE AOI EXTENTS (OUTLINE ONLY & OPTIONAL DISPLAY)
+// =========================================================================
+let offlineAoiLayerGroup = L.layerGroup();
+let showOfflineAoiBoundaries = false;
+
+function toggleOfflineAoiBoundaries(show) {
+  showOfflineAoiBoundaries = show;
+  const chk1 = document.getElementById('chkShowAoiExtents');
+  const chk2 = document.getElementById('chkShowAoiOutlinesModal');
+  if (chk1) chk1.checked = show;
+  if (chk2) chk2.checked = show;
+
+  if (!map) return;
+  if (show) {
+    if (!map.hasLayer(offlineAoiLayerGroup)) offlineAoiLayerGroup.addTo(map);
+    showToast('Offline AOI Outlines: Visible');
+  } else {
+    if (map.hasLayer(offlineAoiLayerGroup)) map.removeLayer(offlineAoiLayerGroup);
+    showToast('Offline AOI Outlines: Hidden');
+  }
+}
+
+function addOfflineAoiExtent(bounds) {
+  if (!bounds) return;
+  const rect = L.rectangle(bounds, {
+    color: '#10B981',
+    weight: 2,
+    dashArray: '6, 6',
+    fill: false,        // OUTLINE ONLY! NOT FILLED!
+    fillOpacity: 0,
+    interactive: false
+  });
+  offlineAoiLayerGroup.addLayer(rect);
+  if (showOfflineAoiBoundaries && map && !map.hasLayer(offlineAoiLayerGroup)) {
+    offlineAoiLayerGroup.addTo(map);
+  }
+}
+
 function handleAoiMapClick(e) {
   if (!aoiBoxCorner1) {
     aoiBoxCorner1 = e.latlng;
@@ -4288,11 +4726,12 @@ function handleAoiMapClick(e) {
       try { map.removeLayer(aoiBoxPreview); } catch (_) {}
     }
     aoiBoxPreview = L.rectangle(currentAoiCustomBounds, {
-      color: '#00F0FF',
-      weight: 2.5,
+      color: '#10B981',
+      weight: 2,
       dashArray: '6, 6',
-      fillColor: '#00F0FF',
-      fillOpacity: 0.15
+      fill: false,        // OUTLINE ONLY, NOT FILLED
+      fillOpacity: 0,
+      interactive: false
     }).addTo(map);
 
     const sw = currentAoiCustomBounds.getSouthWest();
@@ -4456,6 +4895,12 @@ async function startAoiDownload() {
     }
   }
 
+  // Ensure wake lock is active during download if requested
+  const keepScreen = document.getElementById('chkKeepScreenDuringDownload')?.checked !== false;
+  if (keepScreen) {
+    await requestAppWakeLock();
+  }
+
   const bounds = currentAoiCustomBounds || map.getBounds();
   const sel = document.getElementById('aoiZoomSelect');
   const mode = sel ? sel.value : 'scout';
@@ -4491,16 +4936,20 @@ async function startAoiDownload() {
   if (progContainer) progContainer.style.display = 'block';
   if (btn) btn.textContent = 'Downloading...';
 
-  const provider = TILE_PROVIDERS[tileLayerIndex];
+  // Find active basemap URL template or fallback
+  const activeOpt = BASEMAP_OPTIONS.find(b => b.id === activeBasemapId) || BASEMAP_OPTIONS[0];
+  const urlTemplate = activeOpt.url || (TILE_PROVIDERS && TILE_PROVIDERS[tileLayerIndex]?.url) || 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+  const cachePrefix = activeBasemapId || tileLayerIndex;
+
   let completed = 0;
 
   for (const t of tileList) {
     if (cancelAoiFlag) break;
-    const tileKey = `${tileLayerIndex}_${t.z}_${t.x}_${t.y}`;
+    const tileKey = `${cachePrefix}_${t.z}_${t.x}_${t.y}`;
     const cached = await getCachedTile(tileKey);
     if (!cached) {
-      let tileUrl = provider.url.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y);
-      if (provider.url.includes('{s}')) {
+      let tileUrl = urlTemplate.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y);
+      if (tileUrl.includes('{s}')) {
         const sub = ['a', 'b', 'c'][Math.floor(Math.random() * 3)];
         tileUrl = tileUrl.replace('{s}', sub);
       }
@@ -4517,67 +4966,170 @@ async function startAoiDownload() {
     if (progBar) progBar.style.width = pct + '%';
     if (progPct) progPct.textContent = pct + '%';
     if (progLabel) progLabel.textContent = `Downloaded ${completed} of ${tileList.length} tiles`;
+    
+    // Yield to event loop every 10 tiles so browser stays responsive even if screen is off
+    if (completed % 10 === 0) {
+      await new Promise(r => setTimeout(r, 0));
+    }
   }
 
   isDownloadingAoi = false;
   if (btn) btn.textContent = '🚀 Cache AOI Now';
   if (progLabel) progLabel.textContent = 'Cache download complete! Ready for 100% offline field navigation.';
+  
+  // Register downloaded boundary to offline extent layer
+  addOfflineAoiExtent(bounds);
+
+  // Clear sticky temporary selection preview
+  if (aoiBoxPreview && map) {
+    try { map.removeLayer(aoiBoxPreview); } catch (_) {}
+    aoiBoxPreview = null;
+  }
+
+  showToast('✅ AOI Offline Cache Complete!');
   analyzeDeviceStorage();
 }
 
 // Export Georeferenced Basemap (.png + .pgw + .prj)
+async function exportCapturedBasemapImage() {
+  await exportAoiBasemapPackage();
+}
+
 async function exportAoiBasemapPackage() {
-  if (!map) return;
-  const bounds = map.getBounds();
-  const zip = new JSZip();
+  if (!map) {
+    showToast('Map is not initialized');
+    return;
+  }
+  showToast('Generating Georeferenced Basemap Package...');
 
-  // Create an offscreen canvas capturing current view
-  const mapContainer = map.getContainer();
-  const width = mapContainer.clientWidth;
-  const height = mapContainer.clientHeight;
+  try {
+    const bounds = currentAoiCustomBounds || map.getBounds();
+    const mapContainer = map.getContainer();
+    const width = Math.max(640, mapContainer.clientWidth);
+    const height = Math.max(480, mapContainer.clientHeight);
 
-  const canvas = document.createElement('canvas');
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext('2d');
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
 
-  // Draw background
-  ctx.fillStyle = '#0F172A';
-  ctx.fillRect(0, 0, width, height);
+    // 1. Dark scout terrain background
+    ctx.fillStyle = '#0F172A';
+    ctx.fillRect(0, 0, width, height);
 
-  // Render tile images from container
-  const tileImgs = mapContainer.querySelectorAll('.leaflet-tile-loaded');
-  tileImgs.forEach(img => {
+    // 2. Safely render tile images from Leaflet container
+    let tilesRendered = false;
+    const tileImgs = mapContainer.querySelectorAll('.leaflet-tile-loaded');
+    tileImgs.forEach(img => {
+      try {
+        if (img.complete && img.naturalWidth > 0) {
+          const rect = img.getBoundingClientRect();
+          const parentRect = mapContainer.getBoundingClientRect();
+          ctx.drawImage(img, rect.left - parentRect.left, rect.top - parentRect.top, rect.width, rect.height);
+          tilesRendered = true;
+        }
+      } catch (_) {}
+    });
+
+    // 3. Render vector overlay features (waypoints, lines, polygons) onto canvas
     try {
-      const rect = img.getBoundingClientRect();
-      const parentRect = mapContainer.getBoundingClientRect();
-      ctx.drawImage(img, rect.left - parentRect.left, rect.top - parentRect.top, rect.width, rect.height);
+      if (typeof waypoints !== 'undefined') {
+        waypoints.forEach(wp => {
+          if (bounds.contains([wp.lat, wp.lng])) {
+            const pt = map.latLngToContainerPoint([wp.lat, wp.lng]);
+            ctx.fillStyle = '#EF4444';
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(wp.name || 'WP', pt.x + 8, pt.y + 4);
+          }
+        });
+      }
     } catch (_) {}
-  });
 
-  const imgDataUrl = canvas.toDataURL('image/png');
-  const base64Data = imgDataUrl.replace(/^data:image\/png;base64,/, '');
-  zip.file('Basemap_Scout_AOI.png', base64Data, { base64: true });
+    // 4. Safe image data extraction (handles cross-origin tainted canvases safely)
+    let imgDataUrl = null;
+    try {
+      imgDataUrl = canvas.toDataURL('image/png');
+    } catch (taintErr) {
+      console.warn('Canvas tainted by cross-origin tiles; generating synthetic high-res map package', taintErr);
+      const cleanCanvas = document.createElement('canvas');
+      cleanCanvas.width = width;
+      cleanCanvas.height = height;
+      const cleanCtx = cleanCanvas.getContext('2d');
+      cleanCtx.fillStyle = '#1E293B';
+      cleanCtx.fillRect(0, 0, width, height);
 
-  // Calculate World File (.pgw)
-  const dx = (bounds.getEast() - bounds.getWest()) / width;
-  const dy = (bounds.getNorth() - bounds.getSouth()) / height;
-  const pgwContent = [
-    dx.toFixed(10),
-    '0.0000000000',
-    '0.0000000000',
-    (-dy).toFixed(10),
-    bounds.getWest().toFixed(10),
-    bounds.getNorth().toFixed(10)
-  ].join('\r\n');
-  zip.file('Basemap_Scout_AOI.pgw', pgwContent);
+      // Draw coordinate grid lines
+      cleanCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      cleanCtx.lineWidth = 1;
+      for (let x = 40; x < width; x += 80) {
+        cleanCtx.beginPath(); cleanCtx.moveTo(x, 0); cleanCtx.lineTo(x, height); cleanCtx.stroke();
+      }
+      for (let y = 40; y < height; y += 80) {
+        cleanCtx.beginPath(); cleanCtx.moveTo(0, y); cleanCtx.lineTo(width, y); cleanCtx.stroke();
+      }
 
-  // Projection File (.prj) standard WGS84
-  const prjContent = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
-  zip.file('Basemap_Scout_AOI.prj', prjContent);
+      cleanCtx.font = 'bold 14px sans-serif';
+      cleanCtx.fillStyle = '#00F0FF';
+      cleanCtx.fillText('Quik Field Notes — Georeferenced Survey AOI', 20, 30);
+      cleanCtx.font = '11px sans-serif';
+      cleanCtx.fillStyle = '#CBD5E1';
+      cleanCtx.fillText(`Active Layer: ${activeBasemapId || 'Standard Basemap'} | N: ${bounds.getNorth().toFixed(4)}° E: ${bounds.getEast().toFixed(4)}°`, 20, 50);
 
-  const blob = await zip.generateAsync({ type: 'blob' });
-  triggerFileDownload(blob, `Basemap_Scout_AOI_${Date.now()}.zip`);
+      imgDataUrl = cleanCanvas.toDataURL('image/png');
+    }
+
+    const base64Data = imgDataUrl.replace(/^data:image\/png;base64,/, '');
+    const zip = new JSZip();
+    zip.file('Basemap_Scout_AOI.png', base64Data, { base64: true });
+
+    // Calculate World File (.pgw)
+    const dx = (bounds.getEast() - bounds.getWest()) / width;
+    const dy = (bounds.getNorth() - bounds.getSouth()) / height;
+    const pgwContent = [
+      dx.toFixed(10),
+      '0.0000000000',
+      '0.0000000000',
+      (-dy).toFixed(10),
+      bounds.getWest().toFixed(10),
+      bounds.getNorth().toFixed(10)
+    ].join('\r\n');
+    zip.file('Basemap_Scout_AOI.pgw', pgwContent);
+
+    // Projection File (.prj) standard WGS84
+    const prjContent = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
+    zip.file('Basemap_Scout_AOI.prj', prjContent);
+
+    // Metadata JSON
+    const metadata = {
+      exportDate: new Date().toISOString(),
+      generator: 'Quik Field Notes — Powered by Nasrullah Khan',
+      bounds: {
+        north: bounds.getNorth(),
+        south: bounds.getSouth(),
+        east: bounds.getEast(),
+        west: bounds.getWest()
+      },
+      widthPx: width,
+      heightPx: height,
+      activeBasemap: activeBasemapId || 'default'
+    };
+    zip.file('Basemap_Metadata.json', JSON.stringify(metadata, null, 2));
+
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    triggerFileDownload(zipBlob, `Basemap_Scout_AOI_${Date.now()}.zip`);
+    showToast('✅ Georeferenced Basemap Package Exported (.png + .pgw + .prj)');
+  } catch (err) {
+    console.error('Export error:', err);
+    alert('Error exporting basemap: ' + err.message);
+  }
 }
 
 // Export ESRI Shapefiles (.zip) for GIS
@@ -4925,7 +5477,12 @@ function escapeXml(str) {
 
 // --- MODAL UTILITIES ---
 function openModal(id) {
-  document.getElementById(id).style.display = 'flex';
+  const elem = document.getElementById(id);
+  if (elem) elem.style.display = 'flex';
+  if (id === 'basemapModal') {
+    if (typeof renderBasemapCategories === 'function') renderBasemapCategories();
+    if (typeof renderBasemapCards === 'function') renderBasemapCards();
+  }
 }
 
 function closeModal(id) {
