@@ -7,6 +7,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.json">
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(r => console.log('✅ ServiceWorker Registered (Offline PWA Active):', r.scope))
+      .catch(e => console.warn('ServiceWorker Registration Error:', e));
+  });
+}
+</script>
 <title>Quik Field Notes — Powered by: Nasrullah Khan</title>
 
 <!-- Local Offline Vendor Libraries with CDN Fallbacks -->
@@ -1676,14 +1685,17 @@ body, html {
       </div>
 
       <!-- Download Progress Bar -->
-      <div id="aoiProgressContainer" style="display: none;">
-        <div style="display: flex; justify-content: space-between; font-size: 11px; color: #00F0FF; margin-bottom: 4px;">
-          <span id="aoiProgressLabel">Downloading tiles...</span>
-          <span id="aoiProgressPercent">0%</span>
+      <div id="aoiProgressContainer" style="display: none; background: rgba(15, 23, 42, 0.95); padding: 10px; border-radius: 12px; border: 1.5px solid rgba(239, 68, 68, 0.4); margin-top: 4px;">
+        <div style="display: flex; justify-content: space-between; font-size: 11.5px; color: #00F0FF; margin-bottom: 6px;">
+          <span id="aoiProgressLabel" style="font-weight: 700;">Downloading tiles...</span>
+          <span id="aoiProgressPercent" style="font-weight: 800; color: #10B981;">0%</span>
         </div>
-        <div class="storage-meter-track">
+        <div class="storage-meter-track" style="margin-bottom: 8px;">
           <div class="storage-meter-fill" id="aoiProgressBar" style="width: 0%;"></div>
         </div>
+        <button type="button" class="btn btn-danger" id="btnCancelAoiDownload" style="width: 100%; justify-content: center; font-size: 12px; font-weight: 800; padding: 8px 12px;" onclick="promptCancelAoiDownload()">
+          🛑 Cancel Download & Discard Partial Tiles
+        </button>
       </div>
     </div>
 
@@ -2312,16 +2324,6 @@ const BASEMAP_OPTIONS = [
     options: { maxZoom: 20, attribution: '&copy; Google' }
   },
   {
-    id: 'sentinel-cloudless',
-    category: 'satellite',
-    name: 'Sentinel-2 Cloudless (Copernicus 10m)',
-    icon: '🌍',
-    badge: 'ESA Copernicus',
-    desc: 'Global cloudless 10-meter multispectral mosaic from ESA Sentinel-2',
-    url: 'https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless-2020_3857/default/g/{z}/{y}/{x}.jpg',
-    options: { maxZoom: 16, attribution: '&copy; EOX & ESA Sentinel' }
-  },
-  {
     id: 'terrain-draped',
     category: 'satellite',
     name: 'Terrain Draped Imagery (3D Shaded)',
@@ -2345,16 +2347,6 @@ const BASEMAP_OPTIONS = [
     desc: 'Multi-directional illuminated shaded relief from global digital elevation models',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
     options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'opentopo',
-    category: 'elevation',
-    name: 'Contour Lines & Topo (OpenTopoMap)',
-    icon: '📈',
-    badge: 'Elevation Contours',
-    desc: 'Topographic map rendering elevation contour lines, heights, and terrain shading',
-    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
-    options: { maxZoom: 17, subdomains: ['a', 'b', 'c'], attribution: '&copy; OpenTopoMap' }
   },
   {
     id: 'color-elevation',
@@ -2386,26 +2378,6 @@ const BASEMAP_OPTIONS = [
     desc: 'Comprehensive topographic basemap with elevation contours and geographic names',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'esri-terrain',
-    category: 'elevation',
-    name: 'ESRI World Terrain Base',
-    icon: '🗻',
-    badge: 'Clean Relief',
-    desc: 'Minimal shaded relief base map designed for vector feature overlay',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 13, attribution: 'Tiles &copy; Esri' }
-  },
-  {
-    id: 'usgs-topo',
-    category: 'elevation',
-    name: 'USGS National Topographic Map',
-    icon: '🧭',
-    badge: 'USGS Quad',
-    desc: 'US Geological Survey official topographic contours, hydrography, and trails',
-    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 16, attribution: '&copy; USGS' }
   },
 
   // --- 🌿 SPECTRAL INDICES & REMOTE SENSING ---
@@ -2533,16 +2505,6 @@ const BASEMAP_OPTIONS = [
     options: { maxZoom: 20, attribution: '&copy; Google' }
   },
   {
-    id: 'cyclosm',
-    category: 'streets',
-    name: 'CyclOSM (Field Tracks & Minor Roads)',
-    icon: '🚵',
-    badge: 'Field & Rural Tracks',
-    desc: 'Emphasizes unpaved rural roads, desert/bush tracks, gradients, and elevation paths',
-    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
-    options: { maxZoom: 19, attribution: '&copy; CyclOSM' }
-  },
-  {
     id: 'carto-dark',
     category: 'streets',
     name: 'Carto Dark Matter (Night Mode)',
@@ -2615,26 +2577,105 @@ function initMap() {
   }
 }
 
-// Multi-Level Overzooming and Offline Tile Caching Engine
-async function findParentCachedTile(layerIdx, z, x, y) {
+// =========================================================================
+// ULTRA-SMOOTH IN-MEMORY TILE CACHE & INSTANT OVERZOOMING ENGINE
+// =========================================================================
+const memoryTileCache = new Map();
+const MAX_MEMORY_TILES = 1200;
+const cachedTileKeySet = new Set();
+
+function setMemoryTile(key, url) {
+  if (memoryTileCache.size >= MAX_MEMORY_TILES) {
+    const oldestKey = memoryTileCache.keys().next().value;
+    const oldUrl = memoryTileCache.get(oldestKey);
+    if (oldUrl && oldUrl.startsWith('blob:')) {
+      try { URL.revokeObjectURL(oldUrl); } catch (_) {}
+    }
+    memoryTileCache.delete(oldestKey);
+  }
+  memoryTileCache.set(key, url);
+}
+
+function getMemoryTile(key) {
+  if (!memoryTileCache.has(key)) return null;
+  const val = memoryTileCache.get(key);
+  memoryTileCache.delete(key);
+  memoryTileCache.set(key, val);
+  return val;
+}
+
+function refreshCachedTileKeySet() {
+  return new Promise((resolve) => {
+    if (!dbMapCache) { resolve(); return; }
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readonly');
+      const store = tx.objectStore('tiles');
+      const req = store.getAllKeys ? store.getAllKeys() : null;
+      if (req) {
+        req.onsuccess = () => {
+          cachedTileKeySet.clear();
+          if (req.result) req.result.forEach(k => cachedTileKeySet.add(k));
+          resolve();
+        };
+        req.onerror = () => resolve();
+      } else {
+        const cursorReq = store.openCursor();
+        cursorReq.onsuccess = (e) => {
+          const cursor = e.target.result;
+          if (cursor) {
+            cachedTileKeySet.add(cursor.key);
+            cursor.continue();
+          } else {
+            resolve();
+          }
+        };
+        cursorReq.onerror = () => resolve();
+      }
+    } catch (_) { resolve(); }
+  });
+}
+
+// Fast synchronous parent check in RAM (0.0001ms)
+function findParentInKeySet(layerIdx, z, x, y) {
   let parentZ = z;
   let parentX = x;
   let parentY = y;
-  // Check up to 5 parent zoom levels for seamless offline zoom
   for (let diff = 1; diff <= 5 && parentZ > 1; diff++) {
     parentZ -= 1;
     parentX = Math.floor(parentX / 2);
     parentY = Math.floor(parentY / 2);
     const parentKey = `${layerIdx}_${parentZ}_${parentX}_${parentY}`;
-    const blob = await getCachedTile(parentKey);
-    if (blob) {
+    if (cachedTileKeySet.has(parentKey) || memoryTileCache.has(parentKey)) {
       const scale = Math.pow(2, diff);
       const subX = x % scale;
       const subY = y % scale;
-      return { blob, diff, scale, subX, subY };
+      return { key: parentKey, diff, scale, subX, subY };
     }
   }
   return null;
+}
+
+const sharedScaleCanvas = document.createElement('canvas');
+sharedScaleCanvas.width = 256;
+sharedScaleCanvas.height = 256;
+const sharedScaleCtx = sharedScaleCanvas.getContext('2d');
+
+function scaleParentTileToTile(parentSrc, match, tileElem, targetKey) {
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    try {
+      const subSize = 256 / match.scale;
+      const sx = match.subX * subSize;
+      const sy = match.subY * subSize;
+      sharedScaleCtx.clearRect(0, 0, 256, 256);
+      sharedScaleCtx.drawImage(img, sx, sy, subSize, subSize, 0, 0, 256, 256);
+      const dataUrl = sharedScaleCanvas.toDataURL('image/png');
+      setMemoryTile(targetKey, dataUrl);
+      tileElem.src = dataUrl;
+    } catch (_) {}
+  };
+  img.src = parentSrc;
 }
 
 function createOptimizedTileLayer(provider, idx) {
@@ -2644,9 +2685,10 @@ function createOptimizedTileLayer(provider, idx) {
     maxZoom: 22,
     maxNativeZoom: provider.options?.maxNativeZoom || (provider.options?.maxZoom ? Math.min(provider.options.maxZoom, 19) : 18),
     crossOrigin: 'anonymous',
-    updateWhenIdle: true,
-    updateWhenZooming: false,
-    keepBuffer: 3
+    keepBuffer: 8,           // Buffer 8 tiles around viewport for silky-smooth panning
+    updateWhenIdle: false,   // Render immediately during panning, zero stutter
+    updateWhenZooming: true, // Seamless continuous zoom transitions
+    updateInterval: 30       // Fast 30ms tile pipeline
   });
 
   const originalCreateTile = layer.createTile;
@@ -2654,32 +2696,41 @@ function createOptimizedTileLayer(provider, idx) {
     const tile = originalCreateTile.call(this, coords, done);
     const tileKey = `${idx}_${coords.z}_${coords.x}_${coords.y}`;
 
-    // 1. Direct hit in IndexedDB tile cache
-    getCachedTile(tileKey).then(blob => {
-      if (blob) {
-        tile.src = URL.createObjectURL(blob);
+    // 1. FASTEST PATH: In-memory RAM cache (0ms synchronous)
+    const memUrl = getMemoryTile(tileKey);
+    if (memUrl) {
+      tile.src = memUrl;
+      return tile;
+    }
+
+    // 2. CHECK INDEXEDDB VIA IN-MEMORY KEY SET (0ms check)
+    if (cachedTileKeySet.has(tileKey)) {
+      getCachedTile(tileKey).then(blob => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setMemoryTile(tileKey, url);
+          tile.src = url;
+        }
+      });
+      return tile;
+    }
+
+    // 3. OVERZOOM FALLBACK: Synchronous parent key check (0ms)
+    const parentMatch = findParentInKeySet(idx, coords.z, coords.x, coords.y);
+    if (parentMatch) {
+      const parentMemUrl = getMemoryTile(parentMatch.key);
+      if (parentMemUrl) {
+        scaleParentTileToTile(parentMemUrl, parentMatch, tile, tileKey);
       } else {
-        // 2. Overzooming fallback for seamless navigation past downloaded zoom
-        findParentCachedTile(idx, coords.z, coords.x, coords.y).then(parentMatch => {
-          if (!parentMatch) return;
-          const img = new Image();
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = 256;
-              canvas.height = 256;
-              const ctx = canvas.getContext('2d');
-              const subSize = 256 / parentMatch.scale;
-              const sx = parentMatch.subX * subSize;
-              const sy = parentMatch.subY * subSize;
-              ctx.drawImage(img, sx, sy, subSize, subSize, 0, 0, 256, 256);
-              tile.src = canvas.toDataURL();
-            } catch (_) {}
-          };
-          img.src = URL.createObjectURL(parentMatch.blob);
+        getCachedTile(parentMatch.key).then(parentBlob => {
+          if (parentBlob) {
+            const pUrl = URL.createObjectURL(parentBlob);
+            setMemoryTile(parentMatch.key, pUrl);
+            scaleParentTileToTile(pUrl, parentMatch, tile, tileKey);
+          }
         });
       }
-    });
+    }
 
     return tile;
   };
@@ -2822,12 +2873,7 @@ const ANALYTIC_LEGENDS = {
     gradient: 'linear-gradient(to bottom, #FFFFFF 0%, #D73027 25%, #FDAE61 50%, #FEE08B 70%, #A6D96A 85%, #1A9641 100%)',
     labels: ['>3000m Peak', '2000m High', '1200m Plateau', '500m Plains', '0m Sea Level']
   },
-  'opentopo': {
-    title: 'Contour Relief',
-    unit: 'Topo Elevation',
-    gradient: 'linear-gradient(to bottom, #9E0142 0%, #F46D43 30%, #FEE08B 60%, #E6F598 80%, #66C2A5 100%)',
-    labels: ['High Ridge', 'Steep Slopes', 'Mid-Elevation', 'Valley Floor', 'Low Base']
-  },
+  
   'slope-aspect': {
     title: 'Slope Steepness',
     unit: 'Gradient Angle',
@@ -4502,7 +4548,7 @@ function initMapCacheDb() {
     };
     req.onsuccess = function(e) {
       dbMapCache = e.target.result;
-      resolve(dbMapCache);
+      refreshCachedTileKeySet().then(() => resolve(dbMapCache));
     };
     req.onerror = function() {
       resolve(null);
@@ -4520,6 +4566,28 @@ function getCachedTile(key) {
       req.onsuccess = () => resolve(req.result ? req.result.blob : null);
       req.onerror = () => resolve(null);
     } catch (_) { resolve(null); }
+  });
+}
+
+
+function deleteCachedTiles(keys) {
+  return new Promise((resolve) => {
+    if (!dbMapCache || !keys || keys.length === 0) { resolve(); return; }
+    try {
+      const tx = dbMapCache.transaction('tiles', 'readwrite');
+      const store = tx.objectStore('tiles');
+      keys.forEach(k => {
+        store.delete(k);
+        cachedTileKeySet.delete(k);
+        const memUrl = memoryTileCache.get(k);
+        if (memUrl && memUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(memUrl); } catch (_) {}
+        }
+        memoryTileCache.delete(k);
+      });
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    } catch (_) { resolve(); }
   });
 }
 
@@ -4881,6 +4949,19 @@ function latLonToTileXY(lat, lon, zoom) {
 }
 
 // AOI Tile Downloader
+let currentSessionDownloadedKeys = [];
+
+function promptCancelAoiDownload() {
+  if (!isDownloadingAoi) return;
+  const reallyCancel = confirm("Are you sure you want to cancel the offline map download?\n\nThis will abort the download and completely remove all partially downloaded tiles from this session.");
+  if (reallyCancel) {
+    cancelAoiFlag = true;
+    const progLabel = document.getElementById('aoiProgressLabel');
+    if (progLabel) progLabel.textContent = 'Stopping and purging partial data...';
+    showToast('Aborting download and clearing partial tiles...');
+  }
+}
+
 async function startAoiDownload() {
   if (isDownloadingAoi) return;
   const storage = await analyzeDeviceStorage();
@@ -4925,6 +5006,8 @@ async function startAoiDownload() {
 
   isDownloadingAoi = true;
   cancelAoiFlag = false;
+  currentSessionDownloadedKeys = [];
+
   const progContainer = document.getElementById('aoiProgressContainer');
   const progBar = document.getElementById('aoiProgressBar');
   const progLabel = document.getElementById('aoiProgressLabel');
@@ -4932,9 +5015,8 @@ async function startAoiDownload() {
   const btn = document.getElementById('btnStartAoiDownload');
 
   if (progContainer) progContainer.style.display = 'block';
-  if (btn) btn.textContent = 'Downloading...';
+  if (btn) btn.textContent = 'Downloading... (Tap Cancel to Stop)';
 
-  // Find active basemap URL template or fallback
   const activeOpt = BASEMAP_OPTIONS.find(b => b.id === activeBasemapId) || BASEMAP_OPTIONS[0];
   const urlTemplate = activeOpt.url || (TILE_PROVIDERS && TILE_PROVIDERS[tileLayerIndex]?.url) || 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
   const cachePrefix = activeBasemapId || tileLayerIndex;
@@ -4944,8 +5026,10 @@ async function startAoiDownload() {
   for (const t of tileList) {
     if (cancelAoiFlag) break;
     const tileKey = `${cachePrefix}_${t.z}_${t.x}_${t.y}`;
-    const cached = await getCachedTile(tileKey);
-    if (!cached) {
+    
+    // Check if tile already cached
+    const alreadyCached = cachedTileKeySet.has(tileKey);
+    if (!alreadyCached) {
       let tileUrl = urlTemplate.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y);
       if (tileUrl.includes('{s}')) {
         const sub = ['a', 'b', 'c'][Math.floor(Math.random() * 3)];
@@ -4956,19 +5040,43 @@ async function startAoiDownload() {
         if (resp.ok) {
           const blob = await resp.blob();
           await saveCachedTile(tileKey, blob);
+          cachedTileKeySet.add(tileKey);
+          currentSessionDownloadedKeys.push(tileKey);
         }
       } catch (_) {}
     }
+
+    if (cancelAoiFlag) break;
+
     completed++;
     const pct = Math.floor((completed / tileList.length) * 100);
     if (progBar) progBar.style.width = pct + '%';
     if (progPct) progPct.textContent = pct + '%';
     if (progLabel) progLabel.textContent = `Downloaded ${completed} of ${tileList.length} tiles`;
     
-    // Yield to event loop every 10 tiles so browser stays responsive even if screen is off
     if (completed % 10 === 0) {
       await new Promise(r => setTimeout(r, 0));
     }
+  }
+
+  // Handle Cancellation cleanup
+  if (cancelAoiFlag) {
+    if (progLabel) progLabel.textContent = 'Purging partial tiles...';
+    await deleteCachedTiles(currentSessionDownloadedKeys);
+    currentSessionDownloadedKeys = [];
+    isDownloadingAoi = false;
+    cancelAoiFlag = false;
+
+    if (btn) btn.textContent = '🚀 Cache AOI Now';
+    if (progBar) progBar.style.width = '0%';
+    if (progPct) progPct.textContent = '0%';
+    setTimeout(() => {
+      if (progContainer) progContainer.style.display = 'none';
+    }, 1500);
+
+    analyzeDeviceStorage();
+    showToast('Download cancelled. Partial tiles cleared.');
+    return;
   }
 
   isDownloadingAoi = false;
@@ -5484,7 +5592,15 @@ function openModal(id) {
 }
 
 function closeModal(id) {
-  document.getElementById(id).style.display = 'none';
+  if (id === 'aoiModal' && typeof isDownloadingAoi !== 'undefined' && isDownloadingAoi) {
+    if (confirm("A map download is currently in progress.\n\nDo you want to cancel the download and discard partial tiles?")) {
+      promptCancelAoiDownload();
+    } else {
+      return;
+    }
+  }
+  const elem = document.getElementById(id);
+  if (elem) elem.style.display = 'none';
   if (isDictating) stopDictation();
 }
 
