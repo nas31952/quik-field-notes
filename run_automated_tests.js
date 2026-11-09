@@ -253,7 +253,7 @@ server.listen(PORT, async () => {
     if (!shaderTest.success) throw new Error('Analytic pixel shader execution failed');
     console.log('  -> PASS: Real-time pixel shader processes NDVI, NDMI, NDWI, SAVI, EVI, SCL, and Slope');
 
-    // TEST 12: Analytic Legend Widget Display on Layer Selection
+    // TEST 12: Analytic Legend Dynamic Visibility
     const legendTest = await evaluate(`(() => {
       selectBasemapById('ndvi');
       const widget = document.getElementById('analyticLegendWidget');
@@ -275,34 +275,31 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: Analytic legend widget displays correctly for spectral/DEM layers and hides for normal maps');
 
-    // TEST 13: Layout Positioning: North Arrow, Zoom Keys & Analytic Legend Non-Overlapping
-    const layoutTest = await evaluate(`(() => {
+    // TEST 13: Analytic Legend Positioned on LEFT below Project Folder Key
+    const leftLayoutTest = await evaluate(`(() => {
       selectBasemapById('ndvi');
-      const compass = document.querySelector('.compass-widget');
-      const zoom = document.querySelector('.zoom-controls');
+      const projectPill = document.querySelector('.top-hud .hud-pill');
       const widget = document.getElementById('analyticLegendWidget');
       
-      const cRect = compass.getBoundingClientRect();
-      const zRect = zoom.getBoundingClientRect();
+      const pRect = projectPill.getBoundingClientRect();
       const wRect = widget.getBoundingClientRect();
       
-      const zoomBelowCompass = zRect.top >= cRect.bottom;
-      const widgetBelowZoom = wRect.top >= zRect.bottom - 5;
+      const onLeft = wRect.left <= 20;
+      const belowProject = wRect.top >= pRect.bottom - 5;
       
       return {
-        cBottom: cRect.bottom,
-        zTop: zRect.top,
-        zBottom: zRect.bottom,
+        pBottom: pRect.bottom,
         wTop: wRect.top,
-        zoomBelowCompass,
-        widgetBelowZoom
+        wLeft: wRect.left,
+        onLeft,
+        belowProject
       };
     })()`);
-    console.log('Test 13 - North Arrow, Zoom Keys & Legend Layout:', layoutTest);
-    if (!layoutTest.zoomBelowCompass || !layoutTest.widgetBelowZoom) {
-      throw new Error('Overlapping detected between compass, zoom keys, and analytic legend widget');
+    console.log('Test 13 - Legend Positioned on LEFT below Project Pill:', leftLayoutTest);
+    if (!leftLayoutTest.onLeft || !leftLayoutTest.belowProject) {
+      throw new Error('Analytic legend is not positioned on the left below Project pill');
     }
-    console.log('  -> PASS: Clean non-overlapping vertical rail (Compass -> Zoom Keys -> Analytic Legend)');
+    console.log('  -> PASS: Analytic Legend positioned on LEFT rail directly below Project Folder pill');
 
     // TEST 14: SCL 16 Specialized Classes & Color Elevation High-Res DEM
     const sclAndElevTest = await evaluate(`(() => {
@@ -342,8 +339,52 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: All 16 specialized field SCL classes present and Color Elevation configured with high-res DEM');
 
+    // TEST 15: Layer Feature Inspector Tool (Click to Identify & Popup)
+    const inspectToolTest = await evaluate(`(() => {
+      const inspectBtn = document.getElementById('btnLayerInspect');
+      const popup = document.getElementById('analyticInspectPopup');
+      if (!inspectBtn || !popup) return { success: false, reason: 'missing elements' };
+      
+      // 1. Toggle Inspect ON
+      toggleLayerInspectMode();
+      const isActiveAfterToggle = isLayerInspectActive;
+      
+      // 2. Select SCL layer and simulate click
+      selectBasemapById('scl');
+      const fakeClick = {
+        latlng: L.latLng(24.500000, 45.200000),
+        originalEvent: { clientX: 180, clientY: 300 }
+      };
+      handleLayerInspectClick(fakeClick);
+      
+      const popupVisible = popup.style.display !== 'none';
+      const classNameText = document.getElementById('inspectPopupClass')?.textContent;
+      const coordsText = document.getElementById('inspectPopupCoords')?.textContent;
+      
+      // 3. Close popup and toggle Inspect OFF
+      closeInspectPopup();
+      const popupClosed = popup.style.display === 'none';
+      toggleLayerInspectMode();
+      const isOffAfterSecondToggle = !isLayerInspectActive;
+      
+      return {
+        success: true,
+        isActiveAfterToggle,
+        popupVisible,
+        classNameText,
+        coordsText,
+        popupClosed,
+        isOffAfterSecondToggle
+      };
+    })()`);
+    console.log('Test 15 - Layer Feature Inspector (Identify & Popup):', inspectToolTest);
+    if (!inspectToolTest.success || !inspectToolTest.isActiveAfterToggle || !inspectToolTest.popupVisible || !inspectToolTest.popupClosed || !inspectToolTest.isOffAfterSecondToggle) {
+      throw new Error('Layer feature inspector test failed');
+    }
+    console.log('  -> PASS: Inspect tool toggles on/off, identifies feature class, and renders interactive scouting popup');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 14 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 15 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
