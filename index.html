@@ -989,20 +989,23 @@ body, html {
    ========================================================================= */
 .analytic-legend {
   position: absolute;
-  top: calc(var(--safe-top) + 64px);
-  right: 10px;
+  top: calc(var(--safe-top) + 248px);
+  right: 12px;
   z-index: 998;
-  background: rgba(11, 19, 43, 0.92);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border: 1.5px solid rgba(0, 240, 255, 0.4);
+  background: rgba(11, 19, 43, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid rgba(0, 240, 255, 0.45);
   border-radius: 12px;
   padding: 8px 10px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.65);
   color: #FFFFFF;
   user-select: none;
-  min-width: 95px;
-  max-width: 135px;
+  min-width: 110px;
+  max-width: 165px;
+  max-height: calc(100vh - var(--safe-top) - 340px);
+  overflow-y: auto;
+  scrollbar-width: thin;
   transition: all 0.2s ease;
 }
 .legend-header {
@@ -2365,9 +2368,9 @@ const BASEMAP_OPTIONS = [
     name: 'Color Elevation (Hypsometric Tint)',
     icon: '🌈',
     badge: 'Elevation Gradient',
-    desc: 'Physical relief map showing elevation heights and geomorphic landforms in color',
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}',
-    options: { maxZoom: 16, attribution: 'Tiles &copy; Esri' }
+    desc: 'Global high-resolution digital elevation model with continuous hypsometric color ramp',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri World Elevation' }
   },
   {
     id: 'slope-aspect',
@@ -2779,19 +2782,88 @@ function applyAnalyticPixelShader(imgData, layerId) {
         d[i] = 166; d[i+1] = 97; d[i+2] = 26;
       }
     }
-  } else if (layerId === 'scl') {
+  } else if (layerId === 'color-elevation') {
+    // Dynamic Hypsometric Tint Shader on High-Resolution DEM
     for (let i = 0; i < len; i += 4) {
       const r = d[i], g = d[i+1], b = d[i+2];
-      if (b > r + 15 && b > g) {
-        d[i] = 43; d[i+1] = 131; d[i+2] = 186; // Water
-      } else if (g > r + 20 && g > b) {
-        d[i] = 26; d[i+1] = 150; d[i+2] = 65;  // Dense Veg
-      } else if (g > r + 6) {
-        d[i] = 166; d[i+1] = 217; d[i+2] = 106; // Sparse Veg
-      } else if (r > g && r > b) {
-        d[i] = 223; d[i+1] = 194; d[i+2] = 125; // Sand / Soil
+      const h = (r * 299 + g * 587 + b * 114) / 1000;
+      if (h > 235) {
+        // Alpine Snow / Mountain Peak (#FFFFFF)
+        d[i] = 255; d[i+1] = 255; d[i+2] = 255;
+      } else if (h > 200) {
+        // High Mountain / Steep Ridge (#D73027)
+        d[i] = 215; d[i+1] = 48; d[i+2] = 39;
+      } else if (h > 155) {
+        // Upper Plateau / Mountain Slope (#FDAE61)
+        d[i] = 253; d[i+1] = 174; d[i+2] = 97;
+      } else if (h > 105) {
+        // Mid Plateau / Rolling Terrain (#FEE08B)
+        d[i] = 254; d[i+1] = 224; d[i+2] = 139;
+      } else if (h > 55) {
+        // Low Plains / Foothills (#A6D96A)
+        d[i] = 166; d[i+1] = 217; d[i+2] = 106;
       } else {
-        d[i] = 112; d[i+1] = 117; d[i+2] = 122; // Rock / Built
+        // Low Valley / Base Level (#1A9641)
+        d[i] = 26; d[i+1] = 150; d[i+2] = 65;
+      }
+    }
+  } else if (layerId === 'scl') {
+    // Advanced Field Scene Classification Layer (16 Specialized Seismic & Terrain Classes)
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      const maxC = Math.max(r, g, b);
+      const minC = Math.min(r, g, b);
+      const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+
+      if (b > r + 16 && b > g && r < 105) {
+        // 1. Water Bodies / Retention Ponds (#1D4ED8)
+        d[i] = 29; d[i+1] = 78; d[i+2] = 216;
+      } else if (b >= r - 8 && b > 115 && g > 115 && r < 165 && sat < 0.25) {
+        // 2. Sabkha / Wetlands / Salt Flat (#06B6D4)
+        d[i] = 6; d[i+1] = 182; d[i+2] = 212;
+      } else if (g > r + 18 && g > b + 10) {
+        // 3. Dense Vegetation / Canopy / Palms (#15803D)
+        d[i] = 21; d[i+1] = 128; d[i+2] = 61;
+      } else if ((g - r) / (g + r + 1.0) > 0.04 && g > 70) {
+        // 4. Wadi Area / Desert Scrub (#84CC16)
+        d[i] = 132; d[i+1] = 204; d[i+2] = 22;
+      } else if (r > 230 && g > 230 && b > 230) {
+        // 5. Above-Ground Pipelines / Metallic Reflectors (#EC4899)
+        d[i] = 236; d[i+1] = 72; d[i+2] = 153;
+      } else if (brightness < 72 && Math.abs(r - g) < 12 && Math.abs(g - b) < 12) {
+        // 6. Blacktop Roads / Paved Asphalt (#334155)
+        d[i] = 51; d[i+1] = 65; d[i+2] = 85;
+      } else if (brightness > 195 && sat < 0.18) {
+        // 7. Gravel Roads / Caliche Graded Tracks (#F8FAFC)
+        d[i] = 248; d[i+1] = 250; d[i+2] = 252;
+      } else if (brightness > 185 && r > 180 && g > 165 && sat < 0.28) {
+        // 8. Quarry Area / Scraped Places / Well Pads (#EAB308)
+        d[i] = 234; d[i+1] = 179; d[i+2] = 8;
+      } else if ((r > 160 && b > 140 && g < 150) || (r > 175 && g < 110)) {
+        // 9. Built-up Areas / Buildings / Camps (#EF4444)
+        d[i] = 239; d[i+1] = 68; d[i+2] = 68;
+      } else if (brightness < 80 && r > g + 4) {
+        // 10. Washouts / Erosion Gullies / Fissures (#991B1B)
+        d[i] = 153; d[i+1] = 27; d[i+2] = 27;
+      } else if (brightness < 110 && r >= g && r > b + 6) {
+        // 11. Jebels / Rocky Hills / Escarpments (#78350F)
+        d[i] = 120; d[i+1] = 53; d[i+2] = 15;
+      } else if (r > g + 26 && g > b + 14 && brightness > 145) {
+        // 12. Sand Dunes / Crests & Slipfaces (#EA580C)
+        d[i] = 234; d[i+1] = 88; d[i+2] = 12;
+      } else if (r > 165 && r > g + 14 && b < 125 && brightness >= 145 && brightness <= 185) {
+        // 13. Buried Objects / Backfilled Trenches (#8B5CF6)
+        d[i] = 139; d[i+1] = 92; d[i+2] = 246;
+      } else if (brightness >= 110 && brightness <= 145 && r > g && g > b) {
+        // 14. Gravel Plains / Reg / Serir (#64748B)
+        d[i] = 100; d[i+1] = 116; d[i+2] = 139;
+      } else if (brightness > 170 && Math.abs(r - g) < 22 && b < 135) {
+        // 15. Power Lines / Transmission Corridors (#F59E0B)
+        d[i] = 245; d[i+1] = 158; d[i+2] = 11;
+      } else {
+        // 16. Flat Sand / Desert Floor (#FDE047)
+        d[i] = 253; d[i+1] = 224; d[i+2] = 71;
       }
     }
   } else if (layerId === 'slope-aspect') {
@@ -2829,7 +2901,7 @@ function applyAnalyticPixelShader(imgData, layerId) {
   }
 }
 function createOptimizedTileLayer(provider, idx) {
-  const isAnalytic = provider.category === 'spectral' || provider.id === 'slope-aspect';
+  const isAnalytic = provider.category === 'spectral' || provider.id === 'slope-aspect' || provider.id === 'color-elevation';
   const layer = L.tileLayer(provider.url, {
     ...provider.options,
     minZoom: 2,
@@ -3110,14 +3182,25 @@ const ANALYTIC_LEGENDS = {
     labels: ['Geological Rock', 'Moisture Mask', 'Vegetation NIR', 'Burn / Soil']
   },
   'scl': {
-    title: 'Land Cover SCL',
-    unit: 'Surface Classes',
+    title: 'Scene Classification (SCL)',
+    unit: 'Land & Feature Classes',
     discrete: [
-      { color: '#1A9641', label: 'Dense Vegetation' },
-      { color: '#A6D96A', label: 'Sparse Vegetation' },
-      { color: '#DFC27D', label: 'Bare Soil / Sand' },
-      { color: '#2B83BA', label: 'Water / Wadi' },
-      { color: '#70757A', label: 'Rock Outcrop / Built' }
+      { color: '#EC4899', label: 'Above-Ground Pipelines' },
+      { color: '#F59E0B', label: 'Power Lines / Corridors' },
+      { color: '#334155', label: 'Blacktop Roads (Asphalt)' },
+      { color: '#F8FAFC', label: 'Gravel Roads / Tracks' },
+      { color: '#EF4444', label: 'Built-up / Camps / Facilities' },
+      { color: '#8B5CF6', label: 'Buried Objects / Trenches' },
+      { color: '#EAB308', label: 'Quarry / Scraped Pads' },
+      { color: '#78350F', label: 'Jebels / Rock Outcrops' },
+      { color: '#64748B', label: 'Gravel Plains (Reg/Serir)' },
+      { color: '#EA580C', label: 'Sand Dunes' },
+      { color: '#FDE047', label: 'Flat Sand' },
+      { color: '#991B1B', label: 'Washouts / Gullies' },
+      { color: '#06B6D4', label: 'Sabkha (Wetlands/Salt)' },
+      { color: '#84CC16', label: 'Wadi Area / Desert Scrub' },
+      { color: '#15803D', label: 'Dense Vegetation' },
+      { color: '#1D4ED8', label: 'Water Bodies' }
     ]
   }
 };
