@@ -884,12 +884,15 @@ body, html {
   backdrop-filter: blur(18px);
   border: 1.5px solid var(--accent-neon);
   border-radius: 18px;
-  padding: 10px 16px;
+  padding: 7px 12px;
   display: none;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   box-shadow: 0 10px 36px rgba(0, 240, 255, 0.35);
   white-space: nowrap;
+  max-width: calc(100vw - 20px);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 /* Layer item in list */
@@ -1002,7 +1005,8 @@ body, html {
   color: #FFFFFF;
   user-select: none;
   min-width: 140px;
-  max-width: 195px;
+  width: max-content;
+  max-width: 225px;
   max-height: calc(100vh - var(--safe-top) - 220px);
   overflow-y: auto;
   scrollbar-width: thin;
@@ -1022,6 +1026,7 @@ body, html {
   gap: 3px;
   transition: all 0.15s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .legend-inspect-btn:active, .legend-inspect-btn.active {
   background: #00F0FF;
@@ -1074,6 +1079,15 @@ body, html {
   gap: 6px;
   margin-bottom: 6px;
   cursor: pointer;
+  width: 100%;
+}
+.legend-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
 }
 .legend-title {
   font-size: 10.5px;
@@ -1084,6 +1098,8 @@ body, html {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
+  max-width: 110px;
 }
 .legend-toggle-btn {
   background: rgba(255, 255, 255, 0.12);
@@ -1207,7 +1223,7 @@ body, html {
 <!-- Vertical Analytic & DEM Legend Widget (Auto-displayed on LEFT below Project folder key) -->
 <div class="analytic-legend" id="analyticLegendWidget" style="display: none;">
   <div class="legend-header">
-    <div style="display: flex; align-items: center; gap: 6px; cursor: pointer;" onclick="toggleAnalyticLegendMin()">
+    <div class="legend-title-wrap" onclick="toggleAnalyticLegendMin()">
       <span class="legend-title" id="legendTitle">NDVI</span>
       <button class="legend-toggle-btn" id="legendToggleBtn" title="Minimize/Maximize">−</button>
     </div>
@@ -1259,11 +1275,13 @@ body, html {
 
 <!-- Digitizing Toolbar (With ArcPro-style Snapping Engine) -->
 <div id="drawToolbar">
-  <span id="drawStatusText" style="font-size: 12px; font-weight: 800; color: #00F0FF; white-space: nowrap;">Drawing: 0 pts</span>
-  <button class="btn" id="btnSnapToggle" style="padding: 6px 10px; font-size: 11px; min-height: 36px; background: rgba(16, 185, 129, 0.25); border: 1.5px solid #10B981; color: #10B981;" onclick="toggleSnapEngine()">🧲 Snap: ON</button>
-  <button class="btn btn-secondary" style="padding: 6px 10px; font-size: 11px; min-height: 36px;" onclick="undoDrawVertex()">↩️ Undo</button>
-  <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="finishDrawing()">✅ Finish</button>
-  <button class="btn btn-danger" style="padding: 6px 8px; font-size: 11px; min-height: 36px;" onclick="cancelDrawing()">❌</button>
+  <span id="drawStatusText" style="font-size: 11.5px; font-weight: 800; color: #00F0FF; white-space: nowrap;">0 pts</span>
+  <button class="btn" id="btnDigitizeModeToggle" style="padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(0, 240, 255, 0.2); border: 1.5px solid #00F0FF; color: #00F0FF; font-weight: 700;" onclick="toggleDigitizeInputMode()" title="Toggle: Draw by Screen Click vs Center Crosshair Cursor">👆 Click</button>
+  <button class="btn" id="btnAddCursorVertex" style="display: none; padding: 5px 11px; font-size: 11px; min-height: 34px; background: #00F0FF; color: #0B132B; font-weight: 800; border-radius: 8px; border: none; box-shadow: 0 0 10px rgba(0,240,255,0.5);" onclick="addVertexAtCursor()" title="Add vertex at center crosshair position">➕ Add Pt</button>
+  <button class="btn" id="btnSnapToggle" style="padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(16, 185, 129, 0.25); border: 1.5px solid #10B981; color: #10B981;" onclick="toggleSnapEngine()">🧲 Snap</button>
+  <button class="btn btn-secondary" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="undoDrawVertex()">↩️</button>
+  <button class="btn btn-primary" style="padding: 5px 11px; font-size: 11.5px; min-height: 34px;" onclick="finishDrawing()">✅ Finish</button>
+  <button class="btn btn-danger" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="cancelDrawing()">❌</button>
 </div>
 
 <!-- Map Click Popover -->
@@ -2853,13 +2871,17 @@ function applyAnalyticPixelShader(imgData, layerId) {
       const r = d[i], g = d[i+1], b = d[i+2];
       const evi = (2.5 * (g - r)) / (g + 2.4 * r + 30.0);
       if (evi > 0.25) {
-        d[i] = 0; d[i+1] = 90; d[i+2] = 50;
-      } else if (evi > 0.10) {
-        d[i] = 35; d[i+1] = 139; d[i+2] = 69;
-      } else if (evi > 0.04) {
-        d[i] = 116; d[i+1] = 196; d[i+2] = 118;
+        d[i] = 0; d[i+1] = 90; d[i+2] = 50; // Dense Canopy (#005A32)
+      } else if (evi > 0.12) {
+        d[i] = 35; d[i+1] = 139; d[i+2] = 69; // Moderate Vegetation (#238B45)
+      } else if (evi > 0.03) {
+        d[i] = 116; d[i+1] = 196; d[i+2] = 118; // Sparse Scrub (#74C476)
       } else {
-        d[i] = 166; d[i+1] = 97; d[i+2] = 26;
+        // Natural neutral terrain relief (clean, balanced tone - NO dark orange flood)
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        d[i] = Math.min(255, Math.round(gray * 1.02 + 10));
+        d[i+1] = Math.min(255, Math.round(gray * 0.98 + 8));
+        d[i+2] = Math.min(255, Math.round(gray * 0.85 + 5));
       }
     }
   } else if (layerId === 'savi') {
@@ -2867,13 +2889,17 @@ function applyAnalyticPixelShader(imgData, layerId) {
       const r = d[i], g = d[i+1], b = d[i+2];
       const savi = (1.5 * (g - r)) / (g + r + 60.0);
       if (savi > 0.18) {
-        d[i] = 1; d[i+1] = 133; d[i+2] = 113;
+        d[i] = 1; d[i+1] = 133; d[i+2] = 113; // Dense Arid Veg (#018571)
       } else if (savi > 0.08) {
-        d[i] = 128; d[i+1] = 205; d[i+2] = 193;
+        d[i] = 128; d[i+1] = 205; d[i+2] = 193; // Moderate Shrubland (#80CDC1)
       } else if (savi > 0.02) {
-        d[i] = 223; d[i+1] = 194; d[i+2] = 125;
+        d[i] = 166; d[i+1] = 219; d[i+2] = 160; // Arid Desert Scrub (#A6DBA0)
       } else {
-        d[i] = 166; d[i+1] = 97; d[i+2] = 26;
+        // Natural neutral soil/rock relief (clean, balanced tone - NO dark orange flood)
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        d[i] = Math.min(255, Math.round(gray * 1.04 + 12));
+        d[i+1] = Math.min(255, Math.round(gray * 0.96 + 8));
+        d[i+2] = Math.min(255, Math.round(gray * 0.82 + 4));
       }
     }
   } else if (layerId === 'color-elevation') {
@@ -2902,8 +2928,8 @@ function applyAnalyticPixelShader(imgData, layerId) {
       }
     }
   } else if (layerId === 'scl') {
-    // Advanced Field Scene Classification Layer (16 High-Contrast Specialized Scouting Classes)
-    // Dim background matrix (Flat Sand & Gravel Plains) so foreground infrastructure and hazards stand out vibrantly
+    // Advanced Field Scene Classification Layer (10 High-Contrast Scouting Terrain Classes)
+    // Refined Spatial-Spectral Engine with 3x3 Sobel Boundary Operator and Morphological Differentiation
     const w = 256, h = 256;
     const lum = new Uint8Array(w * h);
     for (let i = 0, j = 0; i < len; i += 4, j++) {
@@ -2920,64 +2946,50 @@ function applyAnalyticPixelShader(imgData, layerId) {
         const r = d[i], g = d[i+1], b = d[i+2];
         const brightness = lum[j];
 
-        // Spatial texture gradient (edge & relief detector)
-        const xP = row + Math.max(0, x - 1);
-        const xN = row + Math.min(w - 1, x + 1);
-        const gradX = Math.abs(lum[xN] - lum[xP]);
-        const gradY = Math.abs(lum[yNext + x] - lum[yPrev + x]);
-        const tex = gradX + gradY;
+        // 3x3 Sobel boundary gradient for accurate edge/relief discrimination
+        const xP = Math.max(0, x - 1);
+        const xN = Math.min(w - 1, x + 1);
+        const g00 = lum[yPrev + xP], g01 = lum[yPrev + x], g02 = lum[yPrev + xN];
+        const g10 = lum[row + xP],                         g12 = lum[row + xN];
+        const g20 = lum[yNext + xP], g21 = lum[yNext + x], g22 = lum[yNext + xN];
+        const sobelX = (g02 + 2 * g12 + g22) - (g00 + 2 * g10 + g20);
+        const sobelY = (g20 + 2 * g21 + g22) - (g00 + 2 * g01 + g02);
+        const edgeMag = Math.abs(sobelX) + Math.abs(sobelY);
 
         const maxC = Math.max(r, g, b);
         const minC = Math.min(r, g, b);
         const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
+        const ndiGr = (g - r) / (g + r + 1.0);
 
         if (b > r + 16 && b > g && r < 115) {
-          // 1. Water Bodies / Retention Ponds (#2563EB Royal Blue)
+          // 1. Water Bodies (#2563EB Cobalt Royal Blue)
           d[i] = 37; d[i+1] = 99; d[i+2] = 235;
-        } else if ((g > r + 10 && g > b + 6) || ((g - r) / (g + r + 1.0) > 0.07)) {
-          // 2. Dense Vegetation / Farms / Palm Groves (#10B981 Vivid Emerald Green)
+        } else if (ndiGr > 0.05 || (g > r + 8 && g > b)) {
+          // 2. Dense Vegetation / Farms (#10B981 Bright Emerald Green)
           d[i] = 16; d[i+1] = 185; d[i+2] = 129;
-        } else if (((g - r) / (g + r + 1.0) > 0.02) && g > 70) {
-          // 3. Wadi Area / Desert Scrub (#84CC16 Vivid Willow Lime)
+        } else if (ndiGr > 0.015 && g > 65 && brightness < 180) {
+          // 3. Wadis (Vegetated / Drainage) (#84CC16 Vivid Willow Lime)
           d[i] = 132; d[i+1] = 204; d[i+2] = 22;
-        } else if (tex > 16 && brightness >= 70 && brightness <= 215 && (sat < 0.18 || (sat > 0.25 && b > r))) {
-          // 4. Built-up / Camps / Facilities / Structures (#EF4444 Vibrant Signal Red)
+        } else if (edgeMag > 48 && brightness >= 65 && brightness <= 220 && (sat < 0.20 || (sat > 0.25 && b > r))) {
+          // 4. Built-up Areas / Facilities / Camps (#EF4444 Vibrant Signal Red)
           d[i] = 239; d[i+1] = 68; d[i+2] = 68;
-        } else if (b >= r - 8 && b > 110 && g > 110 && r < 185 && sat < 0.22) {
-          // 5. Sabkha / Wetlands / Salt Crust (#06B6D4 Luminous Cyan)
+        } else if (b >= r - 8 && b > 105 && g > 105 && r < 185 && sat < 0.22) {
+          // 5. Sabkha (Wetlands / Salt Crust) (#06B6D4 Luminous Cyan)
           d[i] = 6; d[i+1] = 182; d[i+2] = 212;
-        } else if (brightness > 205 && (gradX > 20 || gradY > 20) && Math.abs(r - g) < 25) {
-          // 6. Above-Ground Pipelines / Metallic Flowlines (#F43F5E Neon Hot Pink)
-          d[i] = 244; d[i+1] = 63; d[i+2] = 94;
-        } else if (brightness > 165 && Math.abs(r - g) < 20 && (gradX > 20 || gradY > 20)) {
-          // 7. Power Lines / Transmission Corridors (#F59E0B Electric Gold)
-          d[i] = 245; d[i+1] = 158; d[i+2] = 11;
-        } else if (brightness < 68 && Math.abs(r - g) < 14 && Math.abs(g - b) < 14) {
-          // 8. Blacktop Roads / Paved Asphalt (#0F172A Midnight Slate Black)
-          d[i] = 15; d[i+1] = 23; d[i+2] = 42;
-        } else if (brightness > 190 && sat < 0.14 && (gradX > 8 || gradY > 8)) {
-          // 9. Gravel Roads / Caliche Graded Tracks (#FFFFFF Stark White)
-          d[i] = 255; d[i+1] = 255; d[i+2] = 255;
-        } else if (brightness < 75 && r > g + 4 && (gradX > 22 || gradY > 22)) {
-          // 10. Washouts / Erosion Gullies / Incisions (#991B1B Deep Crimson)
-          d[i] = 153; d[i+1] = 27; d[i+2] = 27;
-        } else if (brightness < 105 && r >= g && r > b + 6 && tex > 10) {
-          // 11. Jebels / Rocky Hills / Escarpments (#582900 Dark Rock Umber)
-          d[i] = 88; d[i+1] = 41; d[i+2] = 0;
-        } else if (brightness > 175 && r > 175 && g > 155 && sat < 0.28 && tex > 12) {
-          // 12. Quarry Area / Scraped Pads / Staging Areas (#EAB308 Industrial Yellow)
+        } else if (brightness > 175 && r > 175 && g > 155 && sat < 0.28 && edgeMag > 32) {
+          // 6. Quarry / Excavated Ground (#EAB308 Industrial Yellow)
           d[i] = 234; d[i+1] = 179; d[i+2] = 8;
-        } else if (r > 165 && r > g + 12 && b < 130 && brightness >= 135 && brightness <= 185 && (gradX > 15 || gradY > 15) && tex < 35) {
-          // 13. Buried Objects / Backfilled Trenches (#8B5CF6 Trench Violet)
-          d[i] = 139; d[i+1] = 92; d[i+2] = 246;
-        } else if (r > g + 48 && r > b + 60 && (tex > 14 || brightness > 200)) {
-          // 14. Sand Dunes (TRUE CRESTS & SLIPFACES ONLY) (#E06D10 Warm Dune Amber)
+        } else if (brightness < 105 && r >= g && r > b + 6 && edgeMag > 28) {
+          // 7. Jebels / Rock Outcrops (#582900 Dark Rock Umber)
+          d[i] = 88; d[i+1] = 41; d[i+2] = 0;
+        } else if (r > g + 46 && r > b + 55 && (edgeMag > 32 || brightness > 195)) {
+          // 8. Sand Dunes (Active Dunes / Crests) (#E06D10 Warm Dune Amber)
           d[i] = 224; d[i+1] = 109; d[i+2] = 16;
-        } else if (brightness >= 85 && brightness <= 145 && tex < 14) {
-          // 15. Gravel Plains / Reg / Serir (DIM SLATE BACKGROUND) (#8C969E Dim Pebble Slate)
+        } else if (brightness >= 85 && brightness <= 145 && edgeMag < 28) {
+          // 9. Gravel Plains (Reg / Serir) (#8C969E Dim Pebble Slate Background)
           d[i] = 140; d[i+1] = 150; d[i+2] = 158;
         } else {
-          // 16. Flat Sand Plains (DIM WARM BACKGROUND) (#C4BAA9 Dim Desert Sand Taupe)
+          // 10. Flat & Rolling Sand (#C4BAA9 Dim Desert Sand Taupe Background)
           d[i] = 196; d[i+1] = 186; d[i+2] = 169;
         }
       }
@@ -3251,14 +3263,14 @@ const ANALYTIC_LEGENDS = {
   'evi': {
     title: 'EVI Canopy',
     unit: 'Biomass Index',
-    gradient: 'linear-gradient(to bottom, #005A32 0%, #238B45 35%, #74C476 65%, #BAE4B3 85%, #A6611A 100%)',
-    labels: ['+0.9 Dense Forest', '+0.5 Active Veg', '+0.2 Low Cover', '0.0 Bare Ground']
+    gradient: 'linear-gradient(to bottom, #005A32 0%, #238B45 35%, #74C476 65%, #C2C8BA 85%, #B0B5A7 100%)',
+    labels: ['+0.9 Dense Forest', '+0.5 Active Veg', '+0.2 Low Cover', '0.0 Arid Soil']
   },
   'savi': {
     title: 'SAVI Arid Veg',
     unit: 'Desert Canopy',
-    gradient: 'linear-gradient(to bottom, #018571 0%, #80CDC1 40%, #DFC27D 75%, #A6611A 100%)',
-    labels: ['+0.8 Dense Veg', '+0.4 Shrubland', '+0.2 Sparse Scrub', '0.0 Sand/Dunes']
+    gradient: 'linear-gradient(to bottom, #018571 0%, #80CDC1 40%, #A6DBA0 70%, #C4BAA9 100%)',
+    labels: ['+0.8 Dense Veg', '+0.4 Shrubland', '+0.1 Sparse Scrub', '0.0 Arid Soil']
   },
   'color-elevation': {
     title: 'Elevation (m)',
@@ -3298,25 +3310,19 @@ const ANALYTIC_LEGENDS = {
     labels: ['Geological Rock', 'Moisture Mask', 'Vegetation NIR', 'Burn / Soil']
   },
   'scl': {
-    title: 'Scene Classification (SCL)',
+    title: 'Scene Class (SCL)',
     unit: 'Land & Feature Classes',
     discrete: [
-      { color: '#EF4444', label: 'Built-up / Camps / Facilities' },
+      { color: '#EF4444', label: 'Built-up / Facilities' },
       { color: '#10B981', label: 'Dense Vegetation / Farms' },
-      { color: '#84CC16', label: 'Wadi Area / Desert Scrub' },
+      { color: '#84CC16', label: 'Wadis (Vegetated/Drainage)' },
       { color: '#06B6D4', label: 'Sabkha (Wetlands/Salt)' },
       { color: '#2563EB', label: 'Water Bodies' },
-      { color: '#F43F5E', label: 'Above-Ground Pipelines' },
-      { color: '#F59E0B', label: 'Power Lines / Corridors' },
-      { color: '#0F172A', label: 'Blacktop Roads (Asphalt)' },
-      { color: '#FFFFFF', label: 'Gravel Roads / Tracks' },
-      { color: '#991B1B', label: 'Washouts / Gullies' },
       { color: '#582900', label: 'Jebels / Rock Outcrops' },
-      { color: '#EAB308', label: 'Quarry / Scraped Pads' },
-      { color: '#8B5CF6', label: 'Buried Objects / Trenches' },
+      { color: '#EAB308', label: 'Quarry / Excavated Ground' },
       { color: '#E06D10', label: 'Sand Dunes' },
       { color: '#8C969E', label: 'Gravel Plains (Reg/Serir)' },
-      { color: '#C4BAA9', label: 'Flat Sand Plains' }
+      { color: '#C4BAA9', label: 'Flat & Rolling Sand' }
     ]
   }
 };
@@ -3769,22 +3775,16 @@ let isLayerInspectActive = false;
 let inspectMarker = null;
 
 const SCL_FEATURE_INTELLIGENCE = [
-  { id: 'camp', name: 'Built-up / Camps / Facilities', color: '#EF4444', rgb: [239, 68, 68], icon: '🏢', desc: 'Concrete pad, accommodation trailers, building structures, or seismic base camp installation.' },
+  { id: 'camp', name: 'Built-up / Facilities', color: '#EF4444', rgb: [239, 68, 68], icon: '🏢', desc: 'Concrete pad, accommodation trailers, building structures, or seismic base camp installation.' },
   { id: 'veg', name: 'Dense Vegetation / Farms', color: '#10B981', rgb: [16, 185, 129], icon: '🌴', desc: 'Active center-pivot agricultural field, cultivated crops, farm, or date palm oasis.' },
-  { id: 'wadi', name: 'Wadi Area / Desert Scrub', color: '#84CC16', rgb: [132, 204, 22], icon: '🌿', desc: 'Vegetated drainage course with desert acacia and scrub. Watch for soft silty pockets.' },
+  { id: 'wadi', name: 'Wadis (Vegetated / Drainage)', color: '#84CC16', rgb: [132, 204, 22], icon: '🌿', desc: 'Vegetated drainage course with desert acacia and scrub. Watch for soft silty pockets.' },
   { id: 'sabkha', name: 'Sabkha (Wetlands/Salt)', color: '#06B6D4', rgb: [6, 182, 212], icon: '💧', desc: 'High salinity damp crust / wetland. Caution: Extreme vehicle bogging hazard; avoid when wet.' },
   { id: 'water', name: 'Water Bodies', color: '#2563EB', rgb: [37, 99, 235], icon: '🌊', desc: 'Open surface water, retention basin, or agricultural canal.' },
-  { id: 'pipe', name: 'Above-Ground Pipelines', color: '#F43F5E', rgb: [244, 63, 94], icon: '🛢️', desc: 'Metallic flowline on concrete sleepers. Caution: Requires pipeline crossing ramp for heavy survey vibrators.' },
-  { id: 'power', name: 'Power Lines / Corridors', color: '#F59E0B', rgb: [245, 158, 11], icon: '⚡', desc: 'High-voltage transmission line corridor. Caution: Maintain safe vertical mast/antenna clearance.' },
-  { id: 'asphalt', name: 'Blacktop Roads (Asphalt)', color: '#0F172A', rgb: [15, 23, 42], icon: '🛣️', desc: 'Paved bitumen highway or main access road. Smooth transit corridor for support convoys.' },
-  { id: 'gravel_rd', name: 'Gravel Roads / Tracks', color: '#FFFFFF', rgb: [255, 255, 255], icon: '🚜', desc: 'Graded caliche / marl track. Suitable for vibrators and scouting pickup vehicles.' },
-  { id: 'washout', name: 'Washouts / Gullies', color: '#991B1B', rgb: [153, 27, 27], icon: '⚠️', desc: 'Erosion gully / steep drainage incision. High risk of vehicle hang-up or frame damage.' },
   { id: 'jebel', name: 'Jebels / Rock Outcrops', color: '#582900', rgb: [88, 41, 0], icon: '⛰️', desc: 'Elevated rocky hill / rugged limestone caprock. Severe terrain hazard for vibrators.' },
-  { id: 'quarry', name: 'Quarry / Scraped Pads', color: '#EAB308', rgb: [234, 179, 8], icon: '🏗️', desc: 'Excavated borrow pit / bulldozed staging area. Flat compacted mineral surface.' },
-  { id: 'buried', name: 'Buried Objects / Trenches', color: '#8B5CF6', rgb: [139, 92, 246], icon: '⛏️', desc: 'Sub-surface pipeline / utility cable trench with soil inversion scar. Check crossing permits.' },
+  { id: 'quarry', name: 'Quarry / Excavated Ground', color: '#EAB308', rgb: [234, 179, 8], icon: '🏗️', desc: 'Excavated borrow pit / bulldozed staging area. Flat compacted mineral surface.' },
   { id: 'dune', name: 'Sand Dunes', color: '#E06D10', rgb: [224, 109, 16], icon: '🏜️', desc: 'Active aeolian sand dune ridge. Check approach angle, crest steepness, and tire deflation.' },
   { id: 'gravel_pl', name: 'Gravel Plains (Reg/Serir)', color: '#8C969E', rgb: [140, 150, 158], icon: '🪨', desc: 'Desert pavement with dark flint/chert lag pebbles. Firm drivable ground.' },
-  { id: 'flat_sand', name: 'Flat Sand Plains', color: '#C4BAA9', rgb: [196, 186, 169], icon: '🐪', desc: 'Open desert sand sheet. Flat and easily traversable across survey spreads.' }
+  { id: 'flat_sand', name: 'Flat & Rolling Sand', color: '#C4BAA9', rgb: [196, 186, 169], icon: '🐪', desc: 'Open desert sand sheet. Flat and easily traversable across survey spreads.' }
 ];
 
 function toggleLayerInspectMode(e) {
@@ -3918,7 +3918,7 @@ function identifyLayerFeatureAt(latlng, clientX, clientY) {
 
   if (layerId === 'scl') {
     if (sampledR !== null) {
-      let best = SCL_FEATURE_INTELLIGENCE[15]; // default flat sand
+      let best = SCL_FEATURE_INTELLIGENCE[9]; // default flat & rolling sand
       let minDist = Infinity;
       for (const item of SCL_FEATURE_INTELLIGENCE) {
         const dist = Math.hypot(sampledR - item.rgb[0], sampledG - item.rgb[1], sampledB - item.rgb[2]);
@@ -3939,7 +3939,7 @@ function identifyLayerFeatureAt(latlng, clientX, clientY) {
     return {
       icon: '🐪',
       layerTitle: 'SCENE CLASSIFICATION (SCL)',
-      className: 'Flat Sand Plains',
+      className: 'Flat & Rolling Sand',
       color: '#C4BAA9',
       description: 'Open desert sand sheet. Flat and easily traversable across survey spreads.'
     };
@@ -4049,6 +4049,10 @@ function onMapClicked(e) {
   }
 
   if (isDrawing) {
+    if (digitizeInputMode === 'cursor') {
+      // In cursor mode, user pans the map; vertices are added via the "➕ Add Pt" button at center crosshair
+      return;
+    }
     let pt = e.latlng;
     if (isSnappingEnabled) {
       try {
@@ -4309,12 +4313,58 @@ function promptDrawMode() {
   startDrawingMode(choice ? 'polygon' : 'line');
 }
 
-function startDrawingMode(type) {
+let digitizeInputMode = 'click'; // 'click' | 'cursor'
+
+function toggleDigitizeInputMode() {
+  digitizeInputMode = (digitizeInputMode === 'click') ? 'cursor' : 'click';
+  updateDigitizeModeUI();
+  if (digitizeInputMode === 'cursor') {
+    showToast('🎯 Cursor Mode: Pan crosshair to desired position, then tap [➕ Add Pt]');
+  } else {
+    showToast('👆 Click Mode: Tap anywhere on map to add vertices directly');
+  }
+}
+
+function updateDigitizeModeUI() {
+  const btnMode = document.getElementById('btnDigitizeModeToggle');
+  const btnAdd = document.getElementById('btnAddCursorVertex');
+  if (!btnMode) return;
+  if (digitizeInputMode === 'cursor') {
+    btnMode.innerHTML = '🎯 Cursor';
+    btnMode.style.background = 'rgba(245, 158, 11, 0.25)';
+    btnMode.style.borderColor = '#F59E0B';
+    btnMode.style.color = '#F59E0B';
+    if (btnAdd) btnAdd.style.display = 'inline-flex';
+  } else {
+    btnMode.innerHTML = '👆 Click';
+    btnMode.style.background = 'rgba(0, 240, 255, 0.2)';
+    btnMode.style.borderColor = '#00F0FF';
+    btnMode.style.color = '#00F0FF';
+    if (btnAdd) btnAdd.style.display = 'none';
+  }
+}
+
+function addVertexAtCursor() {
+  let pt = getCrosshairCenterLatLng();
+  if (isSnappingEnabled) {
+    try {
+      pt = findSnapPoint(pt);
+    } catch (_) {}
+  }
+  drawVertices.push([pt.lat, pt.lng]);
+  updateDrawPreview();
+  if (navigator.vibrate) try { navigator.vibrate(25); } catch(_) {}
+  showToast(`Point #${drawVertices.length} added at cursor center`);
+}
+
+function startDrawingMode(type, preferredMode = 'click') {
   isDrawing = true;
   drawType = type;
   drawVertices = [];
+  digitizeInputMode = preferredMode;
   document.getElementById('drawToolbar').style.display = 'flex';
-  document.getElementById('drawStatusText').textContent = `Drawing ${type}: 0 pts`;
+  updateDigitizeModeUI();
+  updateDrawPreview();
 }
 
 
@@ -4454,7 +4504,7 @@ function flashSnapIndicator(latLng) {
 }
 
 function updateDrawPreview() {
-  document.getElementById('drawStatusText').textContent = `Drawing ${drawType}: ${drawVertices.length} pts`;
+  document.getElementById('drawStatusText').textContent = `${drawType.toUpperCase()}: ${drawVertices.length} pts`;
 
   if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
 

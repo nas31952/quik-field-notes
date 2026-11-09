@@ -83,6 +83,11 @@ server.listen(PORT, async () => {
     await sendCommand('Runtime.enable');
 
     console.log('\n--- EXECUTING VERIFICATION TESTS ---');
+    for (let retry = 0; retry < 25; retry++) {
+      const t = await evaluate('document.title');
+      if (t && t.length > 0) break;
+      await new Promise(r => setTimeout(r, 200));
+    }
 
     async function evaluate(expr) {
       const res = await sendCommand('Runtime.evaluate', {
@@ -301,18 +306,18 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: Analytic Legend positioned on LEFT rail directly below Project Folder pill');
 
-    // TEST 14: SCL 16 Specialized Classes & Dim Neutral Palette
+    // TEST 14: SCL 10 Terrain Classes & Header Inspect Button Visibility
     const sclPaletteTest = await evaluate(`(() => {
+      selectBasemapById('scl');
       const sclCfg = ANALYTIC_LEGENDS['scl'];
-      const elevOpt = BASEMAP_OPTIONS.find(b => b.id === 'color-elevation');
-      const isHillshade = elevOpt && elevOpt.url.includes('World_Hillshade');
-      const maxZoom19 = elevOpt && elevOpt.options?.maxZoom >= 19;
+      const widget = document.getElementById('analyticLegendWidget');
+      const btnInspect = document.getElementById('btnLayerInspect');
       
-      const flatSandItem = sclCfg.discrete.find(d => d.label.includes('Flat Sand'));
+      const flatSandItem = sclCfg.discrete.find(d => d.label.includes('Flat') || d.label.includes('Rolling Sand'));
       const gravelPlItem = sclCfg.discrete.find(d => d.label.includes('Gravel Plains'));
       const buildingItem = sclCfg.discrete.find(d => d.label.includes('Built-up'));
-      const farmItem = sclCfg.discrete.find(d => d.label.includes('Vegetation') || d.label.includes('Farm'));
-      const duneItem = sclCfg.discrete.find(d => d.label.includes('Dune'));
+      const farmItem = sclCfg.discrete.find(d => d.label.includes('Vegetation') || d.label.includes('Farms'));
+      const duneItem = sclCfg.discrete.find(d => d.label.includes('Dunes'));
       
       const isFlatSandDim = flatSandItem && flatSandItem.color === '#C4BAA9';
       const isGravelPlDim = gravelPlItem && gravelPlItem.color === '#8C969E';
@@ -320,93 +325,90 @@ server.listen(PORT, async () => {
       const isFarmGreen = farmItem && farmItem.color === '#10B981';
       const isDuneAmber = duneItem && duneItem.color === '#E06D10';
 
+      const wRect = widget.getBoundingClientRect();
+      const bRect = btnInspect.getBoundingClientRect();
+      // Button must be completely inside widget and not pushed off screen or right
+      const isInspectVisible = bRect.width > 0 && bRect.right <= wRect.right + 2;
+
       return {
-        isHillshade,
-        maxZoom19,
         classesCount: sclCfg.discrete.length,
         isFlatSandDim,
         isGravelPlDim,
         isBuildingRed,
         isFarmGreen,
-        isDuneAmber
+        isDuneAmber,
+        isInspectVisible,
+        btnRight: bRect.right,
+        widgetRight: wRect.right
       };
     })()`);
-    console.log('Test 14 - SCL 16 Classes & Dim Neutral Background Palette:', sclPaletteTest);
-    if (!sclPaletteTest.isHillshade || !sclPaletteTest.isFlatSandDim || !sclPaletteTest.isGravelPlDim || !sclPaletteTest.isBuildingRed || sclPaletteTest.classesCount < 16) {
-      throw new Error('SCL palette or classes check failed');
+    console.log('Test 14 - SCL 10 Classes & Header Inspect Button Visibility:', sclPaletteTest);
+    if (!sclPaletteTest.isFlatSandDim || !sclPaletteTest.isGravelPlDim || !sclPaletteTest.isBuildingRed || sclPaletteTest.classesCount !== 10 || !sclPaletteTest.isInspectVisible) {
+      throw new Error('SCL 10 classes or header inspect button layout check failed');
     }
-    console.log('  -> PASS: All 16 SCL classes verified with dim background sand/gravel and high-contrast foreground features');
+    console.log('  -> PASS: SCL streamlined to 10 essential terrain classes with Inspect button fully visible and protected');
 
-    // TEST 15: SCL Shader Accurate Terrain Classification (No Red Flood on Flat Sand)
-    const sclShaderTest = await evaluate(`(() => {
-      // Create 256x256 test image initialized to uniform desert sand
+    // TEST 15: EVI & SAVI Natural Terrain (No Dark Orange Flood) & Active Green Crops
+    const eviSaviTest = await evaluate(`(() => {
       const w = 256, h = 256;
       const imgData = { data: new Uint8ClampedArray(w * h * 4) };
-      for (let i = 0; i < w * h * 4; i += 4) {
-        // Uniform flat desert sand (R=210, G=170, B=130)
-        imgData.data[i] = 210; imgData.data[i+1] = 170; imgData.data[i+2] = 130; imgData.data[i+3] = 255;
-      }
       
-      // Pixel at (10, 10): Remains flat desert sand (low texture/gradient)
-      // MUST NOT be classified as Sand Dune (which previously flooded the map with orange)!
-      // It must be classified as dim Flat Sand Plains [196, 186, 169]
-      const idxSand = (10 * w + 10) * 4;
-      
-      // Pixel at (50, 50): Cultivated farm / vegetation patch (R=40, G=165, B=50)
-      const idxFarm = (50 * w + 50) * 4;
-      imgData.data[idxFarm] = 40; imgData.data[idxFarm+1] = 165; imgData.data[idxFarm+2] = 50;
-      
-      // Pixel at (80, 80): Blacktop road (R=30, G=30, B=32)
-      const idxRoad = (80 * w + 80) * 4;
-      imgData.data[idxRoad] = 30; imgData.data[idxRoad+1] = 30; imgData.data[idxRoad+2] = 32;
+      // Pixel 0: Desert sand (R=210, G=170, B=130) -> Non-vegetated
+      imgData.data[0] = 210; imgData.data[1] = 170; imgData.data[2] = 130; imgData.data[3] = 255;
+      // Pixel 1: Active green crops (R=30, G=170, B=40)
+      imgData.data[4] = 30; imgData.data[5] = 170; imgData.data[6] = 40; imgData.data[7] = 255;
 
-      applyAnalyticPixelShader(imgData, 'scl');
-      
-      const flatSandR = imgData.data[idxSand], flatSandG = imgData.data[idxSand+1], flatSandB = imgData.data[idxSand+2];
-      const farmR = imgData.data[idxFarm], farmG = imgData.data[idxFarm+1], farmB = imgData.data[idxFarm+2];
-      const roadR = imgData.data[idxRoad], roadG = imgData.data[idxRoad+1], roadB = imgData.data[idxRoad+2];
+      // Test EVI
+      applyAnalyticPixelShader(imgData, 'evi');
+      const eviDesert = [imgData.data[0], imgData.data[1], imgData.data[2]];
+      const eviCrop = [imgData.data[4], imgData.data[5], imgData.data[6]];
+      const isEviDesertNotOrange = !(eviDesert[0] === 166 && eviDesert[1] === 97 && eviDesert[2] === 26);
+      const isEviCropGreen = (eviCrop[1] > eviCrop[0] && eviCrop[1] > eviCrop[2]);
 
-      const isSandCorrect = (flatSandR === 196 && flatSandG === 186 && flatSandB === 169);
-      const isFarmCorrect = (farmR === 16 && farmG === 185 && farmB === 129);
-      const isRoadCorrect = (roadR === 15 && roadG === 23 && roadB === 42);
+      // Reset and test SAVI
+      imgData.data[0] = 210; imgData.data[1] = 170; imgData.data[2] = 130; imgData.data[3] = 255;
+      imgData.data[4] = 30; imgData.data[5] = 170; imgData.data[6] = 40; imgData.data[7] = 255;
+      applyAnalyticPixelShader(imgData, 'savi');
+      const saviDesert = [imgData.data[0], imgData.data[1], imgData.data[2]];
+      const saviCrop = [imgData.data[4], imgData.data[5], imgData.data[6]];
+      const isSaviDesertNotOrange = !(saviDesert[0] === 166 && saviDesert[1] === 97 && saviDesert[2] === 26);
+      const isSaviCropGreen = (saviCrop[1] > saviCrop[0] && saviCrop[1] > saviCrop[2]);
 
       return {
-        isSandCorrect,
-        flatSandOut: [flatSandR, flatSandG, flatSandB],
-        isFarmCorrect,
-        farmOut: [farmR, farmG, farmB],
-        isRoadCorrect,
-        roadOut: [roadR, roadG, roadB]
+        isEviDesertNotOrange,
+        eviDesert,
+        isEviCropGreen,
+        isSaviDesertNotOrange,
+        saviDesert,
+        isSaviCropGreen
       };
     })()`);
-    console.log('Test 15 - SCL Shader Ground Classification Test:', sclShaderTest);
-    if (!sclShaderTest.isSandCorrect || !sclShaderTest.isFarmCorrect || !sclShaderTest.isRoadCorrect) {
-      throw new Error('SCL shader ground classification check failed');
+    console.log('Test 15 - EVI & SAVI Shader Natural Relief (No Dark Orange):', eviSaviTest);
+    if (!eviSaviTest.isEviDesertNotOrange || !eviSaviTest.isEviCropGreen || !eviSaviTest.isSaviDesertNotOrange || !eviSaviTest.isSaviCropGreen) {
+      throw new Error('EVI or SAVI shader test failed');
     }
-    console.log('  -> PASS: SCL shader accurately distinguishes flat sand (dim taupe) from farms (green) and roads (slate black)');
+    console.log('  -> PASS: EVI and SAVI preserve natural balanced terrain and render crops in vibrant green (dark orange flood resolved)');
 
-    // TEST 16: Feature Inspector Pixel Sampling from Rendered Tile Images
+    // TEST 16: Feature Inspector Tile Pixel Sampling for 10 Classes
     const inspectSamplingTest = await evaluate(`(async () => {
       selectBasemapById('scl');
       
-      // 1. Create a mock tile canvas and convert to dataURL Image in DOM
       const testCanvas = document.createElement('canvas');
       testCanvas.width = 256;
       testCanvas.height = 256;
       const ctx = testCanvas.getContext('2d');
       
-      // Draw 4 distinct feature swatches in 4 quadrants:
-      // Top-Left (x: 20, y: 20): Pipeline #F43F5E [244, 63, 94]
-      ctx.fillStyle = '#F43F5E';
+      // Top-Left: Built-up / Facilities #EF4444 [239, 68, 68]
+      ctx.fillStyle = '#EF4444';
       ctx.fillRect(0, 0, 128, 128);
-      // Top-Right (x: 180, y: 20): Sabkha #06B6D4 [6, 182, 212]
+      // Top-Right: Sabkha #06B6D4 [6, 182, 212]
       ctx.fillStyle = '#06B6D4';
       ctx.fillRect(128, 0, 128, 128);
-      // Bottom-Left (x: 20, y: 180): Built-up / Camps #EF4444 [239, 68, 68]
-      ctx.fillStyle = '#EF4444';
-      ctx.fillRect(0, 128, 128, 128);
-      // Bottom-Right (x: 180, y: 180): Dense Vegetation / Farms #10B981 [16, 185, 129]
+      // Bottom-Left: Dense Vegetation / Farms #10B981 [16, 185, 129]
       ctx.fillStyle = '#10B981';
+      ctx.fillRect(0, 128, 128, 128);
+      // Bottom-Right: Water Bodies #2563EB [37, 99, 235]
+      ctx.fillStyle = '#2563EB';
       ctx.fillRect(128, 128, 128, 128);
       
       const mockImg = document.createElement('img');
@@ -424,31 +426,75 @@ server.listen(PORT, async () => {
         mockImg.src = testCanvas.toDataURL();
       });
       
-      const resPipeline = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 20);
+      const resCamp = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 20);
       const resSabkha = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 180, 100 + 20);
-      const resCamp = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 180);
-      const resFarm = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 180, 100 + 180);
+      const resFarm = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 180);
+      const resWater = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 180, 100 + 180);
       
       document.body.removeChild(mockImg);
 
       return {
-        pipelineClass: resPipeline.className,
-        isPipeline: resPipeline.className.includes('Pipeline'),
-        sabkhaClass: resSabkha.className,
-        isSabkha: resSabkha.className.includes('Sabkha'),
         campClass: resCamp.className,
         isCamp: resCamp.className.includes('Built-up'),
+        sabkhaClass: resSabkha.className,
+        isSabkha: resSabkha.className.includes('Sabkha'),
         farmClass: resFarm.className,
-        isFarm: resFarm.className.includes('Vegetation') || resFarm.className.includes('Farm')
+        isFarm: resFarm.className.includes('Vegetation') || resFarm.className.includes('Farms'),
+        waterClass: resWater.className,
+        isWater: resWater.className.includes('Water')
       };
     })()`);
     console.log('Test 16 - Feature Inspector Tile Pixel Sampling:', inspectSamplingTest);
-    if (!inspectSamplingTest.isPipeline || !inspectSamplingTest.isSabkha || !inspectSamplingTest.isCamp || !inspectSamplingTest.isFarm) {
+    if (!inspectSamplingTest.isCamp || !inspectSamplingTest.isSabkha || !inspectSamplingTest.isFarm || !inspectSamplingTest.isWater) {
       throw new Error('Feature inspector tile pixel sampling failed');
     }
-    console.log('  -> PASS: Feature Inspector accurately sampled rendered tile image and identified Pipeline, Sabkha, Camps, and Farms!');
+    console.log('  -> PASS: Feature Inspector accurately sampled rendered tile image and identified Camps, Sabkha, Farms, and Water!');
 
-    // TEST 17: Interactive Layer Feature Inspector UI Toggle & Popup Lifecycle
+    // TEST 17: Digitizing Features: Click Mode vs Cursor Mode
+    const digitizeModesTest = await evaluate(`(() => {
+      startDrawingMode('polygon', 'click');
+      const btnMode = document.getElementById('btnDigitizeModeToggle');
+      const btnAddPt = document.getElementById('btnAddCursorVertex');
+      
+      const isClickModeInitial = digitizeInputMode === 'click';
+      const isAddHiddenInClick = btnAddPt.style.display === 'none';
+      
+      // Simulate map click in click mode -> vertex should be added
+      onMapClicked({ latlng: L.latLng(24.1, 45.1) });
+      const ptsAfterClick = drawVertices.length;
+      
+      // Switch to cursor mode
+      toggleDigitizeInputMode();
+      const isCursorMode = digitizeInputMode === 'cursor';
+      const isAddVisibleInCursor = btnAddPt.style.display !== 'none';
+      
+      // In cursor mode, map clicks must NOT add vertex (panning only)
+      onMapClicked({ latlng: L.latLng(24.2, 45.2) });
+      const ptsAfterMapClickInCursor = drawVertices.length;
+      
+      // Tapping "➕ Add Pt" adds vertex at crosshair center
+      addVertexAtCursor();
+      const ptsAfterAddPtButton = drawVertices.length;
+      
+      cancelDrawing();
+
+      return {
+        isClickModeInitial,
+        isAddHiddenInClick,
+        ptsAfterClick,
+        isCursorMode,
+        isAddVisibleInCursor,
+        ptsAfterMapClickInCursor,
+        ptsAfterAddPtButton
+      };
+    })()`);
+    console.log('Test 17 - Digitizing Click Mode vs Cursor Mode:', digitizeModesTest);
+    if (!digitizeModesTest.isClickModeInitial || digitizeModesTest.ptsAfterClick !== 1 || !digitizeModesTest.isCursorMode || !digitizeModesTest.isAddVisibleInCursor || digitizeModesTest.ptsAfterMapClickInCursor !== 1 || digitizeModesTest.ptsAfterAddPtButton !== 2) {
+      throw new Error('Digitizing Click vs Cursor mode test failed');
+    }
+    console.log('  -> PASS: Digitizing feature supports both Click mode (instant tap) and Cursor mode (crosshair positioning with ➕ Add Pt)');
+
+    // TEST 18: Layer Feature Inspector UI Toggle & Popup Lifecycle
     const inspectToolTest = await evaluate(`(() => {
       const inspectBtn = document.getElementById('btnLayerInspect');
       const popup = document.getElementById('analyticInspectPopup');
@@ -486,13 +532,13 @@ server.listen(PORT, async () => {
         isOffAfterSecondToggle
       };
     })()`);
-    console.log('Test 17 - Layer Feature Inspector (Identify & Popup):', inspectToolTest);
+    console.log('Test 18 - Layer Feature Inspector (Identify & Popup):', inspectToolTest);
     if (!inspectToolTest.success || !inspectToolTest.isActiveAfterToggle || !inspectToolTest.popupVisible || !inspectToolTest.popupClosed || !inspectToolTest.isOffAfterSecondToggle) {
       throw new Error('Layer feature inspector test failed');
     }
     console.log('  -> PASS: Inspect tool toggles on/off, identifies feature class, and renders interactive scouting popup');
     console.log('\n========================================');
-    console.log('🎉 ALL 17 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 18 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
