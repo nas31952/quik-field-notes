@@ -2903,6 +2903,7 @@ function applyAnalyticPixelShader(imgData, layerId) {
     }
   } else if (layerId === 'scl') {
     // Advanced Field Scene Classification Layer (16 High-Contrast Specialized Scouting Classes)
+    // Dim background matrix (Flat Sand & Gravel Plains) so foreground infrastructure and hazards stand out vibrantly
     const w = 256, h = 256;
     const lum = new Uint8Array(w * h);
     for (let i = 0, j = 0; i < len; i += 4, j++) {
@@ -2919,7 +2920,7 @@ function applyAnalyticPixelShader(imgData, layerId) {
         const r = d[i], g = d[i+1], b = d[i+2];
         const brightness = lum[j];
 
-        // Spatial texture gradient
+        // Spatial texture gradient (edge & relief detector)
         const xP = row + Math.max(0, x - 1);
         const xN = row + Math.min(w - 1, x + 1);
         const gradX = Math.abs(lum[xN] - lum[xP]);
@@ -2930,54 +2931,54 @@ function applyAnalyticPixelShader(imgData, layerId) {
         const minC = Math.min(r, g, b);
         const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
 
-        if (b > r + 16 && b > g && r < 105) {
+        if (b > r + 16 && b > g && r < 115) {
           // 1. Water Bodies / Retention Ponds (#2563EB Royal Blue)
           d[i] = 37; d[i+1] = 99; d[i+2] = 235;
-        } else if (b >= r - 10 && b > 115 && g > 115 && r < 170 && sat < 0.26) {
-          // 2. Sabkha / Wetlands / Salt Flat (#06B6D4 Luminous Cyan)
-          d[i] = 6; d[i+1] = 182; d[i+2] = 212;
-        } else if (g > r + 15 && g > b + 10) {
-          // 3. Dense Vegetation / Canopy / Palms (#059669 Deep Emerald Green)
-          d[i] = 5; d[i+1] = 150; d[i+2] = 105;
-        } else if ((g - r) / (g + r + 1.0) > 0.035 && g > 70) {
-          // 4. Wadi Area / Desert Scrub (#84CC16 Vivid Willow Lime)
+        } else if ((g > r + 10 && g > b + 6) || ((g - r) / (g + r + 1.0) > 0.07)) {
+          // 2. Dense Vegetation / Farms / Palm Groves (#10B981 Vivid Emerald Green)
+          d[i] = 16; d[i+1] = 185; d[i+2] = 129;
+        } else if (((g - r) / (g + r + 1.0) > 0.02) && g > 70) {
+          // 3. Wadi Area / Desert Scrub (#84CC16 Vivid Willow Lime)
           d[i] = 132; d[i+1] = 204; d[i+2] = 22;
-        } else if (r > 215 && g > 210 && b > 210 && (gradX > 20 || gradY > 20)) {
-          // 5. Above-Ground Pipelines / Metallic Reflectors (#F43F5E Neon Rose)
-          d[i] = 244; d[i+1] = 63; d[i+2] = 94;
-        } else if (brightness < 68 && Math.abs(r - g) < 12 && Math.abs(g - b) < 12) {
-          // 6. Blacktop Roads / Paved Asphalt (#0F172A Midnight Slate Black)
-          d[i] = 15; d[i+1] = 23; d[i+2] = 42;
-        } else if (brightness > 190 && sat < 0.16 && (gradX > 8 || gradY > 8)) {
-          // 7. Gravel Roads / Caliche Graded Tracks (#F8FAFC Caliche White)
-          d[i] = 248; d[i+1] = 250; d[i+2] = 252;
-        } else if (brightness > 180 && r > 180 && g > 165 && sat < 0.30 && tex > 10) {
-          // 8. Quarry Area / Scraped Places / Well Pads (#D97706 Ochre Gold)
-          d[i] = 217; d[i+1] = 119; d[i+2] = 6;
-        } else if (tex > 22 && brightness >= 75 && brightness <= 190 && sat > 0.15) {
-          // 9. Built-up Areas / Buildings / Camps (#EF4444 Industrial Red)
+        } else if (tex > 16 && brightness >= 70 && brightness <= 215 && (sat < 0.18 || (sat > 0.25 && b > r))) {
+          // 4. Built-up / Camps / Facilities / Structures (#EF4444 Vibrant Signal Red)
           d[i] = 239; d[i+1] = 68; d[i+2] = 68;
-        } else if (brightness < 75 && r > g + 4 && (gradX > 25 || gradY > 25)) {
-          // 10. Washouts / Erosion Gullies / Fissures (#DC2626 Deep Crimson)
-          d[i] = 220; d[i+1] = 38; d[i+2] = 38;
+        } else if (b >= r - 8 && b > 110 && g > 110 && r < 185 && sat < 0.22) {
+          // 5. Sabkha / Wetlands / Salt Crust (#06B6D4 Luminous Cyan)
+          d[i] = 6; d[i+1] = 182; d[i+2] = 212;
+        } else if (brightness > 205 && (gradX > 20 || gradY > 20) && Math.abs(r - g) < 25) {
+          // 6. Above-Ground Pipelines / Metallic Flowlines (#F43F5E Neon Hot Pink)
+          d[i] = 244; d[i+1] = 63; d[i+2] = 94;
+        } else if (brightness > 165 && Math.abs(r - g) < 20 && (gradX > 20 || gradY > 20)) {
+          // 7. Power Lines / Transmission Corridors (#F59E0B Electric Gold)
+          d[i] = 245; d[i+1] = 158; d[i+2] = 11;
+        } else if (brightness < 68 && Math.abs(r - g) < 14 && Math.abs(g - b) < 14) {
+          // 8. Blacktop Roads / Paved Asphalt (#0F172A Midnight Slate Black)
+          d[i] = 15; d[i+1] = 23; d[i+2] = 42;
+        } else if (brightness > 190 && sat < 0.14 && (gradX > 8 || gradY > 8)) {
+          // 9. Gravel Roads / Caliche Graded Tracks (#FFFFFF Stark White)
+          d[i] = 255; d[i+1] = 255; d[i+2] = 255;
+        } else if (brightness < 75 && r > g + 4 && (gradX > 22 || gradY > 22)) {
+          // 10. Washouts / Erosion Gullies / Incisions (#991B1B Deep Crimson)
+          d[i] = 153; d[i+1] = 27; d[i+2] = 27;
         } else if (brightness < 105 && r >= g && r > b + 6 && tex > 10) {
-          // 11. Jebels / Rocky Hills / Escarpments (#78350F Dark Umber)
-          d[i] = 120; d[i+1] = 53; d[i+2] = 15;
-        } else if (r > g + 24 && g > b + 12 && brightness > 140) {
-          // 12. Sand Dunes / Crests & Slipfaces (#EA580C Radiant Dune Orange)
-          d[i] = 234; d[i+1] = 88; d[i+2] = 12;
-        } else if (r > 165 && r > g + 14 && b < 130 && brightness >= 140 && brightness <= 185 && (gradX > 14 || gradY > 14)) {
+          // 11. Jebels / Rocky Hills / Escarpments (#582900 Dark Rock Umber)
+          d[i] = 88; d[i+1] = 41; d[i+2] = 0;
+        } else if (brightness > 175 && r > 175 && g > 155 && sat < 0.28 && tex > 12) {
+          // 12. Quarry Area / Scraped Pads / Staging Areas (#EAB308 Industrial Yellow)
+          d[i] = 234; d[i+1] = 179; d[i+2] = 8;
+        } else if (r > 165 && r > g + 12 && b < 130 && brightness >= 135 && brightness <= 185 && (gradX > 15 || gradY > 15) && tex < 35) {
           // 13. Buried Objects / Backfilled Trenches (#8B5CF6 Trench Violet)
           d[i] = 139; d[i+1] = 92; d[i+2] = 246;
-        } else if (brightness >= 105 && brightness <= 140 && r > g && g > b && tex < 12) {
-          // 14. Gravel Plains / Reg / Serir (#64748B Pebble Slate)
-          d[i] = 100; d[i+1] = 116; d[i+2] = 139;
-        } else if (brightness > 165 && Math.abs(r - g) < 22 && b < 135 && (gradX > 16 || gradY > 16)) {
-          // 15. Power Lines / Transmission Corridors (#F59E0B Electric Amber)
-          d[i] = 245; d[i+1] = 158; d[i+2] = 11;
+        } else if (r > g + 48 && r > b + 60 && (tex > 14 || brightness > 200)) {
+          // 14. Sand Dunes (TRUE CRESTS & SLIPFACES ONLY) (#E06D10 Warm Dune Amber)
+          d[i] = 224; d[i+1] = 109; d[i+2] = 16;
+        } else if (brightness >= 85 && brightness <= 145 && tex < 14) {
+          // 15. Gravel Plains / Reg / Serir (DIM SLATE BACKGROUND) (#8C969E Dim Pebble Slate)
+          d[i] = 140; d[i+1] = 150; d[i+2] = 158;
         } else {
-          // 16. Flat Sand / Desert Floor (#FCD34D Soft Desert Sand Tan)
-          d[i] = 252; d[i+1] = 211; d[i+2] = 77;
+          // 16. Flat Sand Plains (DIM WARM BACKGROUND) (#C4BAA9 Dim Desert Sand Taupe)
+          d[i] = 196; d[i+1] = 186; d[i+2] = 169;
         }
       }
     }
@@ -3300,22 +3301,22 @@ const ANALYTIC_LEGENDS = {
     title: 'Scene Classification (SCL)',
     unit: 'Land & Feature Classes',
     discrete: [
+      { color: '#EF4444', label: 'Built-up / Camps / Facilities' },
+      { color: '#10B981', label: 'Dense Vegetation / Farms' },
+      { color: '#84CC16', label: 'Wadi Area / Desert Scrub' },
+      { color: '#06B6D4', label: 'Sabkha (Wetlands/Salt)' },
+      { color: '#2563EB', label: 'Water Bodies' },
       { color: '#F43F5E', label: 'Above-Ground Pipelines' },
       { color: '#F59E0B', label: 'Power Lines / Corridors' },
       { color: '#0F172A', label: 'Blacktop Roads (Asphalt)' },
-      { color: '#F8FAFC', label: 'Gravel Roads / Tracks' },
-      { color: '#EF4444', label: 'Built-up / Camps / Facilities' },
+      { color: '#FFFFFF', label: 'Gravel Roads / Tracks' },
+      { color: '#991B1B', label: 'Washouts / Gullies' },
+      { color: '#582900', label: 'Jebels / Rock Outcrops' },
+      { color: '#EAB308', label: 'Quarry / Scraped Pads' },
       { color: '#8B5CF6', label: 'Buried Objects / Trenches' },
-      { color: '#D97706', label: 'Quarry / Scraped Pads' },
-      { color: '#78350F', label: 'Jebels / Rock Outcrops' },
-      { color: '#64748B', label: 'Gravel Plains (Reg/Serir)' },
-      { color: '#EA580C', label: 'Sand Dunes' },
-      { color: '#FCD34D', label: 'Flat Sand' },
-      { color: '#DC2626', label: 'Washouts / Gullies' },
-      { color: '#06B6D4', label: 'Sabkha (Wetlands/Salt)' },
-      { color: '#84CC16', label: 'Wadi Area / Desert Scrub' },
-      { color: '#059669', label: 'Dense Vegetation' },
-      { color: '#2563EB', label: 'Water Bodies' }
+      { color: '#E06D10', label: 'Sand Dunes' },
+      { color: '#8C969E', label: 'Gravel Plains (Reg/Serir)' },
+      { color: '#C4BAA9', label: 'Flat Sand Plains' }
     ]
   }
 };
@@ -3768,22 +3769,22 @@ let isLayerInspectActive = false;
 let inspectMarker = null;
 
 const SCL_FEATURE_INTELLIGENCE = [
+  { id: 'camp', name: 'Built-up / Camps / Facilities', color: '#EF4444', rgb: [239, 68, 68], icon: '🏢', desc: 'Concrete pad, accommodation trailers, building structures, or seismic base camp installation.' },
+  { id: 'veg', name: 'Dense Vegetation / Farms', color: '#10B981', rgb: [16, 185, 129], icon: '🌴', desc: 'Active center-pivot agricultural field, cultivated crops, farm, or date palm oasis.' },
+  { id: 'wadi', name: 'Wadi Area / Desert Scrub', color: '#84CC16', rgb: [132, 204, 22], icon: '🌿', desc: 'Vegetated drainage course with desert acacia and scrub. Watch for soft silty pockets.' },
+  { id: 'sabkha', name: 'Sabkha (Wetlands/Salt)', color: '#06B6D4', rgb: [6, 182, 212], icon: '💧', desc: 'High salinity damp crust / wetland. Caution: Extreme vehicle bogging hazard; avoid when wet.' },
+  { id: 'water', name: 'Water Bodies', color: '#2563EB', rgb: [37, 99, 235], icon: '🌊', desc: 'Open surface water, retention basin, or agricultural canal.' },
   { id: 'pipe', name: 'Above-Ground Pipelines', color: '#F43F5E', rgb: [244, 63, 94], icon: '🛢️', desc: 'Metallic flowline on concrete sleepers. Caution: Requires pipeline crossing ramp for heavy survey vibrators.' },
   { id: 'power', name: 'Power Lines / Corridors', color: '#F59E0B', rgb: [245, 158, 11], icon: '⚡', desc: 'High-voltage transmission line corridor. Caution: Maintain safe vertical mast/antenna clearance.' },
   { id: 'asphalt', name: 'Blacktop Roads (Asphalt)', color: '#0F172A', rgb: [15, 23, 42], icon: '🛣️', desc: 'Paved bitumen highway or main access road. Smooth transit corridor for support convoys.' },
-  { id: 'gravel_rd', name: 'Gravel Roads / Tracks', color: '#F8FAFC', rgb: [248, 250, 252], icon: '🚜', desc: 'Graded caliche / marl track. Suitable for vibrators and scouting pickup vehicles.' },
-  { id: 'camp', name: 'Built-up / Camps / Facilities', color: '#EF4444', rgb: [239, 68, 68], icon: '🏢', desc: 'Concrete pad, accommodation trailers, or seismic base camp installation.' },
+  { id: 'gravel_rd', name: 'Gravel Roads / Tracks', color: '#FFFFFF', rgb: [255, 255, 255], icon: '🚜', desc: 'Graded caliche / marl track. Suitable for vibrators and scouting pickup vehicles.' },
+  { id: 'washout', name: 'Washouts / Gullies', color: '#991B1B', rgb: [153, 27, 27], icon: '⚠️', desc: 'Erosion gully / steep drainage incision. High risk of vehicle hang-up or frame damage.' },
+  { id: 'jebel', name: 'Jebels / Rock Outcrops', color: '#582900', rgb: [88, 41, 0], icon: '⛰️', desc: 'Elevated rocky hill / rugged limestone caprock. Severe terrain hazard for vibrators.' },
+  { id: 'quarry', name: 'Quarry / Scraped Pads', color: '#EAB308', rgb: [234, 179, 8], icon: '🏗️', desc: 'Excavated borrow pit / bulldozed staging area. Flat compacted mineral surface.' },
   { id: 'buried', name: 'Buried Objects / Trenches', color: '#8B5CF6', rgb: [139, 92, 246], icon: '⛏️', desc: 'Sub-surface pipeline / utility cable trench with soil inversion scar. Check crossing permits.' },
-  { id: 'quarry', name: 'Quarry / Scraped Pads', color: '#D97706', rgb: [217, 119, 6], icon: '🏗️', desc: 'Excavated borrow pit / bulldozed staging area. Flat compacted mineral surface.' },
-  { id: 'jebel', name: 'Jebels / Rock Outcrops', color: '#78350F', rgb: [120, 53, 15], icon: '⛰️', desc: 'Elevated rocky hill / rugged limestone caprock. Severe terrain hazard for vibrators.' },
-  { id: 'gravel_pl', name: 'Gravel Plains (Reg/Serir)', color: '#64748B', rgb: [100, 116, 139], icon: '🪨', desc: 'Desert pavement with dark flint/chert lag pebbles. Firm drivable ground.' },
-  { id: 'dune', name: 'Sand Dunes', color: '#EA580C', rgb: [234, 88, 12], icon: '🏜️', desc: 'Active aeolian sand dune. Check approach angle, crest steepness, and tire deflation.' },
-  { id: 'flat_sand', name: 'Flat Sand Plains', color: '#FCD34D', rgb: [252, 211, 77], icon: '🐪', desc: 'Open desert sand sheet. Flat and easily traversable across survey spreads.' },
-  { id: 'washout', name: 'Washouts / Gullies', color: '#DC2626', rgb: [220, 38, 38], icon: '⚠️', desc: 'Erosion gully / steep drainage incision. High risk of vehicle hang-up or frame damage.' },
-  { id: 'sabkha', name: 'Sabkha (Wetlands/Salt)', color: '#06B6D4', rgb: [6, 182, 212], icon: '💧', desc: 'High salinity damp crust / wetland. Caution: Extreme vehicle bogging hazard; avoid when wet.' },
-  { id: 'wadi', name: 'Wadi Area / Desert Scrub', color: '#84CC16', rgb: [132, 204, 22], icon: '🌿', desc: 'Vegetated drainage course with desert acacia and scrub. Watch for soft silty pockets.' },
-  { id: 'veg', name: 'Dense Vegetation', color: '#059669', rgb: [5, 150, 105], icon: '🌲', desc: 'Active center-pivot agricultural field, cultivated crops, or date palm oasis.' },
-  { id: 'water', name: 'Water Bodies', color: '#2563EB', rgb: [37, 99, 235], icon: '🌊', desc: 'Open surface water, retention basin, or agricultural canal.' }
+  { id: 'dune', name: 'Sand Dunes', color: '#E06D10', rgb: [224, 109, 16], icon: '🏜️', desc: 'Active aeolian sand dune ridge. Check approach angle, crest steepness, and tire deflation.' },
+  { id: 'gravel_pl', name: 'Gravel Plains (Reg/Serir)', color: '#8C969E', rgb: [140, 150, 158], icon: '🪨', desc: 'Desert pavement with dark flint/chert lag pebbles. Firm drivable ground.' },
+  { id: 'flat_sand', name: 'Flat Sand Plains', color: '#C4BAA9', rgb: [196, 186, 169], icon: '🐪', desc: 'Open desert sand sheet. Flat and easily traversable across survey spreads.' }
 ];
 
 function toggleLayerInspectMode(e) {
@@ -3853,28 +3854,71 @@ function handleLayerInspectClick(e) {
 function identifyLayerFeatureAt(latlng, clientX, clientY) {
   const layerId = activeBasemapId || 'esri-sat';
 
-  // Sample pixel from rendered canvas tile under click
+  // Sample pixel from rendered image / canvas tile under click
   let sampledR = null, sampledG = null, sampledB = null;
+
+  // Method 1: Query DOM elements under tap point (IMG or CANVAS)
   try {
     const elements = document.elementsFromPoint(clientX, clientY);
     for (const el of elements) {
-      if (el.tagName === 'CANVAS' && el.width === 256 && el.height === 256) {
+      if ((el.tagName === 'IMG' && el.classList.contains('leaflet-tile') && el.naturalWidth > 0) ||
+          (el.tagName === 'CANVAS' && el.width > 0 && el.height > 0)) {
         const rect = el.getBoundingClientRect();
-        const px = Math.floor((clientX - rect.left) * (el.width / rect.width));
-        const py = Math.floor((clientY - rect.top) * (el.height / rect.height));
-        const ctx = el.getContext('2d');
-        const p = ctx.getImageData(Math.max(0, Math.min(255, px)), Math.max(0, Math.min(255, py)), 1, 1).data;
+        if (rect.width <= 0 || rect.height <= 0) continue;
+        const nw = el.naturalWidth || el.width;
+        const nh = el.naturalHeight || el.height;
+        const px = Math.floor((clientX - rect.left) * (nw / rect.width));
+        const py = Math.floor((clientY - rect.top) * (nh / rect.height));
+        const clampedX = Math.max(0, Math.min(nw - 1, px));
+        const clampedY = Math.max(0, Math.min(nh - 1, py));
+
+        const scratch = document.createElement('canvas');
+        scratch.width = 1;
+        scratch.height = 1;
+        const sctx = scratch.getContext('2d', { willReadFrequently: true });
+        sctx.drawImage(el, clampedX, clampedY, 1, 1, 0, 0, 1, 1);
+        const p = sctx.getImageData(0, 0, 1, 1).data;
         if (p[3] > 0) {
-          sampledR = p[0]; sampledG = p[1]; sampledB = p[2];
+          sampledR = p[0];
+          sampledG = p[1];
+          sampledB = p[2];
           break;
         }
       }
     }
   } catch (_) {}
 
+  // Method 2: Scan all active leaflet-tile images that enclose (clientX, clientY)
+  if (sampledR === null) {
+    try {
+      const allTiles = document.querySelectorAll('img.leaflet-tile');
+      for (const t of allTiles) {
+        if (!t.naturalWidth || !t.naturalHeight) continue;
+        const rect = t.getBoundingClientRect();
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+          const scratch = document.createElement('canvas');
+          scratch.width = 1; scratch.height = 1;
+          const sctx = scratch.getContext('2d', { willReadFrequently: true });
+          const sx = Math.floor((clientX - rect.left) * (t.naturalWidth / rect.width));
+          const sy = Math.floor((clientY - rect.top) * (t.naturalHeight / rect.height));
+          const clampedX = Math.max(0, Math.min(t.naturalWidth - 1, sx));
+          const clampedY = Math.max(0, Math.min(t.naturalHeight - 1, sy));
+          sctx.drawImage(t, clampedX, clampedY, 1, 1, 0, 0, 1, 1);
+          const p = sctx.getImageData(0, 0, 1, 1).data;
+          if (p[3] > 0) {
+            sampledR = p[0];
+            sampledG = p[1];
+            sampledB = p[2];
+            break;
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
   if (layerId === 'scl') {
     if (sampledR !== null) {
-      let best = SCL_FEATURE_INTELLIGENCE[10]; // default flat sand
+      let best = SCL_FEATURE_INTELLIGENCE[15]; // default flat sand
       let minDist = Infinity;
       for (const item of SCL_FEATURE_INTELLIGENCE) {
         const dist = Math.hypot(sampledR - item.rgb[0], sampledG - item.rgb[1], sampledB - item.rgb[2]);
@@ -3893,10 +3937,10 @@ function identifyLayerFeatureAt(latlng, clientX, clientY) {
     }
     // Fallback classification if off-tile
     return {
-      icon: '🏜️',
+      icon: '🐪',
       layerTitle: 'SCENE CLASSIFICATION (SCL)',
       className: 'Flat Sand Plains',
-      color: '#FCD34D',
+      color: '#C4BAA9',
       description: 'Open desert sand sheet. Flat and easily traversable across survey spreads.'
     };
   } else if (layerId === 'ndvi') {
