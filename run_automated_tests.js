@@ -275,8 +275,75 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: Analytic legend widget displays correctly for spectral/DEM layers and hides for normal maps');
 
+    // TEST 13: Layout Positioning: North Arrow, Zoom Keys & Analytic Legend Non-Overlapping
+    const layoutTest = await evaluate(`(() => {
+      selectBasemapById('ndvi');
+      const compass = document.querySelector('.compass-widget');
+      const zoom = document.querySelector('.zoom-controls');
+      const widget = document.getElementById('analyticLegendWidget');
+      
+      const cRect = compass.getBoundingClientRect();
+      const zRect = zoom.getBoundingClientRect();
+      const wRect = widget.getBoundingClientRect();
+      
+      const zoomBelowCompass = zRect.top >= cRect.bottom;
+      const widgetBelowZoom = wRect.top >= zRect.bottom - 5;
+      
+      return {
+        cBottom: cRect.bottom,
+        zTop: zRect.top,
+        zBottom: zRect.bottom,
+        wTop: wRect.top,
+        zoomBelowCompass,
+        widgetBelowZoom
+      };
+    })()`);
+    console.log('Test 13 - North Arrow, Zoom Keys & Legend Layout:', layoutTest);
+    if (!layoutTest.zoomBelowCompass || !layoutTest.widgetBelowZoom) {
+      throw new Error('Overlapping detected between compass, zoom keys, and analytic legend widget');
+    }
+    console.log('  -> PASS: Clean non-overlapping vertical rail (Compass -> Zoom Keys -> Analytic Legend)');
+
+    // TEST 14: SCL 16 Specialized Classes & Color Elevation High-Res DEM
+    const sclAndElevTest = await evaluate(`(() => {
+      const sclCfg = ANALYTIC_LEGENDS['scl'];
+      const elevOpt = BASEMAP_OPTIONS.find(b => b.id === 'color-elevation');
+      const isHillshade = elevOpt && elevOpt.url.includes('World_Hillshade');
+      const maxZoom19 = elevOpt && elevOpt.options?.maxZoom >= 19;
+      
+      const sclLabels = sclCfg.discrete.map(d => d.label);
+      const hasPipelines = sclLabels.includes('Above-Ground Pipelines');
+      const hasPowerLines = sclLabels.includes('Power Lines / Corridors');
+      const hasBlacktop = sclLabels.includes('Blacktop Roads (Asphalt)');
+      const hasGravelRoads = sclLabels.includes('Gravel Roads / Tracks');
+      const hasSabkha = sclLabels.includes('Sabkha (Wetlands/Salt)');
+      const hasBuildings = sclLabels.includes('Built-up / Camps / Facilities');
+      const hasGravel = sclLabels.includes('Gravel Plains (Reg/Serir)');
+      const hasJebels = sclLabels.includes('Jebels / Rock Outcrops');
+      const hasWadi = sclLabels.includes('Wadi Area / Desert Scrub');
+      const hasWashouts = sclLabels.includes('Washouts / Gullies');
+      const hasQuarry = sclLabels.includes('Quarry / Scraped Pads');
+      const hasBuried = sclLabels.includes('Buried Objects / Trenches');
+      const hasDunes = sclLabels.includes('Sand Dunes');
+      const hasFlatSand = sclLabels.includes('Flat Sand');
+
+      const allFound = hasPipelines && hasPowerLines && hasBlacktop && hasGravelRoads && hasSabkha && hasBuildings && hasGravel && hasJebels && hasWadi && hasWashouts && hasQuarry && hasBuried && hasDunes && hasFlatSand;
+
+      return {
+        isHillshade,
+        maxZoom19,
+        classesCount: sclCfg.discrete.length,
+        allFound
+      };
+    })()`);
+    console.log('Test 14 - SCL 16 Specialized Classes & Color Elevation High-Res DEM:', sclAndElevTest);
+    if (!sclAndElevTest.isHillshade || !sclAndElevTest.maxZoom19 || !sclAndElevTest.allFound || sclAndElevTest.classesCount < 16) {
+      throw new Error('SCL classes or Color Elevation high-res configuration check failed');
+    }
+    console.log('  -> PASS: All 16 specialized field SCL classes present and Color Elevation configured with high-res DEM');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 12 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 14 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
