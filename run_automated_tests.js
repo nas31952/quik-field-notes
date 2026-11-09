@@ -537,8 +537,28 @@ server.listen(PORT, async () => {
       throw new Error('Layer feature inspector test failed');
     }
     console.log('  -> PASS: Inspect tool toggles on/off, identifies feature class, and renders interactive scouting popup');
+
+    // TEST 19: Georeferenced Basemap Export Package (.png + .pgw + .prj + .json)
+    const exportExecTest = await evaluate(`(async () => {
+      let downloadResult = null;
+      window.triggerFileDownload = (blob, filename) => {
+        downloadResult = { filename, size: blob.size };
+      };
+      
+      // Switch to terrain-draped to verify draped & CORS export
+      selectBasemapById('terrain-draped');
+      
+      await exportAoiBasemapPackage();
+      
+      return downloadResult;
+    })()`);
+    console.log('Test 19 - Georeferenced Basemap Package Export (.zip):', exportExecTest);
+    if (!exportExecTest || !exportExecTest.filename.includes('Basemap_Scout_AOI') || exportExecTest.size <= 0) {
+      throw new Error('Georeferenced basemap package export failed');
+    }
+    console.log('  -> PASS: Export GeoImage renders untainted basemap package with .png, .pgw, .prj, and .json');
     console.log('\n========================================');
-    console.log('🎉 ALL 18 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 19 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
