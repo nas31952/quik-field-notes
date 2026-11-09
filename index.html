@@ -598,6 +598,9 @@ body, html {
   border: 2px solid var(--accent);
   border-radius: 50%;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .crosshair-reticle::before {
   content: '';
@@ -608,6 +611,7 @@ body, html {
   height: 2px;
   background: var(--accent);
   transform: translateY(-50%);
+  pointer-events: none;
 }
 .crosshair-reticle::after {
   content: '';
@@ -618,14 +622,20 @@ body, html {
   width: 2px;
   background: var(--accent);
   transform: translateX(-50%);
+  pointer-events: none;
 }
 .crosshair-center-dot {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 6px;
   height: 6px;
   background: #00F0FF;
   border-radius: 50%;
   box-shadow: 0 0 8px #00F0FF;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Modals & Dialogs (Medium Field Scale) */
@@ -1377,10 +1387,11 @@ body, html {
     </div>
 
     <div class="modal-body">
-      <!-- Coordinate Source Switcher: GPS vs Cursor/Crosshair -->
-      <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-        <button type="button" class="btn" id="btnWptSourceGps" onclick="setWptCoordinateSource('gps')" style="flex:1; font-size:12px; padding:8px 4px; background: rgba(0, 240, 255, 0.25); border: 1.5px solid #00F0FF; color: #00F0FF; font-weight:800;">📍 GPS (±<span id="wptGpsAcc">5</span>m)</button>
-        <button type="button" class="btn" id="btnWptSourceCursor" onclick="setWptCoordinateSource('cursor')" style="flex:1; font-size:12px; padding:8px 4px; background: rgba(30,41,59,0.8); border: 1.5px solid rgba(255,255,255,0.15); color: #CBD5E1;">🎯 Center / Cursor</button>
+      <!-- Coordinate Source Switcher: GPS vs Cursor/Crosshair vs Click Map -->
+      <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+        <button type="button" class="btn" id="btnWptSourceGps" onclick="setWptCoordinateSource('gps')" style="flex:1; font-size:11px; padding:8px 2px; background: rgba(0, 240, 255, 0.25); border: 1.5px solid #00F0FF; color: #00F0FF; font-weight:800;">📍 GPS (±<span id="wptGpsAcc">5</span>m)</button>
+        <button type="button" class="btn" id="btnWptSourceCursor" onclick="setWptCoordinateSource('cursor')" style="flex:1; font-size:11px; padding:8px 2px; background: rgba(30,41,59,0.8); border: 1.5px solid rgba(255,255,255,0.15); color: #CBD5E1;">🎯 Reticle</button>
+        <button type="button" class="btn" id="btnWptSourceClick" onclick="setWptCoordinateSource('click')" style="flex:1; font-size:11px; padding:8px 2px; background: rgba(30,41,59,0.8); border: 1.5px solid rgba(255,255,255,0.15); color: #CBD5E1;">👆 Click Map</button>
       </div>
 
       <div class="form-group">
@@ -2366,7 +2377,7 @@ const BASEMAP_OPTIONS = [
     badge: 'Terrain Derivative',
     desc: 'High-contrast terrain slope steepness and ridge aspect enhancement filter',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Elevation/World_Hillshade/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'contrast(190%) brightness(95%) invert(10%) drop-shadow(0 0 1px #00f0ff)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 18, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -2389,7 +2400,7 @@ const BASEMAP_OPTIONS = [
     badge: 'Vegetation Canopy',
     desc: 'Chlorophyll absorption & vegetation canopy health index (Sub-meter high-res aerial)',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(85deg) saturate(240%) contrast(145%) brightness(102%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri World Imagery' }
   },
   {
@@ -2400,7 +2411,7 @@ const BASEMAP_OPTIONS = [
     badge: 'Canopy & Soil Moisture',
     desc: 'Highlights water content in plant canopies and ground moisture saturation',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(170deg) saturate(180%) contrast(130%) brightness(105%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -2411,7 +2422,7 @@ const BASEMAP_OPTIONS = [
     badge: 'Water Bodies & Wadis',
     desc: 'Delineates surface water bodies, irrigation networks, ephemeral streams and wadis',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(195deg) saturate(320%) contrast(160%) brightness(95%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -2422,7 +2433,7 @@ const BASEMAP_OPTIONS = [
     badge: 'High-Biomass Canopy',
     desc: 'Optimized vegetation index with atmospheric correction for dense forest and foliage',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(75deg) saturate(280%) contrast(150%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -2433,7 +2444,7 @@ const BASEMAP_OPTIONS = [
     badge: 'Arid & Desert Zones',
     desc: 'Corrects for soil background brightness in arid and semi-arid seismic survey areas',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'sepia(30%) hue-rotate(60deg) saturate(230%) contrast(125%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -2444,7 +2455,7 @@ const BASEMAP_OPTIONS = [
     badge: 'Land Cover Classes',
     desc: 'Classified map separating water, bare soil, sparse vegetation, dense canopy, and rock',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'contrast(170%) saturate(250%) invert(5%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -2469,7 +2480,7 @@ const BASEMAP_OPTIONS = [
     badge: 'SWIR / NIR / Red',
     desc: 'False Color Infrared reflectance highlighting geology, soil moisture, and mineral variations',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    cssFilter: 'hue-rotate(290deg) saturate(240%) contrast(140%) brightness(98%)',
+    // Pixel shader applied dynamically per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri World Imagery' }
   },
 
@@ -2507,22 +2518,22 @@ const BASEMAP_OPTIONS = [
   {
     id: 'carto-dark',
     category: 'streets',
-    name: 'Carto Dark Matter (Night Mode)',
+    name: 'ESRI Dark Gray (Night Mode)',
     icon: '🌑',
     badge: 'High-Contrast Dark',
-    desc: 'Minimal dark basemap providing superior visibility for neon vector lines and points',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
+    desc: 'Minimal dark canvas basemap providing superior contrast for neon vector survey lines and points without requiring API key',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ' }
   },
   {
     id: 'carto-light',
     category: 'streets',
-    name: 'Carto Positron (Clean Light)',
+    name: 'ESRI Light Gray (Clean Light)',
     icon: '📄',
     badge: 'Clean Grayscale',
-    desc: 'Subtle light gray basemap that highlights seismic source and receiver lines',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    options: { maxZoom: 19, attribution: '&copy; CartoDB' }
+    desc: 'Subtle light gray basemap that highlights seismic source and receiver lines without requiring API key',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    options: { maxZoom: 19, attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ' }
   },
 
   // --- 📐 VECTOR CANVAS ---
@@ -2554,6 +2565,7 @@ function initMap() {
   }).setView([currentLat, currentLon], 15);
 
   selectBasemapById(activeBasemapId);
+  updateAnalyticLegend(activeBasemapId || 'esri-sat');
 
   // Map Click Listener
   map.on('click', onMapClicked);
@@ -2678,23 +2690,189 @@ function scaleParentTileToTile(parentSrc, match, tileElem, targetKey) {
   img.src = parentSrc;
 }
 
+
+// =========================================================================
+// REAL-TIME ANALYTIC SPECTRAL & DEM PIXEL SHADER ENGINE
+// =========================================================================
+function applyAnalyticPixelShader(imgData, layerId) {
+  const d = imgData.data;
+  const len = d.length;
+
+  if (layerId === 'ndvi') {
+    // VARI / RGB NDVI proxy: (G - R) / (G + R + 1)
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const ndvi = (g - r) / (g + r + 1.0);
+      if (ndvi > 0.08) {
+        if (ndvi > 0.35) {
+          d[i] = 0; d[i+1] = 90; d[i+2] = 50; // Dense canopy
+        } else if (ndvi > 0.20) {
+          d[i] = 35; d[i+1] = 139; d[i+2] = 69; // Moderate vegetation
+        } else {
+          d[i] = 166; d[i+1] = 217; d[i+2] = 106; // Sparse scrub
+        }
+      } else {
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        d[i] = Math.min(255, Math.round(gray * 1.05 + 15));
+        d[i+1] = Math.min(255, Math.round(gray * 0.95 + 10));
+        d[i+2] = Math.min(255, Math.round(gray * 0.80));
+      }
+    }
+  } else if (layerId === 'ndwi') {
+    // Water index: (B - R) / (B + R + 1)
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const ndwi = (b - r) / (b + r + 1.0);
+      if (b > r && b > g * 0.85 && ndwi > 0.04) {
+        if (ndwi > 0.25) { d[i] = 0; d[i+1] = 60; d[i+2] = 48; }
+        else if (ndwi > 0.12) { d[i] = 1; d[i+1] = 102; d[i+2] = 94; }
+        else { d[i] = 53; d[i+1] = 151; d[i+2] = 143; }
+      } else {
+        const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+        d[i] = Math.round(gray * 0.95);
+        d[i+1] = Math.round(gray * 0.90);
+        d[i+2] = Math.round(gray * 0.85);
+      }
+    }
+  } else if (layerId === 'ndmi') {
+    // Moisture index: (B + G - 2*R) / (B + G + 2*R + 1)
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const ndmi = (b + g - 2 * r) / (b + g + 2 * r + 1.0);
+      if (ndmi > 0.15) {
+        d[i] = 0; d[i+1] = 60; d[i+2] = 179;
+      } else if (ndmi > 0.05) {
+        d[i] = 0; d[i+1] = 170; d[i+2] = 200;
+      } else if (ndmi > -0.05) {
+        d[i] = 128; d[i+1] = 205; d[i+2] = 193;
+      } else {
+        d[i] = Math.min(255, Math.round(r * 0.95 + 10));
+        d[i+1] = Math.round(g * 0.85);
+        d[i+2] = Math.round(b * 0.70);
+      }
+    }
+  } else if (layerId === 'evi') {
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const evi = (2.5 * (g - r)) / (g + 2.4 * r + 30.0);
+      if (evi > 0.25) {
+        d[i] = 0; d[i+1] = 90; d[i+2] = 50;
+      } else if (evi > 0.10) {
+        d[i] = 35; d[i+1] = 139; d[i+2] = 69;
+      } else if (evi > 0.04) {
+        d[i] = 116; d[i+1] = 196; d[i+2] = 118;
+      } else {
+        d[i] = 166; d[i+1] = 97; d[i+2] = 26;
+      }
+    }
+  } else if (layerId === 'savi') {
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const savi = (1.5 * (g - r)) / (g + r + 60.0);
+      if (savi > 0.18) {
+        d[i] = 1; d[i+1] = 133; d[i+2] = 113;
+      } else if (savi > 0.08) {
+        d[i] = 128; d[i+1] = 205; d[i+2] = 193;
+      } else if (savi > 0.02) {
+        d[i] = 223; d[i+1] = 194; d[i+2] = 125;
+      } else {
+        d[i] = 166; d[i+1] = 97; d[i+2] = 26;
+      }
+    }
+  } else if (layerId === 'scl') {
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      if (b > r + 15 && b > g) {
+        d[i] = 43; d[i+1] = 131; d[i+2] = 186; // Water
+      } else if (g > r + 20 && g > b) {
+        d[i] = 26; d[i+1] = 150; d[i+2] = 65;  // Dense Veg
+      } else if (g > r + 6) {
+        d[i] = 166; d[i+1] = 217; d[i+2] = 106; // Sparse Veg
+      } else if (r > g && r > b) {
+        d[i] = 223; d[i+1] = 194; d[i+2] = 125; // Sand / Soil
+      } else {
+        d[i] = 112; d[i+1] = 117; d[i+2] = 122; // Rock / Built
+      }
+    }
+  } else if (layerId === 'slope-aspect') {
+    const w = 256, h = 256;
+    const temp = new Uint8ClampedArray(d);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = (y * w + x) * 4;
+        const xPrev = (y * w + Math.max(0, x - 1)) * 4;
+        const xNext = (y * w + Math.min(w - 1, x + 1)) * 4;
+        const yPrev = (Math.max(0, y - 1) * w + x) * 4;
+        const yNext = (Math.min(h - 1, y + 1) * w + x) * 4;
+        const dx = temp[xNext] - temp[xPrev];
+        const dy = temp[yNext] - temp[yPrev];
+        const slope = Math.sqrt(dx * dx + dy * dy);
+        if (slope > 28) {
+          d[idx] = 215; d[idx+1] = 25; d[idx+2] = 28; // Cliff
+        } else if (slope > 14) {
+          d[idx] = 253; d[idx+1] = 174; d[idx+2] = 97; // Moderate
+        } else if (slope > 6) {
+          d[idx] = 166; d[idx+1] = 217; d[idx+2] = 106; // Gentle
+        } else {
+          d[idx] = 26; d[idx+1] = 150; d[idx+2] = 65;   // Flat
+        }
+      }
+    }
+  } else if (layerId === 'nasa-falsecolor') {
+    for (let i = 0; i < len; i += 4) {
+      const r = d[i], g = d[i+1], b = d[i+2];
+      const nir = Math.min(255, Math.round(g * 1.6 + (255 - r) * 0.25));
+      d[i] = nir;
+      d[i+1] = r;
+      d[i+2] = Math.round(g * 0.85);
+    }
+  }
+}
 function createOptimizedTileLayer(provider, idx) {
+  const isAnalytic = provider.category === 'spectral' || provider.id === 'slope-aspect';
   const layer = L.tileLayer(provider.url, {
     ...provider.options,
     minZoom: 2,
     maxZoom: 22,
     maxNativeZoom: provider.options?.maxNativeZoom || (provider.options?.maxZoom ? Math.min(provider.options.maxZoom, 19) : 18),
     crossOrigin: 'anonymous',
-    keepBuffer: 8,           // Buffer 8 tiles around viewport for silky-smooth panning
-    updateWhenIdle: false,   // Render immediately during panning, zero stutter
-    updateWhenZooming: true, // Seamless continuous zoom transitions
-    updateInterval: 30       // Fast 30ms tile pipeline
+    keepBuffer: 8,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    updateInterval: 30
   });
 
   const originalCreateTile = layer.createTile;
   layer.createTile = function(coords, done) {
     const tile = originalCreateTile.call(this, coords, done);
     const tileKey = `${idx}_${coords.z}_${coords.x}_${coords.y}`;
+
+    const postProcessTile = (imgSrc) => {
+      if (!isAnalytic) {
+        tile.src = imgSrc;
+        return;
+      }
+      const rawImg = new Image();
+      rawImg.crossOrigin = 'anonymous';
+      rawImg.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = 256; c.height = 256;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(rawImg, 0, 0);
+          const imgData = ctx.getImageData(0, 0, 256, 256);
+          applyAnalyticPixelShader(imgData, provider.id);
+          ctx.putImageData(imgData, 0, 0);
+          const dataUrl = c.toDataURL('image/png');
+          setMemoryTile(tileKey, dataUrl);
+          tile.src = dataUrl;
+        } catch (_) {
+          tile.src = imgSrc;
+        }
+      };
+      rawImg.onerror = () => { tile.src = imgSrc; };
+      rawImg.src = imgSrc;
+    };
 
     // 1. FASTEST PATH: In-memory RAM cache (0ms synchronous)
     const memUrl = getMemoryTile(tileKey);
@@ -2708,8 +2886,12 @@ function createOptimizedTileLayer(provider, idx) {
       getCachedTile(tileKey).then(blob => {
         if (blob) {
           const url = URL.createObjectURL(blob);
-          setMemoryTile(tileKey, url);
-          tile.src = url;
+          if (isAnalytic) {
+            postProcessTile(url);
+          } else {
+            setMemoryTile(tileKey, url);
+            tile.src = url;
+          }
         }
       });
       return tile;
@@ -2730,6 +2912,29 @@ function createOptimizedTileLayer(provider, idx) {
           }
         });
       }
+      return tile;
+    }
+
+    // 4. NETWORK TILE WITH ANALYTIC SHADER
+    if (isAnalytic) {
+      const origOnload = tile.onload;
+      tile.onload = function(e) {
+        try {
+          const c = document.createElement('canvas');
+          c.width = 256; c.height = 256;
+          const ctx = c.getContext('2d');
+          ctx.drawImage(tile, 0, 0);
+          const imgData = ctx.getImageData(0, 0, 256, 256);
+          applyAnalyticPixelShader(imgData, provider.id);
+          ctx.putImageData(imgData, 0, 0);
+          const dataUrl = c.toDataURL('image/png');
+          setMemoryTile(tileKey, dataUrl);
+          tile.onload = origOnload;
+          tile.src = dataUrl;
+        } catch (_) {
+          if (origOnload) origOnload.call(tile, e);
+        }
+      };
     }
 
     return tile;
@@ -3040,6 +3245,7 @@ function selectBasemapById(id) {
   renderBasemapCards();
   closeModal('basemapModal');
   showNotification(`Switched Basemap: ${option.name}`);
+  updateAnalyticLegend(id);
 }
 
 function cycleMapLayer() {
@@ -3401,7 +3607,7 @@ function hidePopoverOnClickOutside(e) {
 function addWaypointAtClickedPoint() {
   document.getElementById('mapClickPopover').style.display = 'none';
   if (lastClickedLatLng) {
-    openWaypointModalWithCoords(lastClickedLatLng.lat, lastClickedLatLng.lng);
+    openWaypointModalWithCoords(lastClickedLatLng.lat, lastClickedLatLng.lng, 'click');
   }
 }
 
@@ -3438,57 +3644,95 @@ function openWaypointModalWithCoords(lat, lon) {
   openModal('waypointModal');
 }
 
+function getCrosshairCenterLatLng() {
+  if (!map) return { lat: currentLat || 0, lng: currentLon || 0 };
+  try {
+    const size = map.getSize();
+    return map.containerPointToLatLng(L.point(size.x / 2, size.y / 2));
+  } catch (_) {
+    return map.getCenter();
+  }
+}
+
+function openWaypointModalWithCoords(lat, lon, preferredSource = 'gps') {
+  document.getElementById('wptNameInput').value = 'WP-' + (waypoints.length + 1).toString().padStart(3, '0');
+  document.getElementById('wptNotesInput').value = '';
+  const accElem = document.getElementById('wptGpsAcc');
+  if (accElem) accElem.textContent = Math.round(currentAccuracy || 5);
+
+  window._tempWptCoords = { lat: lat, lon: lon, isClick: (preferredSource === 'click') };
+  setWptCoordinateSource(preferredSource);
+  populateCategorySelects();
+  openModal('waypointModal');
+}
+
 function setWptCoordinateSource(source) {
   wptCoordinateSource = source;
   const btnGps = document.getElementById('btnWptSourceGps');
   const btnCursor = document.getElementById('btnWptSourceCursor');
+  const btnClick = document.getElementById('btnWptSourceClick');
   const label = document.getElementById('wptSourceLabel');
 
+  const unselectedStyle = (btn) => {
+    if (!btn) return;
+    btn.style.background = 'rgba(30,41,59,0.8)';
+    btn.style.borderColor = 'rgba(255,255,255,0.15)';
+    btn.style.color = '#CBD5E1';
+    btn.style.fontWeight = 'normal';
+  };
+  const selectedStyle = (btn) => {
+    if (!btn) return;
+    btn.style.background = 'rgba(0, 240, 255, 0.25)';
+    btn.style.borderColor = '#00F0FF';
+    btn.style.color = '#00F0FF';
+    btn.style.fontWeight = '800';
+  };
+
+  unselectedStyle(btnGps);
+  unselectedStyle(btnCursor);
+  unselectedStyle(btnClick);
+
   if (source === 'gps') {
-    if (btnGps) {
-      btnGps.style.background = 'rgba(0, 240, 255, 0.25)';
-      btnGps.style.borderColor = '#00F0FF';
-      btnGps.style.color = '#00F0FF';
-      btnGps.style.fontWeight = '800';
-    }
-    if (btnCursor) {
-      btnCursor.style.background = 'rgba(30,41,59,0.8)';
-      btnCursor.style.borderColor = 'rgba(255,255,255,0.15)';
-      btnCursor.style.color = '#CBD5E1';
-      btnCursor.style.fontWeight = 'normal';
-    }
+    selectedStyle(btnGps);
     if (label) label.textContent = 'GPS';
     const lat = currentLat || (window._tempWptCoords ? window._tempWptCoords.lat : 0);
     const lon = currentLon || (window._tempWptCoords ? window._tempWptCoords.lon : 0);
     window._tempWptCoords = { lat: lat, lon: lon };
     document.getElementById('wptCoordsLabel').textContent = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
     document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
-  } else {
-    if (btnCursor) {
-      btnCursor.style.background = 'rgba(0, 240, 255, 0.25)';
-      btnCursor.style.borderColor = '#00F0FF';
-      btnCursor.style.color = '#00F0FF';
-      btnCursor.style.fontWeight = '800';
-    }
-    if (btnGps) {
-      btnGps.style.background = 'rgba(30,41,59,0.8)';
-      btnGps.style.borderColor = 'rgba(255,255,255,0.15)';
-      btnGps.style.color = '#CBD5E1';
-      btnGps.style.fontWeight = 'normal';
-    }
-    if (label) label.textContent = 'Cursor / Crosshair';
-    const center = map ? map.getCenter() : { lat: currentLat, lng: currentLon };
+  } else if (source === 'cursor') {
+    selectedStyle(btnCursor);
+    if (label) label.textContent = 'Reticle Center';
+    const center = getCrosshairCenterLatLng();
     window._tempWptCoords = { lat: center.lat, lon: center.lng };
     document.getElementById('wptCoordsLabel').textContent = `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`;
     document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+  } else if (source === 'click') {
+    selectedStyle(btnClick);
+    if (label) label.textContent = 'Clicked Position';
+    if (window._tempWptCoords && window._tempWptCoords.isClick) {
+      document.getElementById('wptCoordsLabel').textContent = `${window._tempWptCoords.lat.toFixed(6)}, ${window._tempWptCoords.lon.toFixed(6)}`;
+      document.getElementById('wptElevLabel').textContent = `${Math.round(currentAlt)} m`;
+    } else {
+      // Prompt user to tap on map
+      closeModal('waypointModal');
+      showToast('👆 Tap anywhere on map to set waypoint coordinates');
+      if (map) {
+        map.once('click', (e) => {
+          window._tempWptCoords = { lat: e.latlng.lat, lon: e.latlng.lng, isClick: true };
+          openModal('waypointModal');
+          setWptCoordinateSource('click');
+          showToast(`📍 Coordinate selected: ${e.latlng.lat.toFixed(5)}, ${e.latlng.lng.toFixed(5)}`);
+        });
+      }
+    }
   }
 }
 
 function recordWaypointAtCursor() {
   if (!map) return;
-  const center = map.getCenter();
-  openWaypointModalWithCoords(center.lat, center.lng);
-  setWptCoordinateSource('cursor');
+  const center = getCrosshairCenterLatLng();
+  openWaypointModalWithCoords(center.lat, center.lng, 'cursor');
 }
 
 function confirmSaveWaypoint() {
@@ -5563,6 +5807,11 @@ function downloadBlob(blob, filename) {
     URL.revokeObjectURL(url);
   }, 200);
 }
+
+function triggerFileDownload(blob, filename) {
+  downloadBlob(blob, filename);
+}
+window.triggerFileDownload = triggerFileDownload;
 
 function sanitizeFileName(name) {
   return (name || 'Field_Data').replace(/[^a-zA-Z0-9_\-]/g, '_');
