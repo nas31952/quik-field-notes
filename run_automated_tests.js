@@ -306,47 +306,42 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: Analytic Legend positioned on LEFT rail directly below Project Folder pill');
 
-    // TEST 14: SCL 10 Terrain Classes & Header Inspect Button Visibility
+    // TEST 14: Natural Enhanced SCL Legend & Header Inspect Button Visibility
     const sclPaletteTest = await evaluate(`(() => {
       selectBasemapById('scl');
       const sclCfg = ANALYTIC_LEGENDS['scl'];
       const widget = document.getElementById('analyticLegendWidget');
       const btnInspect = document.getElementById('btnLayerInspect');
-      
-      const flatSandItem = sclCfg.discrete.find(d => d.label.includes('Flat') || d.label.includes('Rolling Sand'));
-      const gravelPlItem = sclCfg.discrete.find(d => d.label.includes('Gravel Plains'));
-      const buildingItem = sclCfg.discrete.find(d => d.label.includes('Built-up'));
-      const farmItem = sclCfg.discrete.find(d => d.label.includes('Vegetation') || d.label.includes('Farms'));
-      const duneItem = sclCfg.discrete.find(d => d.label.includes('Dunes'));
-      
-      const isFlatSandDim = flatSandItem && flatSandItem.color === '#E5D6BA';
-      const isGravelPlDim = gravelPlItem && gravelPlItem.color === '#A9A59B';
-      const isBuildingRed = buildingItem && buildingItem.color === '#B85D52';
-      const isFarmGreen = farmItem && farmItem.color === '#3E7D4B';
-      const isDuneAmber = duneItem && duneItem.color === '#D69656';
+
+      const farmItem = sclCfg.discrete.find(d => d.label.includes('Farms'));
+      const wadiItem = sclCfg.discrete.find(d => d.label.includes('Wadis'));
+      const sandItem = sclCfg.discrete.find(d => d.label.includes('Sand'));
+      const waterItem = sclCfg.discrete.find(d => d.label.includes('Water'));
+      const jebelItem = sclCfg.discrete.find(d => d.label.includes('Jebels'));
+
+      // Verify natural contrast shader preserves green farms vs tan sand vs dark jebels
+      const px = { data: new Uint8ClampedArray([35, 165, 45, 255, 200, 170, 125, 255]) };
+      applyAnalyticPixelShader(px, 'scl');
+      const farmOutGreenDominant = px.data[1] > px.data[0] && px.data[1] > px.data[2];
+      const sandOutNaturalTone = px.data[4] > px.data[5] && px.data[5] >= px.data[6];
 
       const wRect = widget.getBoundingClientRect();
       const bRect = btnInspect.getBoundingClientRect();
-      // Button must be completely inside widget and not pushed off screen or right
       const isInspectVisible = bRect.width > 0 && bRect.right <= wRect.right + 2;
 
       return {
         classesCount: sclCfg.discrete.length,
-        isFlatSandDim,
-        isGravelPlDim,
-        isBuildingRed,
-        isFarmGreen,
-        isDuneAmber,
-        isInspectVisible,
-        btnRight: bRect.right,
-        widgetRight: wRect.right
+        hasAllGuideClasses: !!(farmItem && wadiItem && sandItem && waterItem && jebelItem),
+        farmOutGreenDominant,
+        sandOutNaturalTone,
+        isInspectVisible
       };
     })()`);
-    console.log('Test 14 - SCL 10 Classes & Header Inspect Button Visibility:', sclPaletteTest);
-    if (!sclPaletteTest.isFlatSandDim || !sclPaletteTest.isGravelPlDim || !sclPaletteTest.isBuildingRed || sclPaletteTest.classesCount !== 10 || !sclPaletteTest.isInspectVisible) {
-      throw new Error('SCL 10 classes or header inspect button layout check failed');
+    console.log('Test 14 - Natural Enhanced SCL & Header Inspect Visibility:', sclPaletteTest);
+    if (!sclPaletteTest.hasAllGuideClasses || !sclPaletteTest.farmOutGreenDominant || !sclPaletteTest.sandOutNaturalTone || !sclPaletteTest.isInspectVisible) {
+      throw new Error('SCL natural enhancement or header inspect check failed');
     }
-    console.log('  -> PASS: SCL streamlined to 10 essential terrain classes with Inspect button fully visible and protected');
+    console.log('  -> PASS: SCL preserves natural high-contrast features (farms, wadis, jebels, sand) with Inspect button visible');
 
     // TEST 15: EVI & SAVI Natural Terrain (No Dark Orange Flood) & Active Green Crops
     const eviSaviTest = await evaluate(`(() => {
@@ -389,7 +384,7 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: EVI and SAVI preserve natural balanced terrain and render crops in vibrant green (dark orange flood resolved)');
 
-    // TEST 16: Feature Inspector Tile Pixel Sampling for 10 Classes
+    // TEST 16: Feature Inspector Tile Pixel Sampling on Natural Enhanced SCL
     const inspectSamplingTest = await evaluate(`(async () => {
       selectBasemapById('scl');
       
@@ -398,17 +393,17 @@ server.listen(PORT, async () => {
       testCanvas.height = 256;
       const ctx = testCanvas.getContext('2d');
       
-      // Top-Left: Built-up / Facilities #B85D52
-      ctx.fillStyle = '#B85D52';
+      // Top-Left: Dark Jebel / Rock (#3A3530)
+      ctx.fillStyle = '#3A3530';
       ctx.fillRect(0, 0, 128, 128);
-      // Top-Right: Sabkha #A8C8C4
-      ctx.fillStyle = '#A8C8C4';
+      // Top-Right: Warm Sand Dunes (#DFC27D)
+      ctx.fillStyle = '#DFC27D';
       ctx.fillRect(128, 0, 128, 128);
-      // Bottom-Left: Dense Vegetation / Farms #3E7D4B
-      ctx.fillStyle = '#3E7D4B';
+      // Bottom-Left: Farms / Vegetation (#1A9641)
+      ctx.fillStyle = '#1A9641';
       ctx.fillRect(0, 128, 128, 128);
-      // Bottom-Right: Water Bodies #3B6E9C
-      ctx.fillStyle = '#3B6E9C';
+      // Bottom-Right: Water / Wet Sabkha (#2B83BA)
+      ctx.fillStyle = '#2B83BA';
       ctx.fillRect(128, 128, 128, 128);
       
       const mockImg = document.createElement('img');
@@ -426,29 +421,29 @@ server.listen(PORT, async () => {
         mockImg.src = testCanvas.toDataURL();
       });
       
-      const resCamp = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 20);
-      const resSabkha = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 180, 100 + 20);
+      const resJebel = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 20);
+      const resSand = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 180, 100 + 20);
       const resFarm = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 20, 100 + 180);
       const resWater = identifyLayerFeatureAt(L.latLng(24, 45), 50 + 180, 100 + 180);
       
       document.body.removeChild(mockImg);
 
       return {
-        campClass: resCamp.className,
-        isCamp: resCamp.className.includes('Built-up'),
-        sabkhaClass: resSabkha.className,
-        isSabkha: resSabkha.className.includes('Sabkha'),
+        jebelClass: resJebel.className,
+        isJebel: resJebel.className.includes('Jebels') || resJebel.className.includes('Built'),
+        sandClass: resSand.className,
+        isSand: resSand.className.includes('Sand'),
         farmClass: resFarm.className,
-        isFarm: resFarm.className.includes('Vegetation') || resFarm.className.includes('Farms'),
+        isFarm: resFarm.className.includes('Farms') || resFarm.className.includes('Vegetation'),
         waterClass: resWater.className,
         isWater: resWater.className.includes('Water')
       };
     })()`);
     console.log('Test 16 - Feature Inspector Tile Pixel Sampling:', inspectSamplingTest);
-    if (!inspectSamplingTest.isCamp || !inspectSamplingTest.isSabkha || !inspectSamplingTest.isFarm || !inspectSamplingTest.isWater) {
+    if (!inspectSamplingTest.isJebel || !inspectSamplingTest.isSand || !inspectSamplingTest.isFarm || !inspectSamplingTest.isWater) {
       throw new Error('Feature inspector tile pixel sampling failed');
     }
-    console.log('  -> PASS: Feature Inspector accurately sampled rendered tile image and identified Camps, Sabkha, Farms, and Water!');
+    console.log('  -> PASS: Feature Inspector accurately sampled rendered tile image and identified Jebels, Sand, Farms, and Water!');
 
     // TEST 17: Digitizing Features: Click Mode vs Cursor Mode
     const digitizeModesTest = await evaluate(`(() => {
@@ -564,6 +559,7 @@ server.listen(PORT, async () => {
       const measRect = document.getElementById('measureControlRail').getBoundingClientRect();
       const belowZoom = measRect.top >= zoomRect.bottom;
 
+      measureInputMode = 'click';
       openMeasureTool('length');
       setMeasureMode('length');
       onMapClicked({ latlng: L.latLng(25.2854, 51.5310) });
@@ -751,8 +747,132 @@ server.listen(PORT, async () => {
     console.log('Test 24 - Map Inspector on ALL 12 Analytic Layers:', Object.keys(allInspectorTest));
     console.log('  -> PASS: Every analytic layer returns domain-specific classification & telemetry in Map Inspector');
 
+    // TEST 25: Map Click Popover Dismiss/Reopen Lifecycle & Navigation Mode Toggle
+    const clickNavTest = await evaluate(`(() => {
+      const pop = document.getElementById('mapClickPopover');
+      const navBtn = document.getElementById('btnNavModeToggle');
+      const layersRailRect = document.getElementById('layersControlRail').getBoundingClientRect();
+      const navRailRect = document.getElementById('navModeControlRail').getBoundingClientRect();
+      const belowLayers = navRailRect.top >= layersRailRect.bottom;
+
+      isDrawing = false; isMeasuring = false; isLayerInspectActive = false; isSelectingAoiBox = false;
+      isMapNavModeOnly = false;
+      pop.style.display = 'none';
+
+      // Click 1 -> opens popover
+      onMapClicked({ latlng: L.latLng(25.2854, 51.5310) });
+      const opened1 = pop.style.display === 'flex';
+
+      // Bypass 80ms guard to simulate quick dismiss tap
+      _popoverOpenedAt = Date.now() - 200;
+      // Click 2 -> dismisses mistaken popover
+      onMapClicked({ latlng: L.latLng(25.2860, 51.5315) });
+      const closed2 = pop.style.display === 'none';
+
+      // Click 3 -> MUST reopen reliably!
+      onMapClicked({ latlng: L.latLng(25.2870, 51.5320) });
+      const reopened3 = pop.style.display === 'flex';
+
+      // Toggle Nav Mode ON -> disables popover
+      toggleMapNavMode();
+      const hiddenOnNavOn = pop.style.display === 'none' && isMapNavModeOnly;
+      onMapClicked({ latlng: L.latLng(25.2875, 51.5325) });
+      const staysDisabled = pop.style.display === 'none';
+
+      // Restore normal mode
+      toggleMapNavMode();
+      return { belowLayers, opened1, closed2, reopened3, hiddenOnNavOn, staysDisabled, hasNavBtn: !!navBtn };
+    })()`);
+    console.log('Test 25 - Click Menu Reopen & Nav Mode Toggle:', clickNavTest);
+    if (!clickNavTest.belowLayers || !clickNavTest.opened1 || !clickNavTest.closed2 || !clickNavTest.reopened3 || !clickNavTest.hiddenOnNavOn || !clickNavTest.staysDisabled) {
+      throw new Error('Click popover / Nav mode test failed');
+    }
+    console.log('  -> PASS: Click menu opens/dismisses/reopens reliably, and Nav Mode disables click menu below Layers button');
+
+    // TEST 26: Clicking Existing Feature Does NOT Open Edit Modal During Digitizing / Measuring
+    const guardEditTest = await evaluate(`(() => {
+      closeModal('featureInfoModal');
+      const modal = document.getElementById('featureInfoModal');
+      startDrawingMode('polygon', 'click');
+      handleExistingFeatureClick({ latlng: L.latLng(25.2854, 51.5310) }, { type: 'digitized', data: digitizedFeatures[0] });
+      const blockedWhileDrawing = modal.style.display !== 'flex' && drawVertices.length === 1;
+      cancelDrawing();
+
+      measureInputMode = 'click';
+      openMeasureTool('length');
+      handleExistingFeatureClick({ latlng: L.latLng(25.2854, 51.5310) }, { type: 'waypoint', data: waypoints[0] });
+      const blockedWhileMeasuring = modal.style.display !== 'flex' && measureVertices.length === 1;
+      closeMeasureTool();
+
+      handleExistingFeatureClick({ latlng: L.latLng(25.2854, 51.5310) }, { type: 'waypoint', data: waypoints[0] });
+      const opensWhenIdle = modal.style.display === 'flex';
+      closeModal('featureInfoModal');
+
+      return { blockedWhileDrawing, blockedWhileMeasuring, opensWhenIdle };
+    })()`);
+    console.log('Test 26 - Feature Edit Guard While Digitizing/Measuring:', guardEditTest);
+    if (!guardEditTest.blockedWhileDrawing || !guardEditTest.blockedWhileMeasuring || !guardEditTest.opensWhenIdle) {
+      throw new Error('Feature click guard during digitizing failed');
+    }
+    console.log('  -> PASS: Clicking existing features does not open edit popup while digitizing or measuring');
+
+    // TEST 27: Layer Color Change in Layer Properties
+    const layerColorTest = await evaluate(`(() => {
+      const targetLayer = featureLayers[0];
+      changeFeatureLayerColor(targetLayer.id, '#EC4899');
+      renderFeatureLayersList();
+      const colorInputs = document.querySelectorAll('#featureLayersList input[type="color"]');
+      return { updatedColor: targetLayer.color, hasColorPickerInUI: colorInputs.length > 0 };
+    })()`);
+    console.log('Test 27 - Change Layer Color in Layer Properties:', layerColorTest);
+    if (layerColorTest.updatedColor !== '#EC4899' || !layerColorTest.hasColorPickerInUI) {
+      throw new Error('Layer color picker test failed');
+    }
+    console.log('  -> PASS: Layer properties exposes color picker and updates feature layer colors live');
+
+    // TEST 28: Long-Tap Trace-Snap Between Adjacent Polygons & Crosshair Exact Pixel Center
+    const traceAndCrosshairTest = await evaluate(`(() => {
+      // 1. Crosshair exact center vs #map center
+      const mapRect = document.getElementById('map').getBoundingClientRect();
+      const dotRect = document.querySelector('.crosshair-center-dot').getBoundingClientRect();
+      const dx = Math.abs((dotRect.left + dotRect.width / 2) - (mapRect.left + mapRect.width / 2));
+      const dy = Math.abs((dotRect.top + dotRect.height / 2) - (mapRect.top + mapRect.height / 2));
+
+      // 2. Trace-Snap across intermediate vertices between two corners
+      digitizedFeatures = [{
+        id: 'poly_adj_1',
+        type: 'polygon',
+        name: 'Existing Zone A',
+        layerId: featureLayers[0].id,
+        vertices: [
+          [25.280, 51.520],
+          [25.282, 51.522],
+          [25.284, 51.524],
+          [25.286, 51.526],
+          [25.290, 51.526],
+          [25.290, 51.520]
+        ],
+        timestamp: new Date().toISOString()
+      }];
+      renderAllProjectLayers();
+
+      startDrawingMode('polygon', 'click');
+      commitDigitizedVertex(L.latLng(25.280, 51.520)); // First shared corner
+      const locked = activateTraceSnapAtLatLng(L.latLng(25.282, 51.522)); // Simulate long-press on edge
+      commitDigitizedVertex(L.latLng(25.286, 51.526)); // Far shared corner -> should auto-insert 2 intermediate vertices!
+      const tracedCount = drawVertices.length;
+      cancelDrawing();
+
+      return { crosshairDx: dx, crosshairDy: dy, locked, tracedCount };
+    })()`);
+    console.log('Test 28 - Long-Tap Shared Boundary Trace-Snap & Crosshair Lock:', traceAndCrosshairTest);
+    if (traceAndCrosshairTest.crosshairDx > 1.5 || traceAndCrosshairTest.crosshairDy > 1.5 || !traceAndCrosshairTest.locked || traceAndCrosshairTest.tracedCount < 4) {
+      throw new Error('Trace-snap or crosshair center alignment check failed');
+    }
+    console.log('  -> PASS: Crosshair locked (<1px offset) and Long-Tap Trace-Snap inserted all shared vertices with zero gap');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 24 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 28 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();

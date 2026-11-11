@@ -53,6 +53,8 @@ if ('serviceWorker' in navigator) {
 }
 
 body, html {
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
@@ -61,13 +63,12 @@ body, html {
   font-size: 15px;
 }
 
-/* Full Screen GIS Canvas */
+/* Full Screen GIS Canvas (Locked identically to viewport inset so center === crosshair center) */
 #map {
-  width: 100vw;
-  height: 100vh;
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   z-index: 1;
   background: #0B132B;
   touch-action: none;
@@ -270,6 +271,35 @@ body, html {
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Screen Navigation Mode Toggle Button (Below Layers Key) */
+.navmode-control-rail {
+  position: absolute;
+  top: calc(var(--safe-top) + 366px);
+  right: 14px;
+  z-index: 1000;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.navmode-toggle-btn.active {
+  background: rgba(0, 240, 255, 0.28);
+  color: #00F0FF;
+  box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.35);
+}
+.navmode-toggle-btn.active .measure-toggle-lbl {
+  color: #00F0FF;
 }
 
 /* Floating Measure Toolbar & Live Readout */
@@ -731,9 +761,9 @@ body, html {
   cursor: pointer;
 }
 
-/* Precision Center Crosshair */
+/* Precision Center Crosshair (Fixed to exact viewport center matching #map inset:0) */
 #crosshair {
-  position: absolute;
+  position: fixed;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -1433,6 +1463,14 @@ body, html {
   </button>
 </div>
 
+<!-- Navigation-Only Screen Mode Toggle (Disables Map Click Menu Until Switched Back) -->
+<div class="navmode-control-rail" id="navModeControlRail">
+  <button class="measure-toggle-btn navmode-toggle-btn" id="btnNavModeToggle" onclick="toggleMapNavMode()" title="Navigation Mode: Disable Click Popover Menu">
+    <span style="font-size: 17px; line-height: 1;" id="navModeIcon">🧭</span>
+    <span class="measure-toggle-lbl" id="navModeLbl">NAV</span>
+  </button>
+</div>
+
 
 <!-- Navigation Target Banner -->
 <div id="navBanner">
@@ -1452,6 +1490,7 @@ body, html {
   <button class="btn" id="btnDigitizeModeToggle" style="padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(0, 240, 255, 0.2); border: 1.5px solid #00F0FF; color: #00F0FF; font-weight: 700;" onclick="toggleDigitizeInputMode()" title="Toggle: Draw by Screen Click vs Center Crosshair Cursor">👆 Click</button>
   <button class="btn" id="btnAddCursorVertex" style="display: none; padding: 5px 11px; font-size: 11px; min-height: 34px; background: #00F0FF; color: #0B132B; font-weight: 800; border-radius: 8px; border: none; box-shadow: 0 0 10px rgba(0,240,255,0.5);" onclick="addVertexAtCursor()" title="Add vertex at center crosshair position">➕ Add Pt</button>
   <button class="btn" id="btnSnapToggle" style="padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(16, 185, 129, 0.25); border: 1.5px solid #10B981; color: #10B981;" onclick="toggleSnapEngine()">🧲 Snap</button>
+  <button class="btn" id="btnTraceSnap" style="padding: 5px 8px; font-size: 10.5px; min-height: 34px; background: rgba(56, 189, 248, 0.15); border: 1.5px solid rgba(56, 189, 248, 0.45); color: #38BDF8;" onclick="onTraceSnapBtnClicked()" title="Long-press any adjacent feature (or tap here) to auto-trace shared boundary vertices">🔗 Trace</button>
   <button class="btn btn-secondary" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="undoDrawVertex()">↩️</button>
   <button class="btn btn-primary" style="padding: 5px 11px; font-size: 11.5px; min-height: 34px;" onclick="finishDrawing()">✅ Finish</button>
   <button class="btn btn-danger" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="cancelDrawing()">❌</button>
@@ -2340,6 +2379,12 @@ let measureVertices = [];
 let measureLayerGroup = null;
 let measureRubberbandLayer = null;
 let geoExportSelectedMode = 'standard';
+let isMapNavModeOnly = false;
+let activeTraceSnapTarget = null;
+let isTraceArmPending = false;
+let traceHighlightLayer = null;
+let _suppressNextMapClickUntil = 0;
+let _popoverOpenedAt = 0;
 
 // Waypoint Categories
 let categories = [];
@@ -2924,10 +2969,10 @@ const BASEMAP_OPTIONS = [
     category: 'spectral',
     name: 'Scene Classification Layer (SCL)',
     icon: '🎨',
-    badge: 'Land Cover Classes',
-    desc: 'Classified map separating water, bare soil, sparse vegetation, dense canopy, and rock',
+    badge: 'Natural Enhanced',
+    desc: 'High-contrast natural-color enhanced imagery clearly highlighting farms, wadis, jebels, dunes, roads, and structures',
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    // Pixel shader applied dynamically per tile via canvas
+    // Natural-color contrast & saturation shader applied per tile via canvas
     options: { maxZoom: 19, attribution: 'Tiles &copy; Esri' }
   },
   {
@@ -3063,6 +3108,14 @@ function initMap() {
     }
   });
   measureLayerGroup = L.layerGroup().addTo(map);
+  initTraceLongPressHandlers();
+  initPopoverOutsideHandler();
+  window.addEventListener('resize', () => {
+    if (map) map.invalidateSize({ animate: false });
+  });
+  window.addEventListener('orientationchange', () => {
+    setTimeout(() => { if (map) map.invalidateSize({ animate: false }); }, 180);
+  });
   updateZoomDisplay();
   }
 }
@@ -3291,72 +3344,22 @@ function applyAnalyticPixelShader(imgData, layerId) {
       }
     }
   } else if (layerId === 'scl') {
-    // Natural Earth Cartographic Scene Classification Layer (10 Natural-Tone Terrain Classes)
-    // Uses 3x3 Sobel boundary operator + color warmth/saturation balance for desert & mixed terrain
-    const w = 256, h = 256;
-    const lum = new Uint8Array(w * h);
-    for (let i = 0, j = 0; i < len; i += 4, j++) {
-      lum[j] = (d[i] * 299 + d[i+1] * 587 + d[i+2] * 114) >> 10;
-    }
-
-    for (let y = 0; y < h; y++) {
-      const row = y * w;
-      const yPrev = Math.max(0, y - 1) * w;
-      const yNext = Math.min(h - 1, y + 1) * w;
-      for (let x = 0; x < w; x++) {
-        const i = (row + x) * 4;
-        const j = row + x;
-        const r = d[i], g = d[i+1], b = d[i+2];
-        const brightness = lum[j];
-
-        // 3x3 Sobel edge magnitude for structure vs smooth natural surface
-        const xP = Math.max(0, x - 1);
-        const xN = Math.min(w - 1, x + 1);
-        const g00 = lum[yPrev + xP], g01 = lum[yPrev + x], g02 = lum[yPrev + xN];
-        const g10 = lum[row + xP],                         g12 = lum[row + xN];
-        const g20 = lum[yNext + xP], g21 = lum[yNext + x], g22 = lum[yNext + xN];
-        const sobelX = (g02 + 2 * g12 + g22) - (g00 + 2 * g10 + g20);
-        const sobelY = (g20 + 2 * g21 + g22) - (g00 + 2 * g01 + g02);
-        const edgeMag = Math.abs(sobelX) + Math.abs(sobelY);
-
-        const maxC = Math.max(r, g, b);
-        const minC = Math.min(r, g, b);
-        const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
-        const ndiGr = (g - r) / (g + r + 1.0);
-        const warmth = r - b;
-
-        if (b > r + 14 && b > g && r < 120) {
-          // 1. Water Bodies (#3B6E9C Natural Slate Ocean Blue)
-          d[i] = 59; d[i+1] = 110; d[i+2] = 156;
-        } else if (ndiGr > 0.045 || (g > r + 10 && g > b)) {
-          // 2. Dense Vegetation / Farms (#3E7D4B Natural Earth Forest Green)
-          d[i] = 62; d[i+1] = 125; d[i+2] = 75;
-        } else if (ndiGr > 0.01 && g > 65 && brightness < 185) {
-          // 3. Wadis (Drainage / Scrub) (#8CA86E Natural Sage Wash Green)
-          d[i] = 140; d[i+1] = 168; d[i+2] = 110;
-        } else if (edgeMag > 90 && ((sat < 0.14 && brightness > 95) || (r > 195 && g > 195 && b > 195 && edgeMag > 55))) {
-          // 4. Built-up Areas / Facilities / Camps (#B85D52 Natural Terracotta Brick)
-          d[i] = 184; d[i+1] = 93; d[i+2] = 82;
-        } else if (b >= r - 6 && b > 110 && g > 110 && sat < 0.18 && warmth < 20) {
-          // 5. Sabkha (Wetlands / Salt Crust) (#A8C8C4 Natural Evaporite Salt-Teal)
-          d[i] = 168; d[i+1] = 200; d[i+2] = 196;
-        } else if (edgeMag > 55 && brightness > 185 && sat < 0.18 && warmth < 38) {
-          // 6. Quarry / Excavated Ground (#D9B664 Natural Mineral Ochre)
-          d[i] = 217; d[i+1] = 182; d[i+2] = 100;
-        } else if (brightness < 105 && edgeMag > 24 && warmth >= 4) {
-          // 7. Jebels / Rock Outcrops (#755D4B Natural Weathered Umber)
-          d[i] = 117; d[i+1] = 93; d[i+2] = 75;
-        } else if (warmth > 38 && (edgeMag > 26 || (r > 185 && g > 125 && b < 120 && brightness < 210))) {
-          // 8. Sand Dunes (Active Dunes / Slipfaces) (#D69656 Natural Saharan Ochre)
-          d[i] = 214; d[i+1] = 150; d[i+2] = 86;
-        } else if (brightness >= 80 && brightness <= 155 && warmth < 32 && edgeMag < 34) {
-          // 9. Gravel Plains (Reg / Serir) (#A9A59B Natural Stone Reg Gray)
-          d[i] = 169; d[i+1] = 165; d[i+2] = 155;
-        } else {
-          // 10. Flat & Rolling Sand (#E5D6BA Natural Warm Desert Buff)
-          d[i] = 229; d[i+1] = 214; d[i+2] = 186;
-        }
-      }
+    // Original Natural-Color High-Contrast Scene Classification Layer (SCL):
+    // Preserves full natural terrain texture so Farms, Wadis, Jebels, Dunes, Roads & Buildings stand out clearly
+    for (let i = 0; i < len; i += 4) {
+      let r = d[i], g = d[i+1], b = d[i+2];
+      // Crisp 1.65x contrast around midpoint 128 + mild tone balance
+      r = 128 + (r * 0.96 - 128) * 1.65;
+      g = 128 + (g * 0.96 - 128) * 1.65;
+      b = 128 + (b * 0.96 - 128) * 1.65;
+      // 2.35x natural saturation boost preserving natural features
+      const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      r = lum + (r - lum) * 2.35;
+      g = lum + (g - lum) * 2.35;
+      b = lum + (b - lum) * 2.35;
+      d[i] = r < 0 ? 0 : (r > 255 ? 255 : Math.round(r));
+      d[i+1] = g < 0 ? 0 : (g > 255 ? 255 : Math.round(g));
+      d[i+2] = b < 0 ? 0 : (b > 255 ? 255 : Math.round(b));
     }
   } else if (layerId === 'slope-aspect') {
     const w = 256, h = 256;
@@ -3675,18 +3678,13 @@ const ANALYTIC_LEGENDS = {
   },
   'scl': {
     title: 'Scene Class (SCL)',
-    unit: 'Natural Earth Scene Palette',
+    unit: 'Enhanced Natural Land Cover',
     discrete: [
-      { color: '#B85D52', label: 'Built-up / Facilities' },
-      { color: '#3E7D4B', label: 'Dense Vegetation / Farms' },
-      { color: '#8CA86E', label: 'Wadis (Vegetated/Drainage)' },
-      { color: '#A8C8C4', label: 'Sabkha (Wetlands/Salt)' },
-      { color: '#3B6E9C', label: 'Water Bodies' },
-      { color: '#755D4B', label: 'Jebels / Rock Outcrops' },
-      { color: '#D9B664', label: 'Quarry / Excavated Ground' },
-      { color: '#D69656', label: 'Sand Dunes' },
-      { color: '#A9A59B', label: 'Gravel Plains (Reg/Serir)' },
-      { color: '#E5D6BA', label: 'Flat & Rolling Sand' }
+      { color: '#1A9641', label: 'Farms / Dense Vegetation' },
+      { color: '#A6D96A', label: 'Wadis / Sparse Scrub' },
+      { color: '#DFC27D', label: 'Sand Dunes & Open Desert' },
+      { color: '#2B83BA', label: 'Water / Wet Sabkha' },
+      { color: '#70757A', label: 'Jebels / Rock / Built-up' }
     ]
   }
 };
@@ -4097,6 +4095,7 @@ function onGpsError(err) {
 
 function centerOnGps() {
   if (map && currentLat && currentLon) {
+    map.invalidateSize({ animate: false });
     map.setView([currentLat, currentLon], 16, { animate: true });
   }
 }
@@ -4287,30 +4286,33 @@ function identifyLayerFeatureAt(latlng, clientX, clientY) {
 
   if (layerId === 'scl') {
     if (sampledR !== null) {
-      let best = SCL_FEATURE_INTELLIGENCE[9]; // default flat & rolling sand
-      let minDist = Infinity;
-      for (const item of SCL_FEATURE_INTELLIGENCE) {
-        const dist = Math.hypot(sampledR - item.rgb[0], sampledG - item.rgb[1], sampledB - item.rgb[2]);
-        if (dist < minDist) {
-          minDist = dist;
-          best = item;
-        }
+      const lum = Math.round(0.299 * sampledR + 0.587 * sampledG + 0.114 * sampledB);
+      let cls = { icon: '🐪', name: 'Sand Dunes / Desert Plain', color: '#DFC27D', desc: 'Open sand sheet or dune terrain visible in enhanced natural color.' };
+      if (sampledB > sampledR + 18 && sampledB > sampledG) {
+        cls = { icon: '🌊', name: 'Water Body / Wet Sabkha', color: '#2B83BA', desc: 'Surface water, moisture pocket, or damp salt flat.' };
+      } else if (sampledG > sampledR + 22 && sampledG > sampledB) {
+        cls = { icon: '🌴', name: 'Farms / Dense Vegetation', color: '#1A9641', desc: 'Cultivated agricultural plot, palm grove, or dense green canopy.' };
+      } else if (sampledG > sampledR + 6) {
+        cls = { icon: '🌿', name: 'Wadis / Sparse Scrub', color: '#A6D96A', desc: 'Vegetated wadi drainage course or desert acacia scrub.' };
+      } else if (lum < 95 || Math.abs(sampledR - sampledB) < 20) {
+        cls = { icon: '⛰️', name: 'Jebels / Rock Outcrop / Built-up', color: '#70757A', desc: 'Dark rocky outcrop, escarpment, road, or structural installation.' };
+      } else {
+        cls = { icon: '🏜️', name: 'Sand Dunes / Open Sand', color: `rgb(${sampledR},${sampledG},${sampledB})`, desc: `Natural sand/soil terrain (Albedo ${Math.round((lum / 255) * 100)}%).` };
       }
       return {
-        icon: best.icon,
+        icon: cls.icon,
         layerTitle: 'SCENE CLASSIFICATION (SCL)',
-        className: best.name,
-        color: best.color,
-        description: best.desc
+        className: cls.name,
+        color: cls.color,
+        description: cls.desc
       };
     }
-    // Fallback classification if off-tile
     return {
-      icon: '🐪',
+      icon: '🏜️',
       layerTitle: 'SCENE CLASSIFICATION (SCL)',
-      className: 'Flat & Rolling Sand',
-      color: '#C4BAA9',
-      description: 'Open desert sand sheet. Flat and easily traversable across survey spreads.'
+      className: 'Natural Desert Terrain',
+      color: '#DFC27D',
+      description: 'High-contrast natural-color enhanced land cover view.'
     };
   } else if (layerId === 'ndvi') {
     let ndviVal = 0.12;
@@ -4561,8 +4563,41 @@ function startNavFromInspect() {
   }
 }
 
-// --- MAP CLICK HANDLER (WITH REAL-TIME SNAPPING) ---
+// --- SCREEN NAVIGATION MODE TOGGLE (DISABLE CLICK MENU UNTIL SWITCHED BACK) ---
+function toggleMapNavMode() {
+  isMapNavModeOnly = !isMapNavModeOnly;
+  const btn = document.getElementById('btnNavModeToggle');
+  if (btn) btn.classList.toggle('active', isMapNavModeOnly);
+  const popover = document.getElementById('mapClickPopover');
+  if (isMapNavModeOnly && popover) {
+    popover.style.display = 'none';
+  }
+  showToast(isMapNavModeOnly
+    ? '🧭 Screen Navigation Mode: ON (Click menu disabled)'
+    : '👆 Interactive Mode: Map click menu enabled');
+}
+
+function initPopoverOutsideHandler() {
+  if (window._qfnPopoverHandlerBound) return;
+  window._qfnPopoverHandlerBound = true;
+  document.addEventListener('pointerdown', (e) => {
+    const popover = document.getElementById('mapClickPopover');
+    if (!popover || popover.style.display !== 'flex') return;
+    if (popover.contains(e.target)) return;
+    // Let #map pointer/click handle closing cleanly inside onMapClicked unless tapping HUD/dock outside map
+    const mapEl = document.getElementById('map');
+    if (mapEl && e.target !== mapEl && !mapEl.contains(e.target)) {
+      popover.style.display = 'none';
+    }
+  }, true);
+}
+
+// --- MAP CLICK HANDLER (WITH REAL-TIME SNAPPING & CLEAN POPOVER LIFECYCLE) ---
 function onMapClicked(e) {
+  if (Date.now() < _suppressNextMapClickUntil) {
+    return;
+  }
+
   if (isSelectingAoiBox) {
     handleAoiMapClick(e);
     return;
@@ -4579,42 +4614,42 @@ function onMapClicked(e) {
   }
 
   if (isDrawing) {
+    if (isTraceArmPending) {
+      if (activateTraceSnapAtLatLng(e.latlng)) {
+        return;
+      }
+      isTraceArmPending = false;
+      updateTraceSnapUI();
+    }
     if (digitizeInputMode === 'cursor') {
       // In cursor mode, user pans the map; vertices are added via the "➕ Add Pt" button at center crosshair
       return;
     }
-    let pt = e.latlng;
-    if (isSnappingEnabled) {
-      try {
-        pt = findSnapPoint(e.latlng);
-      } catch (err) {
-        console.warn("Snap error:", err);
-        pt = e.latlng;
-      }
-    }
-    drawVertices.push([pt.lat, pt.lng]);
-    updateDrawPreview();
+    commitDigitizedVertex(e.latlng);
+    return;
+  }
+
+  const popover = document.getElementById('mapClickPopover');
+
+  // If Navigation-Only mode is active, keep click menu disabled
+  if (isMapNavModeOnly) {
+    if (popover) popover.style.display = 'none';
+    return;
+  }
+
+  // If click menu was already open (accidental open), close cleanly on tap so next tap re-opens reliably
+  if (popover && popover.style.display === 'flex' && (Date.now() - _popoverOpenedAt > 80)) {
+    popover.style.display = 'none';
     return;
   }
 
   lastClickedLatLng = e.latlng;
-  const popover = document.getElementById('mapClickPopover');
   const point = map.latLngToContainerPoint(e.latlng);
 
-  popover.style.left = Math.min(point.x, window.innerWidth - 180) + 'px';
-  popover.style.top = Math.min(point.y, window.innerHeight - 160) + 'px';
+  popover.style.left = Math.max(10, Math.min(point.x, window.innerWidth - 185)) + 'px';
+  popover.style.top = Math.max(60, Math.min(point.y, window.innerHeight - 170)) + 'px';
   popover.style.display = 'flex';
-
-  setTimeout(() => {
-    window.addEventListener('click', hidePopoverOnClickOutside, { once: true });
-  }, 100);
-}
-
-function hidePopoverOnClickOutside(e) {
-  const popover = document.getElementById('mapClickPopover');
-  if (!popover.contains(e.target)) {
-    popover.style.display = 'none';
-  }
+  _popoverOpenedAt = Date.now();
 }
 
 function addWaypointAtClickedPoint() {
@@ -4645,26 +4680,24 @@ function openQuickWaypointModal() {
   openWaypointModalWithCoords(currentLat, currentLon);
 }
 
-function openWaypointModalWithCoords(lat, lon) {
-  document.getElementById('wptNameInput').value = 'WP-' + (waypoints.length + 1).toString().padStart(3, '0');
-  document.getElementById('wptNotesInput').value = '';
-  const accElem = document.getElementById('wptGpsAcc');
-  if (accElem) accElem.textContent = Math.round(currentAccuracy || 5);
-
-  window._tempWptCoords = { lat: lat, lon: lon };
-  setWptCoordinateSource('gps');
-  populateCategorySelects();
-  openModal('waypointModal');
-}
-
 function getCrosshairCenterLatLng() {
   if (!map) return { lat: currentLat || 0, lng: currentLon || 0 };
   try {
-    const size = map.getSize();
-    return map.containerPointToLatLng(L.point(size.x / 2, size.y / 2));
-  } catch (_) {
-    return map.getCenter();
-  }
+    const mapEl = map.getContainer();
+    const mapRect = mapEl.getBoundingClientRect();
+    const dotEl = document.querySelector('.crosshair-center-dot') || document.getElementById('crosshair');
+    if (dotEl && mapRect.width > 0 && mapRect.height > 0) {
+      const mSize = map.getSize ? map.getSize() : { x: mapRect.width, y: mapRect.height };
+      if (Math.abs(mSize.x - mapRect.width) > 2 || Math.abs(mSize.y - mapRect.height) > 2) {
+        map.invalidateSize({ animate: false });
+      }
+      const dRect = dotEl.getBoundingClientRect();
+      const px = (dRect.left + dRect.width / 2) - mapRect.left;
+      const py = (dRect.top + dRect.height / 2) - mapRect.top;
+      return map.containerPointToLatLng(L.point(px, py));
+    }
+  } catch (_) {}
+  return map.getCenter();
 }
 
 function openWaypointModalWithCoords(lat, lon, preferredSource = 'gps') {
@@ -4880,26 +4913,256 @@ function updateDigitizeModeUI() {
 }
 
 function addVertexAtCursor() {
-  let pt = getCrosshairCenterLatLng();
-  if (isSnappingEnabled) {
-    try {
-      pt = findSnapPoint(pt);
-    } catch (_) {}
-  }
-  drawVertices.push([pt.lat, pt.lng]);
-  updateDrawPreview();
+  const pt = getCrosshairCenterLatLng();
+  commitDigitizedVertex(pt, true);
   if (navigator.vibrate) try { navigator.vibrate(25); } catch(_) {}
-  showToast(`Point #${drawVertices.length} added at cursor center`);
 }
 
 function startDrawingMode(type, preferredMode = 'click') {
   isDrawing = true;
   drawType = type;
   drawVertices = [];
+  clearTraceSnapTarget();
   digitizeInputMode = preferredMode;
+  const pop = document.getElementById('mapClickPopover');
+  if (pop) pop.style.display = 'none';
   document.getElementById('drawToolbar').style.display = 'flex';
   updateDigitizeModeUI();
   updateDrawPreview();
+}
+
+function commitDigitizedVertex(rawLatLng, fromCursor = false) {
+  let pt = L.latLng(rawLatLng.lat !== undefined ? rawLatLng.lat : rawLatLng[0], rawLatLng.lng !== undefined ? rawLatLng.lng : rawLatLng[1]);
+
+  if (isSnappingEnabled) {
+    try {
+      pt = findSnapPoint(pt);
+    } catch (err) {
+      console.warn('Snap error:', err);
+    }
+  }
+
+  // Long-Tap Edge / Shared-Boundary Auto-Trace between last added vertex and newly added vertex
+  if (activeTraceSnapTarget && Array.isArray(activeTraceSnapTarget.vertices) && activeTraceSnapTarget.vertices.length >= 2 && drawVertices.length >= 1) {
+    const prevPt = drawVertices[drawVertices.length - 1];
+    const verts = activeTraceSnapTarget.vertices;
+    const isClosed = !!activeTraceSnapTarget.isClosed && verts.length >= 3;
+
+    const findNearestIdx = (targetCoord) => {
+      let bestIdx = 0;
+      let bestDist = Infinity;
+      for (let i = 0; i < verts.length; i++) {
+        const d = calcDistanceMeters(targetCoord[0], targetCoord[1], verts[i][0], verts[i][1]);
+        if (d < bestDist) {
+          bestDist = d;
+          bestIdx = i;
+        }
+      }
+      return bestIdx;
+    };
+
+    const idx1 = findNearestIdx(prevPt);
+    const idx2 = findNearestIdx([pt.lat, pt.lng]);
+
+    let traced = [];
+    if (isClosed) {
+      // Compute both forward & backward ring paths and select shorter shared boundary
+      const n = verts.length;
+      const fwd = [];
+      let cur = idx1;
+      for (let step = 0; step < n; step++) {
+        fwd.push(verts[cur]);
+        if (cur === idx2) break;
+        cur = (cur + 1) % n;
+      }
+      const bwd = [];
+      cur = idx1;
+      for (let step = 0; step < n; step++) {
+        bwd.push(verts[cur]);
+        if (cur === idx2) break;
+        cur = (cur - 1 + n) % n;
+      }
+      traced = calcPathLengthMeters(fwd) <= calcPathLengthMeters(bwd) ? fwd : bwd;
+    } else {
+      if (idx1 <= idx2) {
+        traced = verts.slice(idx1, idx2 + 1);
+      } else {
+        traced = verts.slice(idx2, idx1 + 1).reverse();
+      }
+    }
+
+    let inserted = 0;
+    traced.forEach(tv => {
+      const lastV = drawVertices[drawVertices.length - 1];
+      if (!lastV || calcDistanceMeters(lastV[0], lastV[1], tv[0], tv[1]) > 0.05) {
+        drawVertices.push([tv[0], tv[1]]);
+        inserted++;
+      }
+    });
+
+    clearTraceSnapTarget();
+    updateDrawPreview();
+    showToast(`✅ Auto-snapped ${inserted} shared boundary vertices (0 gap)`);
+    return;
+  }
+
+  drawVertices.push([pt.lat, pt.lng]);
+  updateDrawPreview();
+  if (fromCursor) {
+    showToast(`Point #${drawVertices.length} added at cursor center`);
+  }
+}
+
+function updateTraceSnapUI() {
+  const btn = document.getElementById('btnTraceSnap');
+  if (!btn) return;
+  if (activeTraceSnapTarget) {
+    btn.textContent = '🔗 Trace: LOCKED';
+    btn.style.background = 'rgba(0, 240, 255, 0.32)';
+    btn.style.borderColor = '#00F0FF';
+    btn.style.color = '#00F0FF';
+  } else if (isTraceArmPending) {
+    btn.textContent = '🔗 Tap Feature';
+    btn.style.background = 'rgba(245, 158, 11, 0.3)';
+    btn.style.borderColor = '#F59E0B';
+    btn.style.color = '#F59E0B';
+  } else {
+    btn.textContent = '🔗 Trace';
+    btn.style.background = 'rgba(56, 189, 248, 0.15)';
+    btn.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+    btn.style.color = '#38BDF8';
+  }
+}
+
+function clearTraceSnapTarget() {
+  activeTraceSnapTarget = null;
+  isTraceArmPending = false;
+  if (traceHighlightLayer && map) {
+    try { map.removeLayer(traceHighlightLayer); } catch (_) {}
+    traceHighlightLayer = null;
+  }
+  updateTraceSnapUI();
+}
+
+function onTraceSnapBtnClicked() {
+  if (activeTraceSnapTarget || isTraceArmPending) {
+    clearTraceSnapTarget();
+    showToast('Trace-Snap cleared');
+  } else {
+    isTraceArmPending = true;
+    updateTraceSnapUI();
+    showToast('🔗 Tap (or long-press) an adjacent polygon/line edge to lock Trace-Snap');
+  }
+}
+
+function pointToSegmentDistPx(p, a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const l2 = dx * dx + dy * dy;
+  if (l2 === 0) return p.distanceTo(a);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / l2;
+  t = Math.max(0, Math.min(1, t));
+  return p.distanceTo(L.point(a.x + t * dx, a.y + t * dy));
+}
+
+function activateTraceSnapAtLatLng(latlng) {
+  if (!map || !latlng) return false;
+  const tapPx = map.latLngToContainerPoint(latlng);
+  let bestFeature = null;
+  let bestDist = 42; // 42px edge capture tolerance
+
+  const considerCandidate = (name, verts, isClosed) => {
+    if (!Array.isArray(verts) || verts.length < 2) return;
+    const ptsPx = verts.map(v => map.latLngToContainerPoint(v));
+    const segCount = isClosed ? ptsPx.length : ptsPx.length - 1;
+    for (let i = 0; i < segCount; i++) {
+      const a = ptsPx[i];
+      const b = ptsPx[(i + 1) % ptsPx.length];
+      const d = pointToSegmentDistPx(tapPx, a, b);
+      if (d < bestDist) {
+        bestDist = d;
+        bestFeature = { name, vertices: verts, isClosed };
+      }
+    }
+  };
+
+  if (Array.isArray(digitizedFeatures)) {
+    digitizedFeatures.forEach(f => {
+      if (!isLayerVisibleForFeature(f.layerId)) return;
+      considerCandidate(f.name || 'Polygon', f.vertices, f.type === 'polygon');
+    });
+  }
+
+  if (Array.isArray(importedOverlays)) {
+    importedOverlays.forEach(ov => {
+      if (ov && ov.visible && ov.layer && typeof ov.layer.eachLayer === 'function') {
+        ov.layer.eachLayer(l => {
+          if (l.getLatLngs) {
+            const rawLL = flattenLatLngs(l.getLatLngs());
+            const verts = rawLL.map(pt => [pt.lat, pt.lng]);
+            const isPoly = l instanceof L.Polygon;
+            considerCandidate(ov.name || 'Overlay', verts, isPoly);
+          }
+        });
+      }
+    });
+  }
+
+  if (bestFeature) {
+    clearTraceSnapTarget();
+    activeTraceSnapTarget = bestFeature;
+    traceHighlightLayer = bestFeature.isClosed
+      ? L.polygon(bestFeature.vertices, { color: '#00F0FF', weight: 4, dashArray: '4, 4', fillOpacity: 0.12, interactive: false }).addTo(map)
+      : L.polyline(bestFeature.vertices, { color: '#00F0FF', weight: 4, dashArray: '4, 4', interactive: false }).addTo(map);
+    updateTraceSnapUI();
+    if (navigator.vibrate) try { navigator.vibrate([30, 30, 50]); } catch (_) {}
+    showToast(`🧲 Auto-Snap Locked on "${bestFeature.name}"! Now place next corner along border.`);
+    return true;
+  }
+  return false;
+}
+
+function initTraceLongPressHandlers() {
+  if (!map || window._qfnTraceLongPressBound) return;
+  window._qfnTraceLongPressBound = true;
+  const container = map.getContainer();
+  let holdTimer = null;
+  let startClientX = 0;
+  let startClientY = 0;
+
+  const cancelHold = () => {
+    if (holdTimer) {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+    }
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    cancelHold();
+    if (!isDrawing) return;
+    if (e.button && e.button !== 0) return;
+    startClientX = e.clientX;
+    startClientY = e.clientY;
+    holdTimer = setTimeout(() => {
+      holdTimer = null;
+      if (!isDrawing) return;
+      const rect = container.getBoundingClientRect();
+      const ll = map.containerPointToLatLng(L.point(startClientX - rect.left, startClientY - rect.top));
+      if (activateTraceSnapAtLatLng(ll)) {
+        _suppressNextMapClickUntil = Date.now() + 550;
+      }
+    }, 450);
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (!holdTimer) return;
+    if (Math.hypot(e.clientX - startClientX, e.clientY - startClientY) > 14) {
+      cancelHold();
+    }
+  });
+
+  container.addEventListener('pointerup', cancelHold);
+  container.addEventListener('pointercancel', cancelHold);
 }
 
 
@@ -5064,6 +5327,7 @@ function undoDrawVertex() {
 function cancelDrawing() {
   isDrawing = false;
   drawVertices = [];
+  clearTraceSnapTarget();
   if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
   document.getElementById('drawToolbar').style.display = 'none';
 }
@@ -5079,6 +5343,7 @@ function finishDrawing() {
   }
 
   isDrawing = false;
+  clearTraceSnapTarget();
   document.getElementById('drawToolbar').style.display = 'none';
 
   document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
@@ -5123,6 +5388,18 @@ function confirmSaveDigitizedFeature() {
   closeModal('drawModal');
 }
 
+function handleExistingFeatureClick(ev, featRef) {
+  if (isDrawing || isMeasuring || isLayerInspectActive || isSelectingAoiBox) {
+    if (ev && ev.originalEvent) L.DomEvent.stopPropagation(ev);
+    if (ev && ev.latlng) {
+      onMapClicked(ev);
+    }
+    return;
+  }
+  if (ev && ev.originalEvent) L.DomEvent.stopPropagation(ev);
+  showFeatureInfo(featRef);
+}
+
 // --- RENDER ALL PROJECT LAYERS ON MAP ---
 function renderAllProjectLayers() {
   clearMapGraphics();
@@ -5143,7 +5420,7 @@ function renderAllProjectLayers() {
       }).addTo(map);
 
       marker._qfnFeature = { type: 'waypoint', data: w };
-      marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+      marker.on('click', (ev) => handleExistingFeatureClick(ev, marker._qfnFeature));
     });
   }
 
@@ -5159,7 +5436,7 @@ function renderAllProjectLayers() {
       });
       const marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
       marker._qfnFeature = { type: 'photo', data: p };
-      marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+      marker.on('click', (ev) => handleExistingFeatureClick(ev, marker._qfnFeature));
     });
   }
 
@@ -5168,7 +5445,7 @@ function renderAllProjectLayers() {
     tracks.forEach(t => {
       const poly = L.polyline(t.points, { color: '#38BDF8', weight: 2.5, opacity: 0.85 }).addTo(map);
       poly._qfnFeature = { type: 'track', data: t };
-      poly.on('click', () => showFeatureInfo(poly._qfnFeature));
+      poly.on('click', (ev) => handleExistingFeatureClick(ev, poly._qfnFeature));
     });
   }
 
@@ -5184,7 +5461,7 @@ function renderAllProjectLayers() {
       layer = L.polyline(f.vertices, { color: baseColor, weight: 3, dashArray: '6, 4' }).addTo(map);
     }
     layer._qfnFeature = { type: 'digitized', data: f };
-    layer.on('click', () => showFeatureInfo(layer._qfnFeature));
+    layer.on('click', (ev) => handleExistingFeatureClick(ev, layer._qfnFeature));
   });
 }
 
@@ -7499,13 +7776,14 @@ function renderFeatureLayersList() {
     const vis = l.visible !== false;
     return `
       <div class="layer-row" style="margin-bottom: 0; padding: 9px 12px; border-left: 3px solid ${l.color};">
-        <div class="layer-header-row">
-          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #FFFFFF;">
-            <span style="width: 12px; height: 12px; border-radius: 3px; background: ${l.color}; border: 1px solid rgba(255,255,255,0.4);"></span>
-            <span>${escapeXml(l.name)} <span style="color:#94A3B8; font-weight:500;">(${cnt})</span></span>
+        <div class="layer-header-row" style="gap: 6px;">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #FFFFFF; min-width: 0; flex: 1;">
+            <input type="color" value="${l.color}" onchange="changeFeatureLayerColor('${l.id}', this.value)" title="Change Layer Color" style="width: 26px; height: 26px; padding: 0; border: 1px solid rgba(255,255,255,0.4); border-radius: 6px; background: transparent; cursor: pointer; flex-shrink: 0;">
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeXml(l.name)} <span style="color:#94A3B8; font-weight:500;">(${cnt})</span></span>
           </div>
-          <div style="display: flex; gap: 6px;">
-            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px; min-height: 30px; ${vis ? 'border:1px solid #10B981; color:#10B981;' : 'opacity:0.7;'}" onclick="toggleFeatureLayerVisibility('${l.id}')">
+          <div style="display: flex; gap: 5px; flex-shrink: 0;">
+            <button class="btn btn-secondary" style="padding: 4px 7px; font-size: 11px; min-height: 30px;" onclick="renameFeatureLayer('${l.id}')" title="Rename Layer">✏️</button>
+            <button class="btn btn-secondary" style="padding: 4px 9px; font-size: 11.5px; min-height: 30px; ${vis ? 'border:1px solid #10B981; color:#10B981;' : 'opacity:0.7;'}" onclick="toggleFeatureLayerVisibility('${l.id}')">
               ${vis ? '👁️ On' : '🚫 Off'}
             </button>
             ${featureLayers.length > 1 ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 11.5px; min-height: 30px;" onclick="deleteFeatureLayer('${l.id}')">🗑️</button>` : ''}
@@ -7516,6 +7794,26 @@ function renderFeatureLayersList() {
   }).join('');
 
   container.innerHTML = html;
+}
+
+function changeFeatureLayerColor(layerId, newColor) {
+  const layer = featureLayers.find(l => l.id === layerId);
+  if (!layer || !newColor) return;
+  layer.color = newColor;
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  showToast(`🎨 Layer "${layer.name}" color updated`);
+}
+
+function renameFeatureLayer(layerId) {
+  const layer = featureLayers.find(l => l.id === layerId);
+  if (!layer) return;
+  const next = prompt('Rename Feature Layer:', layer.name);
+  if (!next || !next.trim()) return;
+  layer.name = next.trim();
+  saveActiveProjectData();
+  renderFeatureLayersList();
+  renderAllProjectLayers();
 }
 
 // =========================================================================
