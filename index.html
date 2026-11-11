@@ -198,6 +198,160 @@ body, html {
   line-height: 1;
 }
 
+/* Measure Tool Control Rail (Right below Zoom Controls) */
+.measure-control-rail {
+  position: absolute;
+  top: calc(var(--safe-top) + 258px);
+  right: 14px;
+  z-index: 1000;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.measure-toggle-btn {
+  width: 100%;
+  height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: transparent;
+  border: none;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+}
+.measure-toggle-btn:active {
+  transform: scale(0.92);
+}
+.measure-toggle-btn.active {
+  background: rgba(16, 185, 129, 0.35);
+  color: #10B981;
+  box-shadow: inset 0 0 12px rgba(16, 185, 129, 0.35);
+}
+.measure-toggle-lbl {
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+.measure-toggle-btn.active .measure-toggle-lbl {
+  color: #10B981;
+}
+
+/* Quick Layers Button Rail (Right below Measure Tool) */
+.layers-control-rail {
+  position: absolute;
+  top: calc(var(--safe-top) + 312px);
+  right: 14px;
+  z-index: 1000;
+  width: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--surface-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1.5px solid var(--border-glass);
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Floating Measure Toolbar & Live Readout */
+#measureToolbar {
+  position: absolute;
+  bottom: calc(var(--safe-bottom) + 84px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  background: rgba(11, 19, 43, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border: 1.5px solid #10B981;
+  border-radius: 18px;
+  padding: 8px 12px;
+  display: none;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 10px 36px rgba(16, 185, 129, 0.3);
+  max-width: calc(100vw - 16px);
+  width: max-content;
+  min-width: 295px;
+}
+.measure-readout-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  padding-bottom: 5px;
+}
+.measure-main-val {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #10B981;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+}
+.measure-sub-val {
+  font-size: 10.5px;
+  color: #CBD5E1;
+  font-weight: 600;
+}
+.measure-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.measure-mode-pill {
+  padding: 5px 8px;
+  font-size: 10.5px;
+  font-weight: 700;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(30, 41, 59, 0.85);
+  color: #CBD5E1;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.measure-mode-pill.active {
+  background: rgba(16, 185, 129, 0.28);
+  border-color: #10B981;
+  color: #10B981;
+}
+
+/* Resolution selector option card */
+.res-choice-card {
+  border: 1.5px solid rgba(255,255,255,0.16);
+  background: rgba(30,41,59,0.75);
+  border-radius: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.res-choice-card.active {
+  border-color: #00F0FF;
+  background: rgba(0, 240, 255, 0.14);
+}
 
 /* Navigation Banner */
 #navBanner {
@@ -1260,6 +1414,25 @@ body, html {
   </button>
 </div>
 
+<!-- Measure Tool Toggle Button (Below Zoom Controls) -->
+<div class="measure-control-rail" id="measureControlRail">
+  <button class="measure-toggle-btn" id="btnMeasureToolToggle" onclick="toggleMeasureTool()" title="Measure Length, Path & Area">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21.3 8.7 8.7 21.3c-1 1-2.5 1-3.4 0l-2.6-2.6c-1-1-1-2.5 0-3.4L15.3 2.7c1-1 2.5-1 3.4 0l2.6 2.6c1 1 1 2.5 0 3.4Z"/>
+      <path d="m7.5 10.5 2 2"/><path d="m10.5 7.5 2 2"/><path d="m13.5 4.5 2 2"/><path d="m4.5 13.5 2 2"/>
+    </svg>
+    <span class="measure-toggle-lbl">MEAS</span>
+  </button>
+</div>
+
+<!-- Quick Layers Visibility Manager Button -->
+<div class="layers-control-rail" id="layersControlRail">
+  <button class="measure-toggle-btn" id="btnQuickLayersToggle" onclick="openFeatureLayersManager()" title="Manage Feature Layers (Show / Hide)">
+    <span style="font-size: 17px; line-height: 1;">🗂️</span>
+    <span class="measure-toggle-lbl">LAYERS</span>
+  </button>
+</div>
+
 
 <!-- Navigation Target Banner -->
 <div id="navBanner">
@@ -1282,6 +1455,27 @@ body, html {
   <button class="btn btn-secondary" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="undoDrawVertex()">↩️</button>
   <button class="btn btn-primary" style="padding: 5px 11px; font-size: 11.5px; min-height: 34px;" onclick="finishDrawing()">✅ Finish</button>
   <button class="btn btn-danger" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="cancelDrawing()">❌</button>
+</div>
+
+<!-- Measurement Floating Toolbar & Live Telemetry -->
+<div id="measureToolbar">
+  <div class="measure-readout-row">
+    <div>
+      <div class="measure-main-val" id="measureMainReadout">0.0 m</div>
+      <div class="measure-sub-val" id="measureSubReadout">Tap map or switch to Cursor mode</div>
+    </div>
+    <button type="button" onclick="openMeasurementUnitsSettings()" title="Change Measurement Units" style="background: rgba(56,189,248,0.18); border: 1px solid rgba(56,189,248,0.4); color: #38BDF8; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 4px 7px; cursor: pointer;">⚙️ Units</button>
+  </div>
+  <div class="measure-controls-row">
+    <button type="button" class="measure-mode-pill active" id="btnMeasureModeLength" onclick="setMeasureMode('length')">📏 Length</button>
+    <button type="button" class="measure-mode-pill" id="btnMeasureModePath" onclick="setMeasureMode('path')">〰️ Path</button>
+    <button type="button" class="measure-mode-pill" id="btnMeasureModeArea" onclick="setMeasureMode('area')">⬠ Area</button>
+    <button type="button" class="measure-mode-pill" id="btnMeasureInputMode" style="border-color: #00F0FF; color: #00F0FF;" onclick="toggleMeasureInputMode()">👆 Click</button>
+    <button type="button" class="measure-mode-pill" id="btnAddMeasureCursorPt" style="display: none; background: #00F0FF; color: #0B132B; border-color: #00F0FF; font-weight: 800;" onclick="addMeasurePointAtCursor()">➕ Add Pt</button>
+    <button type="button" class="measure-mode-pill" onclick="undoMeasurePoint()" title="Undo last point">↩️</button>
+    <button type="button" class="measure-mode-pill" onclick="clearMeasurePoints()" title="Clear measurement">🧹</button>
+    <button type="button" class="measure-mode-pill" style="border-color: rgba(239,68,68,0.5); color: #FCA5A5;" onclick="closeMeasureTool()" title="Exit Measure Tool">❌</button>
+  </div>
 </div>
 
 <!-- Map Click Popover -->
@@ -1371,7 +1565,7 @@ body, html {
     <!-- Tab Bar -->
     <div class="tab-bar">
       <button class="tab-btn active" onclick="switchSettingsTab('tabProjects')">📁 Projects</button>
-      <button class="tab-btn" onclick="switchSettingsTab('tabLayers')">🗺️ Overlays</button>
+      <button class="tab-btn" onclick="switchSettingsTab('tabLayers')">🗂️ Layers</button>
       <button class="tab-btn" onclick="switchSettingsTab('tabCategories')">🏷️ Categories</button>
       <button class="tab-btn" onclick="switchSettingsTab('tabOptions')">⚙️ Options</button>
     </div>
@@ -1404,20 +1598,28 @@ body, html {
         </div>
       </div>
 
-      <!-- TAB 2: MAP OVERLAYS -->
+      <!-- TAB 2: PROJECT FEATURE LAYERS & EXTERNAL OVERLAYS -->
       <div id="tabLayers" class="settings-tab-pane" style="display: none;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
-          <label class="form-label" style="margin-bottom: 0;">Loaded Overlays</label>
-          <button class="btn btn-primary" style="padding: 8px 14px; font-size: 13px;" onclick="triggerOverlayUpload()">➕ Add Layer</button>
+        <!-- Project Feature Layers (Digitized & Core Groups) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <label class="form-label" style="margin-bottom: 0;">Project Feature Layers (On / Off)</label>
+          <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="promptCreateFeatureLayer()">➕ New Layer</button>
+        </div>
+        <div id="featureLayersList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px;"></div>
+
+        <!-- External GIS Overlays -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.12);">
+          <label class="form-label" style="margin-bottom: 0;">Imported File Overlays</label>
+          <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px; min-height: 36px;" onclick="triggerOverlayUpload()">📁 Load File</button>
         </div>
 
-        <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 12px; line-height: 1.6;">
+        <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 10px; line-height: 1.5;">
           Supported: <b>ESRI Shapefile (.zip)</b>, <b>GPX (.gpx)</b>, <b>KML (.kml)</b>, <b>GeoJSON (.json)</b>.
         </div>
 
         <div id="overlaysList">
-          <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">
-            No local overlay layers added yet. Tap <b>Add Layer</b> to load files.
+          <div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 18px;">
+            No local overlay files loaded yet. Tap <b>Load File</b> to import.
           </div>
         </div>
       </div>
@@ -1445,6 +1647,33 @@ body, html {
             <option value="ur-PK">Native Urdu (اردو)</option>
             <option value="ar-SA">Native Arabic (العربية)</option>
           </select>
+        </div>
+
+        <div class="form-group" style="background: rgba(30,41,59,0.55); padding: 12px; border-radius: 12px; border: 1px solid rgba(56,189,248,0.2);">
+          <label class="form-label">Measurement Units</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 4px; font-weight: 700;">Distance / Length</div>
+              <select class="form-select" id="measureDistUnitSelect" onchange="onMeasurementUnitsChanged()" style="padding: 8px 10px; font-size: 13px;">
+                <option value="m_km">Metric Auto (m / km)</option>
+                <option value="m">Meters (m)</option>
+                <option value="km">Kilometers (km)</option>
+                <option value="ft">Feet (ft)</option>
+                <option value="mi">Miles (mi)</option>
+                <option value="nmi">Nautical Miles (nmi)</option>
+              </select>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 4px; font-weight: 700;">Area</div>
+              <select class="form-select" id="measureAreaUnitSelect" onchange="onMeasurementUnitsChanged()" style="padding: 8px 10px; font-size: 13px;">
+                <option value="sqm_sqkm">Metric Auto (m² / km²)</option>
+                <option value="ha">Hectares (ha)</option>
+                <option value="acres">Acres (ac)</option>
+                <option value="sqft">Sq. Feet (ft²)</option>
+                <option value="sqmi">Sq. Miles (mi²)</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="form-group">
@@ -1516,8 +1745,17 @@ body, html {
 
       <!-- Expandable Category Dropdown -->
       <div class="form-group">
-        <label class="form-label">Category (Tap to select)</label>
+        <label class="form-label">Category / Type</label>
         <select class="form-select category-select" id="wptCategorySelect" onchange="onWptCategorySelectChanged(this.value)"></select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Feature Layer</label>
+        <select class="form-select" id="wptLayerSelect" onchange="onLayerSelectDropdownChanged('wptLayerSelect', 'wptNewLayerGroup')"></select>
+        <div id="wptNewLayerGroup" style="display: none; margin-top: 8px; gap: 8px; align-items: center;">
+          <input type="text" class="form-input" id="wptNewLayerName" placeholder="New layer name..." style="flex: 1; padding: 8px 10px; font-size: 13px;">
+          <input type="color" id="wptNewLayerColor" value="#38BDF8" style="width: 42px; height: 38px; border: none; border-radius: 8px; background: transparent; cursor: pointer;">
+        </div>
       </div>
 
       <div class="form-group">
@@ -1602,7 +1840,16 @@ body, html {
       </div>
 
       <div class="form-group">
-        <label class="form-label">Layer Type / Category</label>
+        <label class="form-label">Store in Feature Layer</label>
+        <select class="form-select" id="drawTargetLayerSelect" onchange="onLayerSelectDropdownChanged('drawTargetLayerSelect', 'drawNewLayerGroup')"></select>
+        <div id="drawNewLayerGroup" style="display: none; margin-top: 8px; gap: 8px; align-items: center;">
+          <input type="text" class="form-input" id="drawNewLayerName" placeholder="Enter new layer name..." style="flex: 1; padding: 8px 10px; font-size: 13px;">
+          <input type="color" id="drawNewLayerColor" value="#EAB308" title="Layer Color" style="width: 42px; height: 38px; border: none; border-radius: 8px; background: transparent; cursor: pointer;">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Feature Type / Category</label>
         <select class="form-select" id="drawFeatureCategory">
           <option value="Terrain / Dunes">🏜️ Terrain / Sand Dunes</option>
           <option value="Sabkha">💧 Sabkha / Low Wet Ground</option>
@@ -1648,10 +1895,11 @@ body, html {
       <!-- Dynamic content inserted via JS -->
     </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-danger" id="btnDeleteFeature" onclick="deleteCurrentFeature()">🗑️ Delete</button>
-      <button class="btn btn-primary" id="btnNavToFeature" onclick="startNavToCurrentFeature()">🧭 Navigate To</button>
-      <button class="btn btn-secondary" onclick="closeModal('featureInfoModal')">Close</button>
+    <div class="modal-footer" style="flex-wrap: wrap; gap: 8px;">
+      <button class="btn btn-danger" id="btnDeleteFeature" style="padding: 8px 12px; font-size: 12px; min-height: 38px;" onclick="deleteCurrentFeature()">🗑️ Delete</button>
+      <button class="btn btn-primary" id="btnNavToFeature" style="padding: 8px 12px; font-size: 12px; min-height: 38px;" onclick="startNavToCurrentFeature()">🧭 Nav</button>
+      <button class="btn btn-primary" id="btnSaveFeatureEdit" style="background: #10B981; color: #0B132B; padding: 8px 14px; font-size: 12px; min-height: 38px; font-weight: 800;" onclick="saveEditedFeature()">💾 Save Changes</button>
+      <button class="btn btn-secondary" style="padding: 8px 12px; font-size: 12px; min-height: 38px;" onclick="closeModal('featureInfoModal')">Close</button>
     </div>
   </div>
 </div>
@@ -1724,7 +1972,7 @@ body, html {
           </button>
           
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
-            <button class="btn btn-secondary" onclick="exportCapturedBasemapImage()" style="justify-content: center; padding: 8px; font-size: 11px;">
+            <button class="btn btn-secondary" onclick="openGeoImageExportModal()" style="justify-content: center; padding: 8px; font-size: 11px;">
               🖼️ Export Georef Image
             </button>
             <button class="btn btn-secondary" onclick="exportVectorShapefile()" style="justify-content: center; padding: 8px; font-size: 11px;">
@@ -1829,7 +2077,7 @@ body, html {
     <div class="modal-footer" style="position: sticky; bottom: 0; background: #1E293B; border-top: 1.5px solid rgba(255,255,255,0.15); padding: 10px 14px; display: flex; flex-direction: column; gap: 8px; z-index: 10; flex-shrink: 0; box-shadow: 0 -4px 16px rgba(0,0,0,0.4);">
       <div style="display: flex; gap: 8px; width: 100%;">
         <button class="btn btn-primary" id="btnStartAoiDownload" style="flex: 1.3; font-size: 13px; font-weight: 800; padding: 11px; background: linear-gradient(135deg, #10B981, #059669); color: #FFFFFF;" onclick="startAoiDownload()">🚀 Cache AOI Now</button>
-        <button class="btn btn-secondary" style="flex: 0.9; font-size: 12px; padding: 11px;" onclick="exportAoiBasemapPackage()">🗺️ Export GeoImage</button>
+        <button class="btn btn-secondary" style="flex: 0.9; font-size: 12px; padding: 11px;" onclick="openGeoImageExportModal()">🗺️ Export GeoImage</button>
       </div>
       <div style="display: flex; gap: 8px; width: 100%;">
         <button class="btn btn-danger" style="flex: 1; font-size: 11px; padding: 8px;" onclick="clearTileCache()">🧹 Clear Cached Maps</button>
@@ -1945,11 +2193,11 @@ body, html {
       </button>
 
       <!-- Georeferenced Basemap AOI Image + World File -->
-      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportAoiBasemapPackage()">
+      <button class="btn btn-secondary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="openGeoImageExportModal()">
         <span style="font-size: 24px;">🖼️</span>
         <div>
           <div style="font-size: 14px; font-weight: 800;">Georeferenced Basemap (.png + .pgw)</div>
-          <div style="font-size: 11px; color: var(--text-muted);">Calibrated raster image with ESRI World File & PRJ for field mapping.</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Clean raster image (no overlays) with World File, PRJ & KML — standard or max resolution.</div>
         </div>
       </button>
 
@@ -1965,6 +2213,62 @@ body, html {
 
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('exportModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: CLEAN GEOTAGGED BASEMAP EXPORT OPTIONS (STD vs MAX RESOLUTION)    -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="geoImageExportModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">🖼️ Export Clean Geotagged Basemap</div>
+      <button class="modal-close" onclick="closeModal('geoImageExportModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.4); border-radius: 10px; padding: 9px 12px; font-size: 11.5px; color: #A7F3D0; line-height: 1.4;">
+        ✅ <b>Clean Raster Guarantee:</b> Map overlays, digitized lines, polygons, tracks, and waypoints are <b>excluded</b>. Includes exact WGS84 World File (<code>.pgw</code>), <code>.prj</code>, Google Earth <code>.kml</code>, and metadata.
+      </div>
+
+      <div style="background: rgba(30,41,59,0.65); padding: 10px 12px; border-radius: 10px; font-size: 12px; color: #CBD5E1; line-height: 1.5;">
+        <div><b>Active Layer:</b> <span id="geoExportLayerName" style="color: #00F0FF;">--</span></div>
+        <div><b>Target Extent:</b> <span id="geoExportExtentInfo" style="color: #10B981;">Current Screen View</span></div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Select Export Resolution</label>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <label class="res-choice-card active" id="geoResCardStd" onclick="selectGeoExportResolutionMode('standard')">
+            <input type="radio" name="geoResMode" id="radioGeoResStd" value="standard" checked style="margin-top: 3px; accent-color: #00F0FF;">
+            <div>
+              <div style="font-size: 13px; font-weight: 800; color: #FFFFFF;">📱 Current Screen Zoom (Fast)</div>
+              <div style="font-size: 11px; color: #CBD5E1; margin-top: 2px;" id="geoExportStdDesc">Uses active zoom level tiles for instant export.</div>
+            </div>
+          </label>
+
+          <label class="res-choice-card" id="geoResCardMax" onclick="selectGeoExportResolutionMode('max')">
+            <input type="radio" name="geoResMode" id="radioGeoResMax" value="max" style="margin-top: 3px; accent-color: #00F0FF;">
+            <div>
+              <div style="font-size: 13px; font-weight: 800; color: #00F0FF;">🚀 Maximum Source Resolution (Optional)</div>
+              <div style="font-size: 11px; color: #CBD5E1; margin-top: 2px;" id="geoExportMaxDesc">Downloads highest available native zoom tiles from image source for maximum sharpness.</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <div id="geoExportProgressWrap" style="display: none; background: rgba(15,23,42,0.9); padding: 10px; border-radius: 10px; border: 1px solid rgba(0,240,255,0.35);">
+        <div style="font-size: 11.5px; color: #00F0FF; font-weight: 700; margin-bottom: 6px;" id="geoExportProgressText">Fetching tiles...</div>
+        <div class="storage-meter-track">
+          <div class="storage-meter-fill" id="geoExportProgressBar" style="width: 0%;"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('geoImageExportModal')">Cancel</button>
+      <button class="btn btn-primary" id="btnConfirmGeoExport" onclick="confirmGeoImageExport()">🖼️ Export GeoImage (.zip)</button>
     </div>
   </div>
 </div>
@@ -2022,7 +2326,20 @@ let waypoints = [];
 let tracks = [];
 let photos = [];
 let digitizedFeatures = [];
+let featureLayers = [];
+let builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
 let importedOverlays = [];
+
+// Measurement Engine & Units State
+let measureDistUnit = localStorage.getItem('qfn_measure_dist_unit') || 'm_km';
+let measureAreaUnit = localStorage.getItem('qfn_measure_area_unit') || 'sqm_sqkm';
+let isMeasuring = false;
+let measureMode = 'length'; // 'length' | 'path' | 'area'
+let measureInputMode = 'click'; // 'click' | 'cursor'
+let measureVertices = [];
+let measureLayerGroup = null;
+let measureRubberbandLayer = null;
+let geoExportSelectedMode = 'standard';
 
 // Waypoint Categories
 let categories = [];
@@ -2126,6 +2443,7 @@ window.addEventListener('DOMContentLoaded', () => {
   initGeolocation();
   initDeviceOrientation();
   initSpeechEngine();
+  syncMeasurementUnitSelects();
   initMapCacheDb().then(() => {
     analyzeDeviceStorage();
   });
@@ -2166,6 +2484,34 @@ function saveProjectsToStorage() {
   } catch (e) {}
 }
 
+function ensureDefaultFeatureLayers() {
+  if (!Array.isArray(featureLayers) || featureLayers.length === 0) {
+    featureLayers = [
+      { id: 'layer_default', name: 'General Digitized', color: '#EAB308', visible: true }
+    ];
+  }
+  if (!builtInLayerVisibility || typeof builtInLayerVisibility !== 'object') {
+    builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
+  }
+  // Ensure every digitized feature points to a valid layer
+  digitizedFeatures.forEach(f => {
+    if (!f.layerId || !featureLayers.some(l => l.id === f.layerId)) {
+      f.layerId = featureLayers[0].id;
+    }
+  });
+}
+
+function getFeatureLayerById(layerId) {
+  ensureDefaultFeatureLayers();
+  return featureLayers.find(l => l.id === layerId) || featureLayers[0];
+}
+
+function isLayerVisibleForFeature(layerId) {
+  if (!layerId) return true;
+  const layer = featureLayers.find(l => l.id === layerId);
+  return layer ? layer.visible !== false : true;
+}
+
 function loadActiveProjectData() {
   const storageKey = currentProjectId ? `qfn_data_${currentProjectId}` : 'qfn_data_no_project';
   try {
@@ -2176,21 +2522,29 @@ function loadActiveProjectData() {
       tracks = data.tracks || [];
       photos = data.photos || [];
       digitizedFeatures = data.digitizedFeatures || [];
+      featureLayers = Array.isArray(data.featureLayers) ? data.featureLayers : [];
+      builtInLayerVisibility = data.builtInLayerVisibility || { waypoints: true, photos: true, tracks: true };
     } else {
       waypoints = [];
       tracks = [];
       photos = [];
       digitizedFeatures = [];
+      featureLayers = [];
+      builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
     }
   } catch (e) {
     waypoints = [];
     tracks = [];
     photos = [];
     digitizedFeatures = [];
+    featureLayers = [];
+    builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
   }
+  ensureDefaultFeatureLayers();
 }
 
 function saveActiveProjectData() {
+  ensureDefaultFeatureLayers();
   const storageKey = currentProjectId ? `qfn_data_${currentProjectId}` : 'qfn_data_no_project';
   try {
     const payload = {
@@ -2200,11 +2554,14 @@ function saveActiveProjectData() {
       waypoints: waypoints,
       tracks: tracks,
       photos: photos,
-      digitizedFeatures: digitizedFeatures
+      digitizedFeatures: digitizedFeatures,
+      featureLayers: featureLayers,
+      builtInLayerVisibility: builtInLayerVisibility
     };
     localStorage.setItem(storageKey, JSON.stringify(payload));
   } catch (e) {}
   updateProjectStatsDisplay();
+  if (typeof renderFeatureLayersList === 'function') renderFeatureLayersList();
 }
 
 function createNewProject() {
@@ -2697,9 +3054,15 @@ function initMap() {
       updateCompassDisplay(b);
     });
 
-  // Live Zoom Level Listeners
+  // Live Zoom Level & Measure Rubberband Listeners
   map.on('zoom', updateZoomDisplay);
   map.on('zoomend', updateZoomDisplay);
+  map.on('move', () => {
+    if (isMeasuring && measureInputMode === 'cursor') {
+      updateMeasureRubberband();
+    }
+  });
+  measureLayerGroup = L.layerGroup().addTo(map);
   updateZoomDisplay();
   }
 }
@@ -2928,8 +3291,8 @@ function applyAnalyticPixelShader(imgData, layerId) {
       }
     }
   } else if (layerId === 'scl') {
-    // Advanced Field Scene Classification Layer (10 High-Contrast Scouting Terrain Classes)
-    // Refined Spatial-Spectral Engine with 3x3 Sobel Boundary Operator and Morphological Differentiation
+    // Natural Earth Cartographic Scene Classification Layer (10 Natural-Tone Terrain Classes)
+    // Uses 3x3 Sobel boundary operator + color warmth/saturation balance for desert & mixed terrain
     const w = 256, h = 256;
     const lum = new Uint8Array(w * h);
     for (let i = 0, j = 0; i < len; i += 4, j++) {
@@ -2946,7 +3309,7 @@ function applyAnalyticPixelShader(imgData, layerId) {
         const r = d[i], g = d[i+1], b = d[i+2];
         const brightness = lum[j];
 
-        // 3x3 Sobel boundary gradient for accurate edge/relief discrimination
+        // 3x3 Sobel edge magnitude for structure vs smooth natural surface
         const xP = Math.max(0, x - 1);
         const xN = Math.min(w - 1, x + 1);
         const g00 = lum[yPrev + xP], g01 = lum[yPrev + x], g02 = lum[yPrev + xN];
@@ -2960,37 +3323,38 @@ function applyAnalyticPixelShader(imgData, layerId) {
         const minC = Math.min(r, g, b);
         const sat = maxC === 0 ? 0 : (maxC - minC) / maxC;
         const ndiGr = (g - r) / (g + r + 1.0);
+        const warmth = r - b;
 
-        if (b > r + 16 && b > g && r < 115) {
-          // 1. Water Bodies (#2563EB Cobalt Royal Blue)
-          d[i] = 37; d[i+1] = 99; d[i+2] = 235;
-        } else if (ndiGr > 0.05 || (g > r + 8 && g > b)) {
-          // 2. Dense Vegetation / Farms (#10B981 Bright Emerald Green)
-          d[i] = 16; d[i+1] = 185; d[i+2] = 129;
-        } else if (ndiGr > 0.015 && g > 65 && brightness < 180) {
-          // 3. Wadis (Vegetated / Drainage) (#84CC16 Vivid Willow Lime)
-          d[i] = 132; d[i+1] = 204; d[i+2] = 22;
-        } else if (edgeMag > 48 && brightness >= 65 && brightness <= 220 && (sat < 0.20 || (sat > 0.25 && b > r))) {
-          // 4. Built-up Areas / Facilities / Camps (#EF4444 Vibrant Signal Red)
-          d[i] = 239; d[i+1] = 68; d[i+2] = 68;
-        } else if (b >= r - 8 && b > 105 && g > 105 && r < 185 && sat < 0.22) {
-          // 5. Sabkha (Wetlands / Salt Crust) (#06B6D4 Luminous Cyan)
-          d[i] = 6; d[i+1] = 182; d[i+2] = 212;
-        } else if (brightness > 175 && r > 175 && g > 155 && sat < 0.28 && edgeMag > 32) {
-          // 6. Quarry / Excavated Ground (#EAB308 Industrial Yellow)
-          d[i] = 234; d[i+1] = 179; d[i+2] = 8;
-        } else if (brightness < 105 && r >= g && r > b + 6 && edgeMag > 28) {
-          // 7. Jebels / Rock Outcrops (#582900 Dark Rock Umber)
-          d[i] = 88; d[i+1] = 41; d[i+2] = 0;
-        } else if (r > g + 46 && r > b + 55 && (edgeMag > 32 || brightness > 195)) {
-          // 8. Sand Dunes (Active Dunes / Crests) (#E06D10 Warm Dune Amber)
-          d[i] = 224; d[i+1] = 109; d[i+2] = 16;
-        } else if (brightness >= 85 && brightness <= 145 && edgeMag < 28) {
-          // 9. Gravel Plains (Reg / Serir) (#8C969E Dim Pebble Slate Background)
-          d[i] = 140; d[i+1] = 150; d[i+2] = 158;
+        if (b > r + 14 && b > g && r < 120) {
+          // 1. Water Bodies (#3B6E9C Natural Slate Ocean Blue)
+          d[i] = 59; d[i+1] = 110; d[i+2] = 156;
+        } else if (ndiGr > 0.045 || (g > r + 10 && g > b)) {
+          // 2. Dense Vegetation / Farms (#3E7D4B Natural Earth Forest Green)
+          d[i] = 62; d[i+1] = 125; d[i+2] = 75;
+        } else if (ndiGr > 0.01 && g > 65 && brightness < 185) {
+          // 3. Wadis (Drainage / Scrub) (#8CA86E Natural Sage Wash Green)
+          d[i] = 140; d[i+1] = 168; d[i+2] = 110;
+        } else if (edgeMag > 90 && ((sat < 0.14 && brightness > 95) || (r > 195 && g > 195 && b > 195 && edgeMag > 55))) {
+          // 4. Built-up Areas / Facilities / Camps (#B85D52 Natural Terracotta Brick)
+          d[i] = 184; d[i+1] = 93; d[i+2] = 82;
+        } else if (b >= r - 6 && b > 110 && g > 110 && sat < 0.18 && warmth < 20) {
+          // 5. Sabkha (Wetlands / Salt Crust) (#A8C8C4 Natural Evaporite Salt-Teal)
+          d[i] = 168; d[i+1] = 200; d[i+2] = 196;
+        } else if (edgeMag > 55 && brightness > 185 && sat < 0.18 && warmth < 38) {
+          // 6. Quarry / Excavated Ground (#D9B664 Natural Mineral Ochre)
+          d[i] = 217; d[i+1] = 182; d[i+2] = 100;
+        } else if (brightness < 105 && edgeMag > 24 && warmth >= 4) {
+          // 7. Jebels / Rock Outcrops (#755D4B Natural Weathered Umber)
+          d[i] = 117; d[i+1] = 93; d[i+2] = 75;
+        } else if (warmth > 38 && (edgeMag > 26 || (r > 185 && g > 125 && b < 120 && brightness < 210))) {
+          // 8. Sand Dunes (Active Dunes / Slipfaces) (#D69656 Natural Saharan Ochre)
+          d[i] = 214; d[i+1] = 150; d[i+2] = 86;
+        } else if (brightness >= 80 && brightness <= 155 && warmth < 32 && edgeMag < 34) {
+          // 9. Gravel Plains (Reg / Serir) (#A9A59B Natural Stone Reg Gray)
+          d[i] = 169; d[i+1] = 165; d[i+2] = 155;
         } else {
-          // 10. Flat & Rolling Sand (#C4BAA9 Dim Desert Sand Taupe Background)
-          d[i] = 196; d[i+1] = 186; d[i+2] = 169;
+          // 10. Flat & Rolling Sand (#E5D6BA Natural Warm Desert Buff)
+          d[i] = 229; d[i+1] = 214; d[i+2] = 186;
         }
       }
     }
@@ -3311,18 +3675,18 @@ const ANALYTIC_LEGENDS = {
   },
   'scl': {
     title: 'Scene Class (SCL)',
-    unit: 'Land & Feature Classes',
+    unit: 'Natural Earth Scene Palette',
     discrete: [
-      { color: '#EF4444', label: 'Built-up / Facilities' },
-      { color: '#10B981', label: 'Dense Vegetation / Farms' },
-      { color: '#84CC16', label: 'Wadis (Vegetated/Drainage)' },
-      { color: '#06B6D4', label: 'Sabkha (Wetlands/Salt)' },
-      { color: '#2563EB', label: 'Water Bodies' },
-      { color: '#582900', label: 'Jebels / Rock Outcrops' },
-      { color: '#EAB308', label: 'Quarry / Excavated Ground' },
-      { color: '#E06D10', label: 'Sand Dunes' },
-      { color: '#8C969E', label: 'Gravel Plains (Reg/Serir)' },
-      { color: '#C4BAA9', label: 'Flat & Rolling Sand' }
+      { color: '#B85D52', label: 'Built-up / Facilities' },
+      { color: '#3E7D4B', label: 'Dense Vegetation / Farms' },
+      { color: '#8CA86E', label: 'Wadis (Vegetated/Drainage)' },
+      { color: '#A8C8C4', label: 'Sabkha (Wetlands/Salt)' },
+      { color: '#3B6E9C', label: 'Water Bodies' },
+      { color: '#755D4B', label: 'Jebels / Rock Outcrops' },
+      { color: '#D9B664', label: 'Quarry / Excavated Ground' },
+      { color: '#D69656', label: 'Sand Dunes' },
+      { color: '#A9A59B', label: 'Gravel Plains (Reg/Serir)' },
+      { color: '#E5D6BA', label: 'Flat & Rolling Sand' }
     ]
   }
 };
@@ -3780,16 +4144,16 @@ let isLayerInspectActive = false;
 let inspectMarker = null;
 
 const SCL_FEATURE_INTELLIGENCE = [
-  { id: 'camp', name: 'Built-up / Facilities', color: '#EF4444', rgb: [239, 68, 68], icon: '🏢', desc: 'Concrete pad, accommodation trailers, building structures, or seismic base camp installation.' },
-  { id: 'veg', name: 'Dense Vegetation / Farms', color: '#10B981', rgb: [16, 185, 129], icon: '🌴', desc: 'Active center-pivot agricultural field, cultivated crops, farm, or date palm oasis.' },
-  { id: 'wadi', name: 'Wadis (Vegetated / Drainage)', color: '#84CC16', rgb: [132, 204, 22], icon: '🌿', desc: 'Vegetated drainage course with desert acacia and scrub. Watch for soft silty pockets.' },
-  { id: 'sabkha', name: 'Sabkha (Wetlands/Salt)', color: '#06B6D4', rgb: [6, 182, 212], icon: '💧', desc: 'High salinity damp crust / wetland. Caution: Extreme vehicle bogging hazard; avoid when wet.' },
-  { id: 'water', name: 'Water Bodies', color: '#2563EB', rgb: [37, 99, 235], icon: '🌊', desc: 'Open surface water, retention basin, or agricultural canal.' },
-  { id: 'jebel', name: 'Jebels / Rock Outcrops', color: '#582900', rgb: [88, 41, 0], icon: '⛰️', desc: 'Elevated rocky hill / rugged limestone caprock. Severe terrain hazard for vibrators.' },
-  { id: 'quarry', name: 'Quarry / Excavated Ground', color: '#EAB308', rgb: [234, 179, 8], icon: '🏗️', desc: 'Excavated borrow pit / bulldozed staging area. Flat compacted mineral surface.' },
-  { id: 'dune', name: 'Sand Dunes', color: '#E06D10', rgb: [224, 109, 16], icon: '🏜️', desc: 'Active aeolian sand dune ridge. Check approach angle, crest steepness, and tire deflation.' },
-  { id: 'gravel_pl', name: 'Gravel Plains (Reg/Serir)', color: '#8C969E', rgb: [140, 150, 158], icon: '🪨', desc: 'Desert pavement with dark flint/chert lag pebbles. Firm drivable ground.' },
-  { id: 'flat_sand', name: 'Flat & Rolling Sand', color: '#C4BAA9', rgb: [196, 186, 169], icon: '🐪', desc: 'Open desert sand sheet. Flat and easily traversable across survey spreads.' }
+  { id: 'camp', name: 'Built-up / Facilities', color: '#B85D52', rgb: [184, 93, 82], icon: '🏢', desc: 'Concrete pad, accommodation trailers, building structures, or seismic base camp installation.' },
+  { id: 'veg', name: 'Dense Vegetation / Farms', color: '#3E7D4B', rgb: [62, 125, 75], icon: '🌴', desc: 'Active center-pivot agricultural field, cultivated crops, farm, or date palm oasis.' },
+  { id: 'wadi', name: 'Wadis (Vegetated / Drainage)', color: '#8CA86E', rgb: [140, 168, 110], icon: '🌿', desc: 'Vegetated drainage course with desert acacia and scrub. Watch for soft silty pockets.' },
+  { id: 'sabkha', name: 'Sabkha (Wetlands/Salt)', color: '#A8C8C4', rgb: [168, 200, 196], icon: '💧', desc: 'High salinity damp crust / wetland. Caution: Extreme vehicle bogging hazard; avoid when wet.' },
+  { id: 'water', name: 'Water Bodies', color: '#3B6E9C', rgb: [59, 110, 156], icon: '🌊', desc: 'Open surface water, retention basin, or agricultural canal.' },
+  { id: 'jebel', name: 'Jebels / Rock Outcrops', color: '#755D4B', rgb: [117, 93, 75], icon: '⛰️', desc: 'Elevated rocky hill / rugged limestone caprock. Severe terrain hazard for vibrators.' },
+  { id: 'quarry', name: 'Quarry / Excavated Ground', color: '#D9B664', rgb: [217, 182, 100], icon: '🏗️', desc: 'Excavated borrow pit / bulldozed staging area. Flat compacted mineral surface.' },
+  { id: 'dune', name: 'Sand Dunes', color: '#D69656', rgb: [214, 150, 86], icon: '🏜️', desc: 'Active aeolian sand dune ridge. Check approach angle, crest steepness, and tire deflation.' },
+  { id: 'gravel_pl', name: 'Gravel Plains (Reg/Serir)', color: '#A9A59B', rgb: [169, 165, 155], icon: '🪨', desc: 'Desert pavement with dark flint/chert lag pebbles. Firm drivable ground.' },
+  { id: 'flat_sand', name: 'Flat & Rolling Sand', color: '#E5D6BA', rgb: [229, 214, 186], icon: '🐪', desc: 'Open desert sand sheet. Flat and easily traversable across survey spreads.' }
 ];
 
 function toggleLayerInspectMode(e) {
@@ -3980,36 +4344,192 @@ function identifyLayerFeatureAt(latlng, clientX, clientY) {
       description: isWater ? 'Surface water body, retention pond, or active wadi basin.' : 'Dry terrain with low moisture reflectance.'
     };
   } else if (layerId === 'ndmi') {
+    let ndmiScore = -0.10, status = 'Arid / Dry Surface', color = '#D7B58A', desc = 'Dry soil/sand surface with negligible water retention. Good traction.';
+    if (sampledR !== null) {
+      if (sampledB > 140 && sampledR < 40 && sampledG < 90) {
+        ndmiScore = 0.68; status = 'High Moisture / Saturated'; color = '#003CB3';
+        desc = 'Wet sabkha, standing water, or irrigated crop canopy (High bogging risk).';
+      } else if (sampledB > 150 && sampledG > 130 && sampledR < 40) {
+        ndmiScore = 0.35; status = 'Moderate Surface Moisture'; color = '#00AAC8';
+        desc = 'Damp salt crust, vegetated drainage wash, or humid topsoil.';
+      } else if (sampledG > 170 && sampledB > 160 && sampledR < 160) {
+        ndmiScore = 0.12; status = 'Low / Transitional Moisture'; color = '#80CDC1';
+        desc = 'Slightly damp wadi sediments or transitional sabkha edge.';
+      } else {
+        ndmiScore = -0.25; status = 'Dry Arid Soil / Sand'; color = '#D7B58A';
+        desc = 'Dry desert terrain with low soil moisture reflectance.';
+      }
+    }
     return {
       icon: '💧',
       layerTitle: 'NDMI MOISTURE INDEX',
-      className: 'Ground Moisture Analysis',
-      color: '#084594',
-      description: 'Canopy and soil moisture saturation level.'
+      className: `NDMI: ${ndmiScore >= 0 ? '+' : ''}${ndmiScore.toFixed(2)} (${status})`,
+      color: color,
+      description: desc
+    };
+  } else if (layerId === 'evi') {
+    let eviVal = 0.0, status = 'Arid Bare Soil / Sand', color = '#B0B5A7', desc = 'Sparse/no chlorophyll foliage; open soil or rock surface.';
+    if (sampledR !== null) {
+      if (sampledG > sampledR + 30 && sampledG <= 115) {
+        eviVal = 0.72; status = 'Dense Canopy / Palm Oasis'; color = '#005A32';
+        desc = 'High-biomass foliage with atmospheric aerosol correction.';
+      } else if (sampledG > sampledR + 30 && sampledG <= 165) {
+        eviVal = 0.42; status = 'Active Moderate Crops'; color = '#238B45';
+        desc = 'Healthy green vegetative cover or farm plots.';
+      } else if (sampledG > sampledR + 25) {
+        eviVal = 0.16; status = 'Sparse Desert Scrub'; color = '#74C476';
+        desc = 'Light wadi brush or scattered desert vegetation.';
+      } else {
+        eviVal = 0.02; status = 'Bare Terrain / Sand Relief'; color = '#C2C8BA';
+        desc = 'Non-vegetated mineral sand, gravel plain, or rocky ground.';
+      }
+    }
+    return {
+      icon: '🌲',
+      layerTitle: 'EVI BIOMASS INDEX',
+      className: `EVI: +${eviVal.toFixed(2)} (${status})`,
+      color: color,
+      description: desc
+    };
+  } else if (layerId === 'savi') {
+    let saviVal = 0.0, status = 'Exposed Desert Soil', color = '#C4BAA9', desc = 'Soil-background adjusted reflectance indicates exposed arid terrain.';
+    if (sampledR !== null) {
+      if (sampledG > sampledR + 60 && sampledB > 80) {
+        saviVal = 0.65; status = 'Dense Arid Vegetation'; color = '#018571';
+        desc = 'Dense oasis palms or heavily irrigated desert cultivation.';
+      } else if (sampledB > 150 && sampledG > 160 && sampledR < 155) {
+        saviVal = 0.34; status = 'Moderate Shrubland'; color = '#80CDC1';
+        desc = 'Mixed shrub canopy corrected for bright desert sand soil.';
+      } else if (sampledG > sampledR + 20) {
+        saviVal = 0.14; status = 'Sparse Arid Scrub'; color = '#A6DBA0';
+        desc = 'Scattered acacia/desert scrub along drainage channels.';
+      }
+    }
+    return {
+      icon: '🌾',
+      layerTitle: 'SAVI ARID VEGETATION',
+      className: `SAVI: +${saviVal.toFixed(2)} (${status})`,
+      color: color,
+      description: desc
     };
   } else if (layerId === 'slope-aspect') {
+    const slopeStops = [
+      { name: 'Very Steep Cliff / Escarpment (>30°)', rgb: [215, 25, 28], color: '#D7191C', desc: 'Severe grade hazard — impassable for heavy seismic vibrators and support trucks.' },
+      { name: 'Steep Slope / Dune Slipface (15°–30°)', rgb: [253, 174, 97], color: '#FDAE61', desc: 'Moderate-to-steep relief. Scout crest crossing approach carefully.' },
+      { name: 'Gentle Undulation (5°–15°)', rgb: [166, 217, 106], color: '#A6D96A', desc: 'Rolling relief; navigable by 4x4 scouts and vibrators with caution.' },
+      { name: 'Flat / Level Terrain (<5°)', rgb: [26, 150, 65], color: '#1A9641', desc: 'Level terrain ideal for seismic line layout, staging, and camps.' }
+    ];
+    let best = slopeStops[3];
+    if (sampledR !== null) {
+      let minD = Infinity;
+      for (const st of slopeStops) {
+        const d = Math.hypot(sampledR - st.rgb[0], sampledG - st.rgb[1], sampledB - st.rgb[2]);
+        if (d < minD) { minD = d; best = st; }
+      }
+    }
     return {
       icon: '📐',
       layerTitle: 'SLOPE & ASPECT ANALYSIS',
-      className: 'Terrain Slope Gradient',
-      color: '#FDAE61',
-      description: 'Slope steepness and terrain angle derivative.'
+      className: best.name,
+      color: best.color,
+      description: best.desc
     };
   } else if (layerId === 'color-elevation') {
+    const elevStops = [
+      { name: 'Highest Peak / Alpine Crest (>2500m rel.)', rgb: [255, 255, 255], color: '#FFFFFF', desc: 'Maximum topographic relief Zone (Class 6). Extreme elevation ridge.' },
+      { name: 'High Jebel / Escarpment Rim', rgb: [215, 48, 39], color: '#D73027', desc: 'High rocky ridge Zone (Class 5). Significant elevation rise over plain.' },
+      { name: 'Upper Plateau / Slope', rgb: [253, 174, 97], color: '#FDAE61', desc: 'Upper bench / piedmont slope Zone (Class 4).' },
+      { name: 'Mid Plateau / Rolling Uplands', rgb: [254, 224, 139], color: '#FEE08B', desc: 'Intermediate rolling terrain Zone (Class 3).' },
+      { name: 'Low Foothills / Plains', rgb: [166, 217, 106], color: '#A6D96A', desc: 'Lowland plain & gentle gravel apron Zone (Class 2).' },
+      { name: 'Base Valley / Basin Floor', rgb: [26, 150, 65], color: '#1A9641', desc: 'Lowest local elevation depression / wadi floor Zone (Class 1).' }
+    ];
+    let best = elevStops[3];
+    if (sampledR !== null) {
+      let minD = Infinity;
+      for (const st of elevStops) {
+        const d = Math.hypot(sampledR - st.rgb[0], sampledG - st.rgb[1], sampledB - st.rgb[2]);
+        if (d < minD) { minD = d; best = st; }
+      }
+    }
     return {
       icon: '🌈',
       layerTitle: 'COLOR ELEVATION (DEM)',
-      className: 'Hypsometric Elevation Zone',
-      color: '#FDAE61',
-      description: 'Digital Elevation Model hypsometric height level.'
+      className: best.name,
+      color: best.color,
+      description: best.desc
+    };
+  } else if (layerId === 'hillshade') {
+    const lum = sampledR !== null ? Math.round(0.299 * sampledR + 0.587 * sampledG + 0.114 * sampledB) : 140;
+    let zone = 'Neutral Flat Aspect', col = '#A0A0A0', desc = 'Minimal directional shadow; level terrain surface.';
+    if (lum > 195) { zone = 'Sun-Facing Crest / NW Slope'; col = '#E2E8F0'; desc = `High solar illumination (DN ${lum}/255) on exposed ridge face.`; }
+    else if (lum > 145) { zone = 'Moderately Illuminated Slope'; col = '#CBD5E1'; desc = `Gentle relief facing NW solar illumination (DN ${lum}/255).`; }
+    else if (lum < 105) { zone = 'SE Shaded Scarp / Deep Relief'; col = '#475569'; desc = `Strong terrain shadow (DN ${lum}/255) indicating steep drop or dune slipface.`; }
+    return {
+      icon: '⛰️',
+      layerTitle: 'HILLSHADE DEM RELIEF',
+      className: zone,
+      color: col,
+      description: desc
+    };
+  } else if (layerId === 'nasa-falsecolor') {
+    let status = 'Dry Mineral / Quartz Sand', col = '#D95F02', desc = 'High red/yellow reflectance representing dry mineral desert surface.';
+    if (sampledR !== null) {
+      if (sampledR > 165 && sampledG < 110) {
+        status = 'Active NIR Vegetation / Canopy'; col = '#E7298A';
+        desc = 'High NIR reflectance spike characteristic of vigorous healthy chlorophyll.' ;
+      } else if (sampledB > sampledR + 10) {
+        status = 'Moisture Mask / Wet Zone'; col = '#7570B3';
+        desc = 'SWIR/NIR absorption zone indicating wet ground, canal, or dark basalt.' ;
+      } else if (sampledG > sampledR) {
+        status = 'Exposed Rock / Geologic Outcrop'; col = '#1B9E77';
+        desc = 'Distinct mineral/bedrock spectral signature with low vegetation index.';
+      }
+    }
+    return {
+      icon: '🔴',
+      layerTitle: 'FALSE COLOR INFRARED',
+      className: status,
+      color: col,
+      description: desc
+    };
+  } else if (layerId === 'terrain-draped' || layerId === 'elev-spectral') {
+    const lum = sampledR !== null ? Math.round(0.299 * sampledR + 0.587 * sampledG + 0.114 * sampledB) : 145;
+    const isVeg = sampledR !== null && sampledG > sampledR + 8;
+    const isWater = sampledR !== null && sampledB > sampledR + 12 && lum < 120;
+    const status = isWater ? 'Lowland Water / Shaded Basin' : (isVeg ? 'Vegetated Slope / Oasis' : (lum > 175 ? 'High Albedo Ridge / Open Sand' : (lum < 95 ? 'Shaded Jebel / Escarpment' : 'Rolling Desert Plain')));
+    const col = isWater ? '#2563EB' : (isVeg ? '#10B981' : (sampledR !== null ? `rgb(${sampledR},${sampledG},${sampledB})` : '#74ADD1'));
+    return {
+      icon: layerId === 'elev-spectral' ? '🏔️' : '🌄',
+      layerTitle: layerId === 'elev-spectral' ? 'RELIEF + SPECTRAL INDEX' : '3D DRAPED IMAGERY + DEM',
+      className: status,
+      color: col,
+      description: `Combined relief illumination (DN ${lum}/255) & surface reflectance at Zoom ${map ? Math.round(map.getZoom()) : 15}.`
     };
   } else {
+    const opt = BASEMAP_OPTIONS.find(b => b.id === layerId);
+    const bName = opt ? opt.name : layerId;
+    if (sampledR !== null) {
+      const lum = Math.round(0.299 * sampledR + 0.587 * sampledG + 0.114 * sampledB);
+      const albPct = Math.round((lum / 255) * 100);
+      let surfaceGuess = 'Open Mineral Terrain / Map Surface';
+      if (sampledB > sampledR + 15 && sampledB > sampledG) surfaceGuess = 'Water Feature / Blue Vector';
+      else if (sampledG > sampledR + 10 && sampledG >= sampledB) surfaceGuess = 'Vegetation / Green Zone';
+      else if (lum > 195 && sampledR > 180) surfaceGuess = 'Bright Sand Sheet / Salt Flat / White Label';
+      else if (lum < 75) surfaceGuess = 'Dark Outcrop / Asphalt / Deep Shadow';
+      return {
+        icon: opt ? opt.icon : '🗺️',
+        layerTitle: bName.toUpperCase(),
+        className: `${surfaceGuess} (Albedo ${albPct}%)`,
+        color: `rgb(${sampledR},${sampledG},${sampledB})`,
+        description: `RGB(${sampledR}, ${sampledG}, ${sampledB}) | Zoom ${map ? Math.round(map.getZoom()) : 15}. Ready to drop waypoint or navigate.`
+      };
+    }
     return {
-      icon: '🗺️',
-      layerTitle: 'MAP INSPECTOR',
-      className: 'Terrain Coordinate Point',
+      icon: opt ? opt.icon : '🗺️',
+      layerTitle: bName.toUpperCase(),
+      className: `Basemap Point (Zoom ${map ? Math.round(map.getZoom()) : 15})`,
       color: '#00F0FF',
-      description: `Active Basemap: ${layerId}. Lat: ${latlng.lat.toFixed(5)}, Lon: ${latlng.lng.toFixed(5)}`
+      description: `Layer: ${bName}. Lat: ${latlng.lat.toFixed(5)}, Lon: ${latlng.lng.toFixed(5)}`
     };
   }
 }
@@ -4050,6 +4570,11 @@ function onMapClicked(e) {
 
   if (isLayerInspectActive) {
     handleLayerInspectClick(e);
+    return;
+  }
+
+  if (isMeasuring) {
+    handleMeasureMapClick(e);
     return;
   }
 
@@ -4151,6 +4676,9 @@ function openWaypointModalWithCoords(lat, lon, preferredSource = 'gps') {
   window._tempWptCoords = { lat: lat, lon: lon, isClick: (preferredSource === 'click') };
   setWptCoordinateSource(preferredSource);
   populateCategorySelects();
+  populateFeatureLayerSelect('wptLayerSelect', '');
+  const newGrp = document.getElementById('wptNewLayerGroup');
+  if (newGrp) newGrp.style.display = 'none';
   openModal('waypointModal');
 }
 
@@ -4228,6 +4756,7 @@ function confirmSaveWaypoint() {
   const notes = document.getElementById('wptNotesInput').value.trim();
   const catSelect = document.getElementById('wptCategorySelect');
   const catId = catSelect ? catSelect.value : 'general';
+  const layerId = resolveSelectedOrNewLayer('wptLayerSelect', 'wptNewLayerName', 'wptNewLayerColor', null);
 
   const coords = window._tempWptCoords || { lat: currentLat, lon: currentLon };
 
@@ -4235,6 +4764,7 @@ function confirmSaveWaypoint() {
     id: 'wpt_' + Date.now(),
     name: name,
     categoryId: catId,
+    layerId: layerId,
     notes: notes,
     lat: coords.lat,
     lon: coords.lon,
@@ -4286,9 +4816,9 @@ function onPhotoCaptured(e) {
 
 function confirmSavePhotoNote() {
   const comments = document.getElementById('photoCommentInput').value.trim();
-  const activeChip = document.querySelector('#photoCategoryChips .chip-badge.active');
-  if (tempCapturedPhoto && activeChip) {
-    tempCapturedPhoto.categoryId = activeChip.dataset.categoryId;
+  const catSel = document.getElementById('photoCategorySelect');
+  if (tempCapturedPhoto && catSel && catSel.value) {
+    tempCapturedPhoto.categoryId = catSel.value;
   }
   finalizeSavePhoto(comments);
   closeModal('photoModal');
@@ -4400,9 +4930,10 @@ function findSnapPoint(clickedLatLng) {
     let bestDist = SNAP_PIXEL_TOLERANCE;
     let bestPt = null;
 
-    // 1. Snap to Waypoints
-    if (Array.isArray(waypoints)) {
+    // 1. Snap to Waypoints (when visible)
+    if (Array.isArray(waypoints) && builtInLayerVisibility.waypoints !== false) {
       waypoints.forEach(w => {
+        if (w.layerId && !isLayerVisibleForFeature(w.layerId)) return;
         if (w.lat && w.lon) {
           const ptPx = map.latLngToContainerPoint([w.lat, w.lon]);
           const dist = clickPx.distanceTo(ptPx);
@@ -4414,9 +4945,10 @@ function findSnapPoint(clickedLatLng) {
       });
     }
 
-    // 2. Snap to Existing Digitized Feature Vertices
+    // 2. Snap to Existing Digitized Feature Vertices (when visible)
     if (Array.isArray(digitizedFeatures)) {
       digitizedFeatures.forEach(feat => {
+        if (!isLayerVisibleForFeature(feat.layerId)) return;
         (feat.vertices || []).forEach(v => {
           if (Array.isArray(v) && v.length >= 2) {
             const ptPx = map.latLngToContainerPoint(v);
@@ -4551,7 +5083,14 @@ function finishDrawing() {
 
   document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
   document.getElementById('drawCommentsInput').value = '';
-  document.getElementById('drawGeomInfo').textContent = `${drawType.toUpperCase()} with ${drawVertices.length} vertices`;
+  const geomMetric = drawType === 'polygon'
+    ? `${drawType.toUpperCase()} (${drawVertices.length} pts) • Area: ${formatMeasuredArea(calcGeodesicAreaSqMeters(drawVertices))}`
+    : `${drawType.toUpperCase()} (${drawVertices.length} pts) • Length: ${formatMeasuredDistance(calcPathLengthMeters(drawVertices))}`;
+  document.getElementById('drawGeomInfo').textContent = geomMetric;
+
+  populateFeatureLayerSelect('drawTargetLayerSelect', featureLayers[0]?.id || 'layer_default');
+  const newGrp = document.getElementById('drawNewLayerGroup');
+  if (newGrp) newGrp.style.display = 'none';
 
   openModal('drawModal');
 }
@@ -4560,12 +5099,14 @@ function confirmSaveDigitizedFeature() {
   const name = document.getElementById('drawFeatureName').value.trim() || 'Digitized Feature';
   const category = document.getElementById('drawFeatureCategory').value;
   const comments = document.getElementById('drawCommentsInput').value.trim();
+  const layerId = resolveSelectedOrNewLayer('drawTargetLayerSelect', 'drawNewLayerName', 'drawNewLayerColor', featureLayers[0]?.id || 'layer_default');
 
   const feature = {
     id: 'feat_' + Date.now(),
     type: drawType,
     name: name,
     category: category,
+    layerId: layerId,
     comments: comments,
     vertices: [...drawVertices],
     timestamp: new Date().toISOString()
@@ -4585,57 +5126,106 @@ function confirmSaveDigitizedFeature() {
 // --- RENDER ALL PROJECT LAYERS ON MAP ---
 function renderAllProjectLayers() {
   clearMapGraphics();
+  ensureDefaultFeatureLayers();
 
   // 1. Waypoints (Discreet 6px vector circle markers)
-  waypoints.forEach(w => {
-    const cat = getCategoryById(w.categoryId);
-    const marker = L.circleMarker([w.lat, w.lon], {
-      radius: 6,
-      fillColor: cat.color,
-      color: '#FFFFFF',
-      weight: 1.5,
-      opacity: 1,
-      fillOpacity: 0.95
-    }).addTo(map);
+  if (builtInLayerVisibility.waypoints !== false) {
+    waypoints.forEach(w => {
+      if (w.layerId && !isLayerVisibleForFeature(w.layerId)) return;
+      const cat = getCategoryById(w.categoryId);
+      const marker = L.circleMarker([w.lat, w.lon], {
+        radius: 6,
+        fillColor: cat.color,
+        color: '#FFFFFF',
+        weight: 1.5,
+        opacity: 1,
+        fillOpacity: 0.95
+      }).addTo(map);
 
-    marker._qfnFeature = { type: 'waypoint', data: w };
-    marker.on('click', () => showFeatureInfo(marker._qfnFeature));
-  });
+      marker._qfnFeature = { type: 'waypoint', data: w };
+      marker.on('click', () => showFeatureInfo(marker._qfnFeature));
+    });
+  }
 
   // 2. Photos (Small camera badge)
-  photos.forEach(p => {
-    const icon = L.divIcon({
-      className: 'small-photo-marker',
-      html: '📷',
-      iconSize: [18, 18],
-      iconAnchor: [9, 9]
+  if (builtInLayerVisibility.photos !== false) {
+    photos.forEach(p => {
+      if (p.layerId && !isLayerVisibleForFeature(p.layerId)) return;
+      const icon = L.divIcon({
+        className: 'small-photo-marker',
+        html: '📷',
+        iconSize: [18, 18],
+        iconAnchor: [9, 9]
+      });
+      const marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
+      marker._qfnFeature = { type: 'photo', data: p };
+      marker.on('click', () => showFeatureInfo(marker._qfnFeature));
     });
-    const marker = L.marker([p.lat, p.lon], { icon: icon }).addTo(map);
-    marker._qfnFeature = { type: 'photo', data: p };
-    marker.on('click', () => showFeatureInfo(marker._qfnFeature));
-  });
+  }
 
   // 3. Tracks
-  tracks.forEach(t => {
-    const poly = L.polyline(t.points, { color: '#38BDF8', weight: 2.5, opacity: 0.85 }).addTo(map);
-    poly._qfnFeature = { type: 'track', data: t };
-    poly.on('click', () => showFeatureInfo(poly._qfnFeature));
-  });
+  if (builtInLayerVisibility.tracks !== false) {
+    tracks.forEach(t => {
+      const poly = L.polyline(t.points, { color: '#38BDF8', weight: 2.5, opacity: 0.85 }).addTo(map);
+      poly._qfnFeature = { type: 'track', data: t };
+      poly.on('click', () => showFeatureInfo(poly._qfnFeature));
+    });
+  }
 
-  // 4. Digitized Polygons & Lines
+  // 4. Digitized Polygons & Lines (Respect Feature Layer visibility & styling)
   digitizedFeatures.forEach(f => {
+    if (!isLayerVisibleForFeature(f.layerId)) return;
+    const fl = getFeatureLayerById(f.layerId);
+    const baseColor = fl ? fl.color : (f.type === 'polygon' ? '#EAB308' : '#10B981');
     let layer = null;
     if (f.type === 'polygon') {
-      layer = L.polygon(f.vertices, { color: '#EAB308', weight: 2, fillColor: '#EAB308', fillOpacity: 0.25 }).addTo(map);
+      layer = L.polygon(f.vertices, { color: baseColor, weight: 2.2, fillColor: baseColor, fillOpacity: 0.25 }).addTo(map);
     } else {
-      layer = L.polyline(f.vertices, { color: '#10B981', weight: 2.5, dashArray: '6, 4' }).addTo(map);
+      layer = L.polyline(f.vertices, { color: baseColor, weight: 3, dashArray: '6, 4' }).addTo(map);
     }
     layer._qfnFeature = { type: 'digitized', data: f };
     layer.on('click', () => showFeatureInfo(layer._qfnFeature));
   });
 }
 
-// --- FEATURE INFO MODAL (CLICK ANY MAP OBJECT) ---
+// --- FEATURE INFO & INTERACTIVE EDITOR MODAL (CLICK ANY MAP OBJECT) ---
+const DIGITIZE_CATEGORY_CHOICES = [
+  { val: 'Terrain / Dunes', label: '🏜️ Terrain / Sand Dunes' },
+  { val: 'Sabkha', label: '💧 Sabkha / Low Wet Ground' },
+  { val: 'Obstacle Area', label: '🚧 Obstacle / Restricted Area' },
+  { val: 'Access Route', label: '🛣️ Access Trail / Bulldozed Line' },
+  { val: 'Survey Line', label: '🚜 Survey / Source Line' },
+  { val: 'Camp Facility', label: '⛺ Camp Facility Area' },
+  { val: 'Custom Boundary', label: '📐 General Survey Boundary' }
+];
+
+function buildCategoryOptionsHtml(selectedId) {
+  return categories.map(c =>
+    `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''}>${c.icon || '📍'} ${escapeXml(c.name)}</option>`
+  ).join('');
+}
+
+function buildDigitizeCategoryOptionsHtml(selectedVal) {
+  const exists = DIGITIZE_CATEGORY_CHOICES.some(c => c.val === selectedVal);
+  let html = DIGITIZE_CATEGORY_CHOICES.map(c =>
+    `<option value="${escapeXml(c.val)}" ${c.val === selectedVal ? 'selected' : ''}>${c.label}</option>`
+  ).join('');
+  if (selectedVal && !exists) {
+    html += `<option value="${escapeXml(selectedVal)}" selected>${escapeXml(selectedVal)}</option>`;
+  }
+  return html;
+}
+
+function buildLayerOptionsHtml(selectedLayerId, includeNoneOption) {
+  ensureDefaultFeatureLayers();
+  let html = includeNoneOption ? `<option value="" ${!selectedLayerId ? 'selected' : ''}>(Built-in Default Group)</option>` : '';
+  html += featureLayers.map(l =>
+    `<option value="${l.id}" ${l.id === selectedLayerId ? 'selected' : ''}>🗂️ ${escapeXml(l.name)}</option>`
+  ).join('');
+  html += '<option value="__new__">➕ Create New Layer...</option>';
+  return html;
+}
+
 function showFeatureInfo(featRef) {
   activeFeatureRef = featRef;
   const title = document.getElementById('infoModalTitle');
@@ -4643,60 +5233,185 @@ function showFeatureInfo(featRef) {
   const data = featRef.data;
 
   if (featRef.type === 'waypoint') {
-    const cat = getCategoryById(data.categoryId);
-    title.innerHTML = `📍 Waypoint: ${data.name}`;
+    title.innerHTML = `📍 Edit Point: ${escapeXml(data.name)}`;
     body.innerHTML = `
-      <div style="font-size: 14px; line-height: 1.8;">
-        <div><b>Category:</b> <span style="color:${cat.color}; font-weight:800;">${cat.icon} ${cat.name}</span></div>
-        <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
-        <div><b>Elevation:</b> ${Math.round(data.elevation || 0)} m</div>
-        <div><b>Recorded:</b> ${new Date(data.timestamp).toLocaleString()}</div>
-        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Notes:</div>
-        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
-          ${data.notes || '<i>No notes recorded.</i>'}
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <div style="background: rgba(30,41,59,0.6); padding: 8px 10px; border-radius: 10px; color: #CBD5E1; font-size: 12px;">
+          <b>Coordinates:</b> <span style="color:#00F0FF;">${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</span> | <b>Elev:</b> ${Math.round(data.elevation || 0)} m<br>
+          <b>Recorded:</b> ${new Date(data.timestamp).toLocaleString()}
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Waypoint Name</label>
+          <input type="text" class="form-input" id="editFeatName" value="${escapeXml(data.name || '')}" style="padding: 9px 12px; font-size: 14px;">
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Type / Category</label>
+          <select class="form-select" id="editFeatCategory" style="padding: 9px 12px; font-size: 14px;">
+            ${buildCategoryOptionsHtml(data.categoryId)}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Feature Layer</label>
+          <select class="form-select" id="editFeatLayer" onchange="onLayerSelectDropdownChanged('editFeatLayer', 'editNewLayerGroup')" style="padding: 9px 12px; font-size: 14px;">
+            ${buildLayerOptionsHtml(data.layerId || '', true)}
+          </select>
+          <div id="editNewLayerGroup" style="display: none; margin-top: 8px; gap: 8px; align-items: center;">
+            <input type="text" class="form-input" id="editNewLayerName" placeholder="New layer name..." style="flex: 1; padding: 8px 10px; font-size: 13px;">
+            <input type="color" id="editNewLayerColor" value="#38BDF8" style="width: 40px; height: 36px; border: none; border-radius: 8px; background: transparent;">
+          </div>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Field Notes</label>
+          <textarea class="form-textarea" id="editFeatNotes" style="min-height: 76px; font-size: 14px;">${escapeXml(data.notes || '')}</textarea>
         </div>
       </div>
     `;
   } else if (featRef.type === 'photo') {
-    title.innerHTML = `📷 Photo Observation`;
+    title.innerHTML = `📷 Edit Photo Observation`;
     body.innerHTML = `
-      <div style="font-size: 14px; line-height: 1.8;">
-        <img src="${data.dataUrl}" style="width: 100%; max-height: 220px; object-fit: contain; border-radius: 12px; margin-bottom: 10px; border: 1.5px solid var(--border-glass);">
-        <div><b>Coordinates:</b> ${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</div>
-        <div><b>Time:</b> ${new Date(data.timestamp).toLocaleString()}</div>
-        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Comments:</div>
-        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
-          ${data.comments || '<i>No comments recorded.</i>'}
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <img src="${data.dataUrl}" style="width: 100%; max-height: 180px; object-fit: contain; border-radius: 12px; border: 1.5px solid var(--border-glass);">
+        <div style="background: rgba(30,41,59,0.6); padding: 8px 10px; border-radius: 10px; color: #CBD5E1; font-size: 12px;">
+          <b>Coordinates:</b> <span style="color:#00F0FF;">${data.lat.toFixed(6)}, ${data.lon.toFixed(6)}</span> | <b>Time:</b> ${new Date(data.timestamp).toLocaleString()}
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Type / Category</label>
+          <select class="form-select" id="editFeatCategory" style="padding: 9px 12px; font-size: 14px;">
+            ${buildCategoryOptionsHtml(data.categoryId || 'general')}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Feature Layer</label>
+          <select class="form-select" id="editFeatLayer" onchange="onLayerSelectDropdownChanged('editFeatLayer', 'editNewLayerGroup')" style="padding: 9px 12px; font-size: 14px;">
+            ${buildLayerOptionsHtml(data.layerId || '', true)}
+          </select>
+          <div id="editNewLayerGroup" style="display: none; margin-top: 8px; gap: 8px; align-items: center;">
+            <input type="text" class="form-input" id="editNewLayerName" placeholder="New layer name..." style="flex: 1; padding: 8px 10px; font-size: 13px;">
+            <input type="color" id="editNewLayerColor" value="#38BDF8" style="width: 40px; height: 36px; border: none; border-radius: 8px; background: transparent;">
+          </div>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Photo Comments & Notes</label>
+          <textarea class="form-textarea" id="editFeatNotes" style="min-height: 72px; font-size: 14px;">${escapeXml(data.comments || '')}</textarea>
         </div>
       </div>
     `;
   } else if (featRef.type === 'digitized') {
-    title.innerHTML = `✏️ Digitized: ${data.name}`;
+    const geomLen = calcPathLengthMeters(data.vertices || []);
+    const geomPerim = data.type === 'polygon' && (data.vertices || []).length >= 3
+      ? calcPathLengthMeters([...data.vertices, data.vertices[0]])
+      : geomLen;
+    const geomArea = data.type === 'polygon' ? calcGeodesicAreaSqMeters(data.vertices || []) : 0;
+    const metricText = data.type === 'polygon'
+      ? `Area: <b>${formatMeasuredArea(geomArea)}</b> | Perimeter: <b>${formatMeasuredDistance(geomPerim)}</b>`
+      : `Length: <b>${formatMeasuredDistance(geomLen)}</b>`;
+
+    title.innerHTML = `✏️ Edit ${data.type === 'polygon' ? 'Polygon' : 'Line'}: ${escapeXml(data.name)}`;
     body.innerHTML = `
-      <div style="font-size: 14px; line-height: 1.8;">
-        <div><b>Type:</b> ${data.type.toUpperCase()}</div>
-        <div><b>Category:</b> ${data.category}</div>
-        <div><b>Vertices:</b> ${data.vertices.length} points</div>
-        <div><b>Created:</b> ${new Date(data.timestamp).toLocaleString()}</div>
-        <div style="margin-top: 10px; font-weight: 700; color: #38BDF8;">Field Feedback:</div>
-        <div style="background: rgba(30,41,59,0.85); padding: 12px; border-radius: 10px; margin-top: 4px; color: #FFFFFF; font-size: 14px; line-height: 1.6;">
-          ${data.comments || '<i>No feedback recorded.</i>'}
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <div style="background: rgba(30,41,59,0.6); padding: 8px 10px; border-radius: 10px; color: #CBD5E1; font-size: 12px; line-height: 1.5;">
+          <div><b>Geometry:</b> ${data.type.toUpperCase()} (${(data.vertices || []).length} vertices)</div>
+          <div style="color: #10B981;">${metricText}</div>
+          <div><b>Created:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Feature Name</label>
+          <input type="text" class="form-input" id="editFeatName" value="${escapeXml(data.name || '')}" style="padding: 9px 12px; font-size: 14px;">
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Feature Type / Category</label>
+          <select class="form-select" id="editFeatCategory" style="padding: 9px 12px; font-size: 14px;">
+            ${buildDigitizeCategoryOptionsHtml(data.category)}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Geometry Classification</label>
+          <select class="form-select" id="editFeatGeomType" style="padding: 9px 12px; font-size: 14px;">
+            <option value="line" ${data.type === 'line' ? 'selected' : ''}>〰️ Line / Route</option>
+            ${(data.vertices || []).length >= 3 ? `<option value="polygon" ${data.type === 'polygon' ? 'selected' : ''}>⬠ Polygon / Area</option>` : ''}
+          </select>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Feature Layer</label>
+          <select class="form-select" id="editFeatLayer" onchange="onLayerSelectDropdownChanged('editFeatLayer', 'editNewLayerGroup')" style="padding: 9px 12px; font-size: 14px;">
+            ${buildLayerOptionsHtml(data.layerId || (featureLayers[0]?.id || 'layer_default'), false)}
+          </select>
+          <div id="editNewLayerGroup" style="display: none; margin-top: 8px; gap: 8px; align-items: center;">
+            <input type="text" class="form-input" id="editNewLayerName" placeholder="New layer name..." style="flex: 1; padding: 8px 10px; font-size: 13px;">
+            <input type="color" id="editNewLayerColor" value="#EAB308" style="width: 40px; height: 36px; border: none; border-radius: 8px; background: transparent;">
+          </div>
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Notes & Field Feedback</label>
+          <textarea class="form-textarea" id="editFeatNotes" style="min-height: 76px; font-size: 14px;">${escapeXml(data.comments || '')}</textarea>
         </div>
       </div>
     `;
   } else if (featRef.type === 'track') {
-    title.innerHTML = `⏺️ Track: ${data.name}`;
+    const trkLen = calcPathLengthMeters(data.points || []);
+    title.innerHTML = `⏺️ Edit Track: ${escapeXml(data.name)}`;
     body.innerHTML = `
-      <div style="font-size: 14px; line-height: 1.8;">
-        <div><b>Total Points:</b> ${data.points.length}</div>
-        <div><b>Started:</b> ${new Date(data.timestamp).toLocaleString()}</div>
+      <div style="display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
+        <div style="background: rgba(30,41,59,0.6); padding: 8px 10px; border-radius: 10px; color: #CBD5E1; font-size: 12px;">
+          <b>Points:</b> ${(data.points || []).length} | <b>Distance:</b> <span style="color:#10B981;">${formatMeasuredDistance(trkLen)}</span><br>
+          <b>Started:</b> ${new Date(data.timestamp).toLocaleString()}
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Track Name</label>
+          <input type="text" class="form-input" id="editFeatName" value="${escapeXml(data.name || '')}" style="padding: 9px 12px; font-size: 14px;">
+        </div>
+        <div>
+          <label class="form-label" style="margin-bottom:4px;">Track Notes</label>
+          <textarea class="form-textarea" id="editFeatNotes" style="min-height: 72px; font-size: 14px;">${escapeXml(data.notes || '')}</textarea>
+        </div>
       </div>
     `;
   }
 
   document.getElementById('btnDeleteFeature').style.display = 'inline-flex';
   document.getElementById('btnNavToFeature').style.display = 'inline-flex';
+  const btnSave = document.getElementById('btnSaveFeatureEdit');
+  if (btnSave) btnSave.style.display = 'inline-flex';
   openModal('featureInfoModal');
+}
+
+function saveEditedFeature() {
+  if (!activeFeatureRef || !activeFeatureRef.data) return;
+  const data = activeFeatureRef.data;
+
+  if (activeFeatureRef.type === 'waypoint') {
+    const newName = document.getElementById('editFeatName')?.value.trim();
+    if (newName) data.name = newName;
+    const newCat = document.getElementById('editFeatCategory')?.value;
+    if (newCat) data.categoryId = newCat;
+    data.layerId = resolveSelectedOrNewLayer('editFeatLayer', 'editNewLayerName', 'editNewLayerColor', null);
+    data.notes = document.getElementById('editFeatNotes')?.value.trim() || '';
+  } else if (activeFeatureRef.type === 'photo') {
+    const newCat = document.getElementById('editFeatCategory')?.value;
+    if (newCat) data.categoryId = newCat;
+    data.layerId = resolveSelectedOrNewLayer('editFeatLayer', 'editNewLayerName', 'editNewLayerColor', null);
+    data.comments = document.getElementById('editFeatNotes')?.value.trim() || '';
+  } else if (activeFeatureRef.type === 'digitized') {
+    const newName = document.getElementById('editFeatName')?.value.trim();
+    if (newName) data.name = newName;
+    const newCat = document.getElementById('editFeatCategory')?.value;
+    if (newCat) data.category = newCat;
+    const newType = document.getElementById('editFeatGeomType')?.value;
+    if (newType && (newType === 'line' || (newType === 'polygon' && (data.vertices || []).length >= 3))) {
+      data.type = newType;
+    }
+    data.layerId = resolveSelectedOrNewLayer('editFeatLayer', 'editNewLayerName', 'editNewLayerColor', featureLayers[0]?.id || 'layer_default');
+    data.comments = document.getElementById('editFeatNotes')?.value.trim() || '';
+  } else if (activeFeatureRef.type === 'track') {
+    const newName = document.getElementById('editFeatName')?.value.trim();
+    if (newName) data.name = newName;
+    data.notes = document.getElementById('editFeatNotes')?.value.trim() || '';
+  }
+
+  saveActiveProjectData();
+  renderAllProjectLayers();
+  closeModal('featureInfoModal');
+  showToast('✅ Feature updated!');
 }
 
 function startNavToCurrentFeature() {
@@ -4969,6 +5684,8 @@ function showOverlayFeatureInfo(layerName, props) {
   `;
   document.getElementById('btnDeleteFeature').style.display = 'none';
   document.getElementById('btnNavToFeature').style.display = 'none';
+  const btnSave = document.getElementById('btnSaveFeatureEdit');
+  if (btnSave) btnSave.style.display = 'none';
   openModal('featureInfoModal');
 }
 
@@ -5910,186 +6627,348 @@ async function startAoiDownload() {
   analyzeDeviceStorage();
 }
 
-// Export Georeferenced Basemap (.png + .pgw + .prj)
-async function exportCapturedBasemapImage() {
-  await exportAoiBasemapPackage();
+// Export Clean Georeferenced Basemap (.png + .pgw + .prj + .kml) WITHOUT overlay features
+function lonToTileFracX(lon, z) {
+  return ((lon + 180) / 360) * Math.pow(2, z);
+}
+function latToTileFracY(lat, z) {
+  const clamped = Math.max(-85.05112878, Math.min(85.05112878, lat));
+  const rad = clamped * Math.PI / 180;
+  return ((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * Math.pow(2, z);
 }
 
-async function exportAoiBasemapPackage() {
+function computeGeoExportPlan(bounds, maxResolution) {
+  const activeOpt = BASEMAP_OPTIONS.find(b => b.id === activeBasemapId) || BASEMAP_OPTIONS[0];
+  const sourceMaxZ = activeOpt.options?.maxZoom || 19;
+  const currentZ = Math.min(sourceMaxZ, Math.max(2, Math.round(map ? map.getZoom() : 15)));
+  let targetZ = maxResolution ? sourceMaxZ : currentZ;
+
+  const north = bounds.getNorth(), south = bounds.getSouth();
+  const east = bounds.getEast(), west = bounds.getWest();
+
+  // Protect browser memory/canvas (max 120 tiles or 3072px side)
+  const calcStats = (z) => {
+    const xMin = lonToTileFracX(west, z), xMax = lonToTileFracX(east, z);
+    const yMin = latToTileFracY(north, z), yMax = latToTileFracY(south, z);
+    const minTX = Math.floor(xMin), maxTX = Math.floor(xMax);
+    const minTY = Math.floor(yMin), maxTY = Math.floor(yMax);
+    const count = (maxTX - minTX + 1) * (maxTY - minTY + 1);
+    const rawW = Math.max(1, Math.round((xMax - xMin) * 256));
+    const rawH = Math.max(1, Math.round((yMax - yMin) * 256));
+    return { xMin, xMax, yMin, yMax, minTX, maxTX, minTY, maxTY, count, rawW, rawH };
+  };
+
+  let stats = calcStats(targetZ);
+  while (targetZ > 3 && (stats.count > (maxResolution ? 120 : 80) || stats.rawW > 3072 || stats.rawH > 3072)) {
+    targetZ -= 1;
+    stats = calcStats(targetZ);
+  }
+
+  let outW = stats.rawW;
+  let outH = stats.rawH;
+  if (!maxResolution && outW < 640) {
+    const scale = 640 / outW;
+    outW = Math.round(outW * scale);
+    outH = Math.round(outH * scale);
+  }
+  if (outW > 3072) {
+    const scale = 3072 / outW;
+    outW = 3072;
+    outH = Math.round(outH * scale);
+  }
+  if (outH > 3072) {
+    const scale = 3072 / outH;
+    outH = 3072;
+    outW = Math.round(outW * scale);
+  }
+  outW = Math.max(256, outW);
+  outH = Math.max(256, outH);
+
+  const centerLat = (north + south) / 2;
+  const gsdMeters = (156543.03392 * Math.cos(centerLat * Math.PI / 180)) / Math.pow(2, targetZ);
+
+  return {
+    activeOpt,
+    sourceMaxZ,
+    targetZ,
+    outW,
+    outH,
+    gsdMeters,
+    ...stats
+  };
+}
+
+function openGeoImageExportModal() {
   if (!map) {
     showToast('Map is not initialized');
     return;
   }
-  showToast('Generating Georeferenced Basemap Package...');
+  closeModal('basemapModal');
+  closeModal('aoiModal');
+  closeModal('exportModal');
+
+  const bounds = currentAoiCustomBounds || map.getBounds();
+  const stdPlan = computeGeoExportPlan(bounds, false);
+  const maxPlan = computeGeoExportPlan(bounds, true);
+
+  document.getElementById('geoExportLayerName').textContent = stdPlan.activeOpt.name;
+  document.getElementById('geoExportExtentInfo').textContent = currentAoiCustomBounds ? 'Custom Drawn AOI Box' : 'Current Map Screen View';
+  document.getElementById('geoExportStdDesc').textContent = `Zoom ${stdPlan.targetZ} • ~${stdPlan.outW}×${stdPlan.outH} px (${stdPlan.count} tiles)`;
+  document.getElementById('geoExportMaxDesc').textContent = `Zoom ${maxPlan.targetZ} (Source Max ${maxPlan.sourceMaxZ}) • ~${maxPlan.outW}×${maxPlan.outH} px (${maxPlan.count} tiles, ~${maxPlan.gsdMeters.toFixed(2)} m/px)`;
+
+  const progWrap = document.getElementById('geoExportProgressWrap');
+  if (progWrap) progWrap.style.display = 'none';
+  selectGeoExportResolutionMode('standard');
+  openModal('geoImageExportModal');
+}
+
+function selectGeoExportResolutionMode(mode) {
+  geoExportSelectedMode = mode === 'max' ? 'max' : 'standard';
+  const cardStd = document.getElementById('geoResCardStd');
+  const cardMax = document.getElementById('geoResCardMax');
+  const rStd = document.getElementById('radioGeoResStd');
+  const rMax = document.getElementById('radioGeoResMax');
+  if (cardStd) cardStd.classList.toggle('active', geoExportSelectedMode === 'standard');
+  if (cardMax) cardMax.classList.toggle('active', geoExportSelectedMode === 'max');
+  if (rStd) rStd.checked = (geoExportSelectedMode === 'standard');
+  if (rMax) rMax.checked = (geoExportSelectedMode === 'max');
+}
+
+async function confirmGeoImageExport() {
+  const btn = document.getElementById('btnConfirmGeoExport');
+  const progWrap = document.getElementById('geoExportProgressWrap');
+  if (btn) btn.disabled = true;
+  if (progWrap) progWrap.style.display = 'block';
+  try {
+    await exportAoiBasemapPackage({ maxResolution: geoExportSelectedMode === 'max' });
+    closeModal('geoImageExportModal');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function fetchTileBitmapClean(url, cacheKey) {
+  // 1. Check IndexedDB offline cache first
+  if (cacheKey && cachedTileKeySet.has(cacheKey)) {
+    try {
+      const blob = await getCachedTile(cacheKey);
+      if (blob) {
+        return await createImageBitmap(blob);
+      }
+    } catch (_) {}
+  }
+  // 2. Network CORS fetch with 5s timeout
+  if (!url) return null;
+  let resolvedUrl = url;
+  if (resolvedUrl.includes('{s}')) {
+    resolvedUrl = resolvedUrl.replace('{s}', ['a', 'b', 'c'][Math.floor(Math.random() * 3)]);
+  }
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(resolvedUrl, { mode: 'cors', signal: controller.signal });
+    clearTimeout(timer);
+    if (resp.ok) {
+      const blob = await resp.blob();
+      return await createImageBitmap(blob);
+    }
+  } catch (_) {}
+  return null;
+}
+
+async function exportCapturedBasemapImage() {
+  openGeoImageExportModal();
+}
+
+async function exportAoiBasemapPackage(options = {}) {
+  if (!map) {
+    showToast('Map is not initialized');
+    return;
+  }
+  const maxResolution = !!options.maxResolution;
+  showToast(maxResolution ? 'Fetching Maximum Resolution Basemap...' : 'Generating Clean Geotagged Basemap...');
 
   try {
     const bounds = currentAoiCustomBounds || map.getBounds();
-    const mapContainer = map.getContainer();
-    const width = Math.max(640, mapContainer.clientWidth);
-    const height = Math.max(480, mapContainer.clientHeight);
+    const north = bounds.getNorth(), south = bounds.getSouth();
+    const east = bounds.getEast(), west = bounds.getWest();
+    const plan = computeGeoExportPlan(bounds, maxResolution);
+    const opt = plan.activeOpt;
+    const isAnalytic = opt.category === 'spectral' || opt.id === 'slope-aspect' || opt.id === 'color-elevation';
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
+    const cols = plan.maxTX - plan.minTX + 1;
+    const rows = plan.maxTY - plan.minTY + 1;
 
-    // 1. Dark scout terrain background
-    ctx.fillStyle = '#0F172A';
-    ctx.fillRect(0, 0, width, height);
+    const mercCanvas = document.createElement('canvas');
+    mercCanvas.width = cols * 256;
+    mercCanvas.height = rows * 256;
+    const mercCtx = mercCanvas.getContext('2d');
+    mercCtx.fillStyle = '#0F172A';
+    mercCtx.fillRect(0, 0, mercCanvas.width, mercCanvas.height);
 
-    // 2. Render basemap tiles cleanly without canvas tainting
-    const tileImgs = Array.from(mapContainer.querySelectorAll('.leaflet-tile-loaded'));
-    
-    // Sort so base hillshade / elevation draws first, followed by aerial / overlay layers
-    tileImgs.sort((a, b) => {
-      const aIsBase = a.src.includes('Hillshade') || a.parentElement?.classList.contains('leaflet-pane');
-      const bIsBase = b.src.includes('Hillshade') || b.parentElement?.classList.contains('leaflet-pane');
-      return (aIsBase ? -1 : 1);
-    });
+    const scratch = document.createElement('canvas');
+    scratch.width = 256;
+    scratch.height = 256;
+    const scratchCtx = scratch.getContext('2d', { willReadFrequently: true });
 
-    const parentRect = mapContainer.getBoundingClientRect();
     let renderedCount = 0;
+    let processedTiles = 0;
+    const totalTiles = cols * rows;
 
-    for (const img of tileImgs) {
-      try {
-        if (!img.complete || img.naturalWidth <= 0) continue;
-        const rect = img.getBoundingClientRect();
-        const dx = Math.round(rect.left - parentRect.left);
-        const dy = Math.round(rect.top - parentRect.top);
-        const dw = Math.round(rect.width);
-        const dh = Math.round(rect.height);
+    const progBar = document.getElementById('geoExportProgressBar');
+    const progText = document.getElementById('geoExportProgressText');
 
-        // Skip tiles completely off-screen
-        if (dx + dw < 0 || dx > width || dy + dh < 0 || dy > height) continue;
+    // Render pure basemap tiles ONLY (zero overlay/vector features)
+    if (opt.url !== null) {
+      for (let ty = plan.minTY; ty <= plan.maxTY; ty++) {
+        for (let tx = plan.minTX; tx <= plan.maxTX; tx++) {
+          const destX = (tx - plan.minTX) * 256;
+          const destY = (ty - plan.minTY) * 256;
 
-        let cleanImage = null;
-
-        // Same-origin data or blob URLs are guaranteed safe
-        if (img.src.startsWith('data:') || img.src.startsWith('blob:')) {
-          cleanImage = img;
-        } else {
-          // Fetch cleanly with CORS mode to guarantee untainted canvas
-          try {
-            const resp = await fetch(img.src, { mode: 'cors' });
-            if (resp.ok) {
-              const blob = await resp.blob();
-              cleanImage = await createImageBitmap(blob);
+          if (opt.type === 'draped') {
+            const bUrl = opt.baseLayerUrl.replace('{z}', plan.targetZ).replace('{x}', tx).replace('{y}', ty);
+            const oUrl = opt.overlayLayerUrl.replace('{z}', plan.targetZ).replace('{x}', tx).replace('{y}', ty);
+            const [baseBmp, overBmp] = await Promise.all([
+              fetchTileBitmapClean(bUrl, `hillshade_${plan.targetZ}_${tx}_${ty}`),
+              fetchTileBitmapClean(oUrl, `esri-sat_${plan.targetZ}_${tx}_${ty}`)
+            ]);
+            if (baseBmp) {
+              mercCtx.globalCompositeOperation = 'source-over';
+              mercCtx.drawImage(baseBmp, destX, destY, 256, 256);
+              if (baseBmp.close) baseBmp.close();
+              renderedCount++;
             }
-          } catch (_) {}
-
-          // Fallback if image has crossOrigin anonymous set
-          if (!cleanImage && img.crossOrigin === 'anonymous') {
-            cleanImage = img;
-          }
-        }
-
-        if (cleanImage) {
-          const isDrapedOverlay = img.classList.contains('leaflet-draped-layer') || img.parentElement?.classList.contains('leaflet-draped-layer');
-          if (isDrapedOverlay) {
-            ctx.globalCompositeOperation = 'multiply';
+            if (overBmp) {
+              mercCtx.globalCompositeOperation = opt.overlayBlend === 'color-burn' ? 'color-burn' : 'multiply';
+              mercCtx.drawImage(overBmp, destX, destY, 256, 256);
+              mercCtx.globalCompositeOperation = 'source-over';
+              if (overBmp.close) overBmp.close();
+              renderedCount++;
+            }
           } else {
-            ctx.globalCompositeOperation = 'source-over';
+            const memKey = `${opt.id}_${plan.targetZ}_${tx}_${ty}`;
+            const memSrc = getMemoryTile(memKey);
+            let tileDrawn = false;
+            if (memSrc) {
+              try {
+                const memResp = await fetch(memSrc);
+                const memBmp = await createImageBitmap(await memResp.blob());
+                mercCtx.drawImage(memBmp, destX, destY, 256, 256);
+                if (memBmp.close) memBmp.close();
+                renderedCount++;
+                tileDrawn = true;
+              } catch (_) {}
+            }
+            if (!tileDrawn) {
+              const tUrl = opt.url.replace('{z}', plan.targetZ).replace('{x}', tx).replace('{y}', ty);
+              const bmp = await fetchTileBitmapClean(tUrl, memKey);
+              if (bmp) {
+                if (isAnalytic) {
+                  scratchCtx.clearRect(0, 0, 256, 256);
+                  scratchCtx.drawImage(bmp, 0, 0, 256, 256);
+                  const imgData = scratchCtx.getImageData(0, 0, 256, 256);
+                  applyAnalyticPixelShader(imgData, opt.id);
+                  scratchCtx.putImageData(imgData, 0, 0);
+                  mercCtx.drawImage(scratch, destX, destY, 256, 256);
+                } else {
+                  mercCtx.drawImage(bmp, destX, destY, 256, 256);
+                }
+                if (bmp.close) bmp.close();
+                renderedCount++;
+              }
+            }
           }
-          ctx.drawImage(cleanImage, dx, dy, dw, dh);
-          ctx.globalCompositeOperation = 'source-over';
-          renderedCount++;
+
+          processedTiles++;
+          if (progBar) progBar.style.width = Math.round((processedTiles / totalTiles) * 100) + '%';
+          if (progText) progText.textContent = `Stitching Zoom ${plan.targetZ}: ${processedTiles} / ${totalTiles} tiles`;
         }
-      } catch (err) {
-        console.warn('Tile render notice:', err);
       }
     }
 
-    // 3. Render vector overlay features (digitized layers & waypoints)
-    try {
-      // 3a. Digitized Polygons & Lines
-      if (typeof digitizedFeatures !== 'undefined' && Array.isArray(digitizedFeatures)) {
-        digitizedFeatures.forEach(f => {
-          if (!f.vertices || f.vertices.length < 2) return;
-          const pts = f.vertices.map(v => map.latLngToContainerPoint(v));
-          ctx.beginPath();
-          pts.forEach((pt, idx) => {
-            if (idx === 0) ctx.moveTo(pt.x, pt.y);
-            else ctx.lineTo(pt.x, pt.y);
-          });
-          if (f.type === 'polygon' && pts.length >= 3) {
-            ctx.closePath();
-            ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
-            ctx.fill();
-          }
-          ctx.strokeStyle = '#00F0FF';
-          ctx.lineWidth = 2.5;
-          ctx.stroke();
-        });
+    // Reproject scanline-by-scanline from Web Mercator mosaic -> exact linear WGS84 Geographic (EPSG:4326)
+    const width = plan.outW;
+    const height = plan.outH;
+    const outCanvas = document.createElement('canvas');
+    outCanvas.width = width;
+    outCanvas.height = height;
+    const outCtx = outCanvas.getContext('2d');
+    outCtx.fillStyle = '#0F172A';
+    outCtx.fillRect(0, 0, width, height);
+
+    if (renderedCount > 0) {
+      const sx = (plan.xMin - plan.minTX) * 256;
+      const sw = Math.max(1, (plan.xMax - plan.xMin) * 256);
+      for (let oy = 0; oy < height; oy++) {
+        const lat = north - ((oy + 0.5) / height) * (north - south);
+        const mercFracY = latToTileFracY(lat, plan.targetZ);
+        const sy = Math.max(0, Math.min(mercCanvas.height - 1, (mercFracY - plan.minTY) * 256));
+        outCtx.drawImage(mercCanvas, sx, sy, sw, 1, 0, oy, width, 1);
       }
+    }
 
-      // 3b. Waypoint markers and labels
-      if (typeof waypoints !== 'undefined' && Array.isArray(waypoints)) {
-        waypoints.forEach(wp => {
-          const lat = wp.lat !== undefined ? wp.lat : wp.latitude;
-          const lng = wp.lng !== undefined ? wp.lng : (wp.lon !== undefined ? wp.lon : wp.longitude);
-          if (lat !== undefined && lng !== undefined) {
-            const pt = map.latLngToContainerPoint([lat, lng]);
-            if (pt.x >= -30 && pt.x <= width + 30 && pt.y >= -30 && pt.y <= height + 30) {
-              ctx.fillStyle = '#EF4444';
-              ctx.beginPath();
-              ctx.arc(pt.x, pt.y, 6, 0, Math.PI * 2);
-              ctx.fill();
-              ctx.strokeStyle = '#FFFFFF';
-              ctx.lineWidth = 2;
-              ctx.stroke();
-
-              ctx.font = 'bold 11px sans-serif';
-              ctx.fillStyle = '#FFFFFF';
-              ctx.fillText(wp.name || 'WP', pt.x + 9, pt.y + 4);
-            }
-          }
-        });
-      }
-    } catch (_) {}
-
-    // 4. Safe image data extraction (guaranteed untainted)
-    const imgDataUrl = canvas.toDataURL('image/png');
+    // Extract clean untainted PNG (ZERO overlay vectors or HUD markings!)
+    const imgDataUrl = outCanvas.toDataURL('image/png');
     const base64Data = imgDataUrl.replace(/^data:image\/png;base64,/, '');
     const zip = new JSZip();
     zip.file('Basemap_Scout_AOI.png', base64Data, { base64: true });
 
-    // 5. Calculate World File (.pgw)
-    const dx = (bounds.getEast() - bounds.getWest()) / width;
-    const dy = (bounds.getNorth() - bounds.getSouth()) / height;
+    // ESRI World File (.pgw) with GIS-standard upper-left pixel CENTER coordinates
+    const dx = (east - west) / width;
+    const dy = (north - south) / height;
     const pgwContent = [
-      dx.toFixed(10),
-      '0.0000000000',
-      '0.0000000000',
-      (-dy).toFixed(10),
-      bounds.getWest().toFixed(10),
-      bounds.getNorth().toFixed(10)
+      dx.toFixed(12),
+      '0.000000000000',
+      '0.000000000000',
+      (-dy).toFixed(12),
+      (west + dx / 2).toFixed(12),
+      (north - dy / 2).toFixed(12)
     ].join('\r\n');
     zip.file('Basemap_Scout_AOI.pgw', pgwContent);
 
-    // 6. Projection File (.prj) standard WGS84
+    // Standard WGS84 Projection File (.prj)
     const prjContent = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
     zip.file('Basemap_Scout_AOI.prj', prjContent);
 
-    // 7. Metadata JSON
+    // Google Earth KML GroundOverlay (.kml) for direct geotagged preview
+    const kmlOverlay = [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<kml xmlns="http://www.opengis.net/kml/2.2">',
+      '  <GroundOverlay>',
+      `    <name>Clean Basemap - ${escapeXml(opt.name)}</name>`,
+      '    <Icon><href>Basemap_Scout_AOI.png</href></Icon>',
+      '    <LatLonBox>',
+      `      <north>${north.toFixed(8)}</north>`,
+      `      <south>${south.toFixed(8)}</south>`,
+      `      <east>${east.toFixed(8)}</east>`,
+      `      <west>${west.toFixed(8)}</west>`,
+      '    </LatLonBox>',
+      '  </GroundOverlay>',
+      '</kml>'
+    ].join('\r\n');
+    zip.file('Basemap_Scout_AOI.kml', kmlOverlay);
+
+    // Metadata JSON
     const metadata = {
       exportDate: new Date().toISOString(),
       generator: 'Quik Field Notes — Powered by Nasrullah Khan',
-      bounds: {
-        north: bounds.getNorth(),
-        south: bounds.getSouth(),
-        east: bounds.getEast(),
-        west: bounds.getWest()
-      },
+      crs: 'EPSG:4326 (WGS 84 Geographic)',
+      zoomLevel: plan.targetZ,
+      maxResolutionRequested: maxResolution,
+      groundResolutionMetersPerPx: Number(plan.gsdMeters.toFixed(3)),
+      overlaysIncluded: false,
+      bounds: { north, south, east, west },
       widthPx: width,
       heightPx: height,
-      activeBasemap: activeBasemapId || 'default',
+      activeBasemap: opt.id,
+      activeBasemapName: opt.name,
       tilesRendered: renderedCount
     };
     zip.file('Basemap_Metadata.json', JSON.stringify(metadata, null, 2));
 
     const zipBlob = await zip.generateAsync({ type: 'blob' });
-    triggerFileDownload(zipBlob, `Basemap_Scout_AOI_${Date.now()}.zip`);
-    showToast(`✅ Exported Basemap Package with ${renderedCount} tiles (.png + .pgw + .prj)`);
+    triggerFileDownload(zipBlob, `Basemap_Scout_AOI_${opt.id}_Z${plan.targetZ}_${Date.now()}.zip`);
+    showToast(`✅ Exported Clean GeoImage (${width}×${height} px, Zoom ${plan.targetZ}, ${renderedCount} tiles)`);
   } catch (err) {
     console.error('Export error:', err);
     alert('Error exporting basemap: ' + err.message);
@@ -6469,10 +7348,475 @@ function closeModal(id) {
 
 function openSettingsModal() {
   refreshProjectSelectDropdown();
+  renderFeatureLayersList();
   renderOverlaysList();
   renderCategoriesUI();
+  syncMeasurementUnitSelects();
   updateProjectStatsDisplay();
   openModal('settingsModal');
+}
+
+function openFeatureLayersManager() {
+  openSettingsModal();
+  switchSettingsTab('tabLayers');
+}
+
+function openMeasurementUnitsSettings() {
+  openSettingsModal();
+  switchSettingsTab('tabOptions');
+}
+
+// =========================================================================
+// PROJECT FEATURE LAYERS ENGINE (CREATE, ASSIGN, SHOW / HIDE)
+// =========================================================================
+function onLayerSelectDropdownChanged(selectId, newGroupId) {
+  const sel = document.getElementById(selectId);
+  const grp = document.getElementById(newGroupId);
+  if (!sel || !grp) return;
+  grp.style.display = sel.value === '__new__' ? 'flex' : 'none';
+}
+
+function populateFeatureLayerSelect(selectId, selectedId) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  sel.innerHTML = buildLayerOptionsHtml(selectedId, selectId === 'wptLayerSelect');
+}
+
+function resolveSelectedOrNewLayer(selectId, nameInputId, colorInputId, fallbackId) {
+  ensureDefaultFeatureLayers();
+  const sel = document.getElementById(selectId);
+  if (!sel) return fallbackId;
+  if (sel.value === '__new__') {
+    const newName = (document.getElementById(nameInputId)?.value || '').trim();
+    const newColor = document.getElementById(colorInputId)?.value || '#38BDF8';
+    const layerName = newName || `Layer ${featureLayers.length + 1}`;
+    const existing = featureLayers.find(l => l.name.toLowerCase() === layerName.toLowerCase());
+    if (existing) return existing.id;
+    const newLayer = {
+      id: 'layer_' + Date.now(),
+      name: layerName,
+      color: newColor,
+      visible: true
+    };
+    featureLayers.push(newLayer);
+    return newLayer.id;
+  }
+  return sel.value || fallbackId;
+}
+
+function promptCreateFeatureLayer() {
+  const name = prompt('Enter new Feature Layer name (e.g. Obstacles, Pipelines, Dune Lines):');
+  if (!name || !name.trim()) return;
+  const palette = ['#F59E0B', '#EF4444', '#10B981', '#00F0FF', '#EC4899', '#8B5CF6', '#84CC16'];
+  const color = palette[featureLayers.length % palette.length];
+  ensureDefaultFeatureLayers();
+  featureLayers.push({
+    id: 'layer_' + Date.now(),
+    name: name.trim(),
+    color: color,
+    visible: true
+  });
+  saveActiveProjectData();
+  renderFeatureLayersList();
+  renderAllProjectLayers();
+  showToast(`🗂️ Layer "${name.trim()}" created!`);
+}
+
+function toggleBuiltInLayerVisibility(key) {
+  builtInLayerVisibility[key] = (builtInLayerVisibility[key] === false);
+  saveActiveProjectData();
+  renderFeatureLayersList();
+  renderAllProjectLayers();
+}
+
+function toggleFeatureLayerVisibility(layerId) {
+  const layer = featureLayers.find(l => l.id === layerId);
+  if (!layer) return;
+  layer.visible = (layer.visible === false);
+  saveActiveProjectData();
+  renderFeatureLayersList();
+  renderAllProjectLayers();
+}
+
+function deleteFeatureLayer(layerId) {
+  ensureDefaultFeatureLayers();
+  if (featureLayers.length <= 1) {
+    alert('At least one digitized feature layer is required.');
+    return;
+  }
+  const target = featureLayers.find(l => l.id === layerId);
+  if (!target) return;
+  const count = digitizedFeatures.filter(f => f.layerId === layerId).length;
+  if (!confirm(`Delete layer "${target.name}"?${count > 0 ? `\n${count} feature(s) will move to ${featureLayers[0].name}.` : ''}`)) return;
+
+  featureLayers = featureLayers.filter(l => l.id !== layerId);
+  const fallbackId = featureLayers[0].id;
+  digitizedFeatures.forEach(f => {
+    if (f.layerId === layerId) f.layerId = fallbackId;
+  });
+  waypoints.forEach(w => {
+    if (w.layerId === layerId) w.layerId = null;
+  });
+  photos.forEach(p => {
+    if (p.layerId === layerId) p.layerId = null;
+  });
+  saveActiveProjectData();
+  renderFeatureLayersList();
+  renderAllProjectLayers();
+}
+
+function renderFeatureLayersList() {
+  const container = document.getElementById('featureLayersList');
+  if (!container) return;
+  ensureDefaultFeatureLayers();
+
+  const builtIns = [
+    { key: 'waypoints', icon: '📍', name: 'Waypoints (Points)', count: waypoints.length, color: '#38BDF8' },
+    { key: 'photos', icon: '📷', name: 'Field Photos', count: photos.length, color: '#00F0FF' },
+    { key: 'tracks', icon: '⏺️', name: 'GPS Tracks', count: tracks.length, color: '#10B981' }
+  ];
+
+  let html = builtIns.map(b => {
+    const vis = builtInLayerVisibility[b.key] !== false;
+    return `
+      <div class="layer-row" style="margin-bottom: 0; padding: 9px 12px;">
+        <div class="layer-header-row">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #FFFFFF;">
+            <span>${b.icon}</span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: ${b.color};"></span>
+            <span>${b.name} <span style="color:#94A3B8; font-weight:500;">(${b.count})</span></span>
+          </div>
+          <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px; min-height: 30px; ${vis ? 'border:1px solid #10B981; color:#10B981;' : 'opacity:0.7;'}" onclick="toggleBuiltInLayerVisibility('${b.key}')">
+            ${vis ? '👁️ On' : '🚫 Off'}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  html += featureLayers.map(l => {
+    const cnt = digitizedFeatures.filter(f => f.layerId === l.id).length + waypoints.filter(w => w.layerId === l.id).length;
+    const vis = l.visible !== false;
+    return `
+      <div class="layer-row" style="margin-bottom: 0; padding: 9px 12px; border-left: 3px solid ${l.color};">
+        <div class="layer-header-row">
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: #FFFFFF;">
+            <span style="width: 12px; height: 12px; border-radius: 3px; background: ${l.color}; border: 1px solid rgba(255,255,255,0.4);"></span>
+            <span>${escapeXml(l.name)} <span style="color:#94A3B8; font-weight:500;">(${cnt})</span></span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px; min-height: 30px; ${vis ? 'border:1px solid #10B981; color:#10B981;' : 'opacity:0.7;'}" onclick="toggleFeatureLayerVisibility('${l.id}')">
+              ${vis ? '👁️ On' : '🚫 Off'}
+            </button>
+            ${featureLayers.length > 1 ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 11.5px; min-height: 30px;" onclick="deleteFeatureLayer('${l.id}')">🗑️</button>` : ''}
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = html;
+}
+
+// =========================================================================
+// PRECISION GEODESIC MEASURE TOOL ENGINE (LENGTH, PATH, AREA + UNITS)
+// =========================================================================
+function syncMeasurementUnitSelects() {
+  const dSel = document.getElementById('measureDistUnitSelect');
+  const aSel = document.getElementById('measureAreaUnitSelect');
+  if (dSel) dSel.value = measureDistUnit;
+  if (aSel) aSel.value = measureAreaUnit;
+}
+
+function onMeasurementUnitsChanged() {
+  const dSel = document.getElementById('measureDistUnitSelect');
+  const aSel = document.getElementById('measureAreaUnitSelect');
+  if (dSel) {
+    measureDistUnit = dSel.value;
+    try { localStorage.setItem('qfn_measure_dist_unit', measureDistUnit); } catch (_) {}
+  }
+  if (aSel) {
+    measureAreaUnit = aSel.value;
+    try { localStorage.setItem('qfn_measure_area_unit', measureAreaUnit); } catch (_) {}
+  }
+  updateMeasureRenderAndReadout();
+}
+
+function formatMeasuredDistance(meters) {
+  if (!meters || isNaN(meters)) meters = 0;
+  switch (measureDistUnit) {
+    case 'm': return `${meters.toFixed(1)} m`;
+    case 'km': return `${(meters / 1000).toFixed(3)} km`;
+    case 'ft': return `${(meters * 3.280839895).toFixed(1)} ft`;
+    case 'mi': return `${(meters / 1609.344).toFixed(3)} mi`;
+    case 'nmi': return `${(meters / 1852).toFixed(3)} nmi`;
+    case 'm_km':
+    default:
+      return meters >= 1000 ? `${(meters / 1000).toFixed(3)} km` : `${meters.toFixed(1)} m`;
+  }
+}
+
+function formatMeasuredArea(sqMeters) {
+  if (!sqMeters || isNaN(sqMeters)) sqMeters = 0;
+  switch (measureAreaUnit) {
+    case 'ha': return `${(sqMeters / 10000).toFixed(3)} ha`;
+    case 'acres': return `${(sqMeters / 4046.8564224).toFixed(3)} ac`;
+    case 'sqft': return `${(sqMeters * 10.763910417).toFixed(1)} ft²`;
+    case 'sqmi': return `${(sqMeters / 2589988.110336).toFixed(4)} mi²`;
+    case 'sqm_sqkm':
+    default:
+      return sqMeters >= 1000000 ? `${(sqMeters / 1000000).toFixed(4)} km²` : `${sqMeters.toFixed(1)} m²`;
+  }
+}
+
+function calcPathLengthMeters(latlngs) {
+  if (!Array.isArray(latlngs) || latlngs.length < 2) return 0;
+  let total = 0;
+  for (let i = 1; i < latlngs.length; i++) {
+    total += calcDistanceMeters(latlngs[i - 1][0], latlngs[i - 1][1], latlngs[i][0], latlngs[i][1]);
+  }
+  return total;
+}
+
+function calcGeodesicAreaSqMeters(latlngs) {
+  if (!Array.isArray(latlngs) || latlngs.length < 3) return 0;
+  const R = 6378137;
+  const rad = Math.PI / 180;
+  let area = 0;
+  const n = latlngs.length;
+  for (let i = 0; i < n; i++) {
+    const p1 = latlngs[i];
+    const p2 = latlngs[(i + 1) % n];
+    area += (p2[1] - p1[1]) * rad * (2 + Math.sin(p1[0] * rad) + Math.sin(p2[0] * rad));
+  }
+  return Math.abs((area * R * R) / 2.0);
+}
+
+function toggleMeasureTool() {
+  if (isMeasuring) {
+    closeMeasureTool();
+  } else {
+    openMeasureTool();
+  }
+}
+
+function openMeasureTool(preferredMode) {
+  if (isDrawing) cancelDrawing();
+  if (isLayerInspectActive) toggleLayerInspectMode();
+  isMeasuring = true;
+  if (preferredMode) measureMode = preferredMode;
+  const btn = document.getElementById('btnMeasureToolToggle');
+  if (btn) btn.classList.add('active');
+  const tb = document.getElementById('measureToolbar');
+  if (tb) tb.style.display = 'flex';
+  updateMeasureModeUI();
+  updateMeasureInputModeUI();
+  updateMeasureRenderAndReadout();
+  showToast('📏 Measure Tool Active');
+}
+
+function closeMeasureTool() {
+  isMeasuring = false;
+  measureVertices = [];
+  if (measureLayerGroup) measureLayerGroup.clearLayers();
+  if (measureRubberbandLayer && map) {
+    try { map.removeLayer(measureRubberbandLayer); } catch (_) {}
+    measureRubberbandLayer = null;
+  }
+  const btn = document.getElementById('btnMeasureToolToggle');
+  if (btn) btn.classList.remove('active');
+  const tb = document.getElementById('measureToolbar');
+  if (tb) tb.style.display = 'none';
+}
+
+function setMeasureMode(mode) {
+  measureMode = mode;
+  if (mode === 'length' && measureVertices.length > 2) {
+    measureVertices = [measureVertices[0], measureVertices[measureVertices.length - 1]];
+  }
+  updateMeasureModeUI();
+  updateMeasureRenderAndReadout();
+}
+
+function updateMeasureModeUI() {
+  ['length', 'path', 'area'].forEach(m => {
+    const id = 'btnMeasureMode' + m.charAt(0).toUpperCase() + m.slice(1);
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('active', measureMode === m);
+  });
+}
+
+function toggleMeasureInputMode() {
+  measureInputMode = measureInputMode === 'click' ? 'cursor' : 'click';
+  updateMeasureInputModeUI();
+  updateMeasureRubberband();
+  if (measureInputMode === 'cursor') {
+    showToast('🎯 Cursor Measure: Pan crosshair and tap [➕ Add Pt]');
+  } else {
+    showToast('👆 Click Measure: Tap map points directly');
+  }
+}
+
+function updateMeasureInputModeUI() {
+  const btn = document.getElementById('btnMeasureInputMode');
+  const addBtn = document.getElementById('btnAddMeasureCursorPt');
+  if (btn) {
+    if (measureInputMode === 'cursor') {
+      btn.textContent = '🎯 Cursor';
+      btn.style.borderColor = '#F59E0B';
+      btn.style.color = '#F59E0B';
+    } else {
+      btn.textContent = '👆 Click';
+      btn.style.borderColor = '#00F0FF';
+      btn.style.color = '#00F0FF';
+    }
+  }
+  if (addBtn) {
+    addBtn.style.display = measureInputMode === 'cursor' ? 'inline-block' : 'none';
+  }
+}
+
+function handleMeasureMapClick(e) {
+  if (measureInputMode === 'cursor') return;
+  addMeasureVertex(e.latlng.lat, e.latlng.lng);
+}
+
+function addMeasurePointAtCursor() {
+  const center = getCrosshairCenterLatLng();
+  addMeasureVertex(center.lat, center.lng);
+  if (navigator.vibrate) try { navigator.vibrate(20); } catch (_) {}
+}
+
+function addMeasureVertex(lat, lng) {
+  if (measureMode === 'length' && measureVertices.length >= 2) {
+    measureVertices = [[lat, lng]];
+  } else {
+    measureVertices.push([lat, lng]);
+  }
+  updateMeasureRenderAndReadout();
+}
+
+function undoMeasurePoint() {
+  if (measureVertices.length > 0) {
+    measureVertices.pop();
+    updateMeasureRenderAndReadout();
+  }
+}
+
+function clearMeasurePoints() {
+  measureVertices = [];
+  updateMeasureRenderAndReadout();
+}
+
+function updateMeasureRubberband() {
+  if (!map || !isMeasuring) return;
+  if (measureRubberbandLayer) {
+    try { map.removeLayer(measureRubberbandLayer); } catch (_) {}
+    measureRubberbandLayer = null;
+  }
+  if (measureInputMode !== 'cursor' || measureVertices.length === 0) return;
+
+  const cursor = getCrosshairCenterLatLng();
+  const last = measureVertices[measureVertices.length - 1];
+  const liveLeg = calcDistanceMeters(last[0], last[1], cursor.lat, cursor.lng);
+  const liveBrg = calcBearingDegrees(last[0], last[1], cursor.lat, cursor.lng);
+
+  measureRubberbandLayer = L.polyline([last, [cursor.lat, cursor.lng]], {
+    color: '#F59E0B',
+    weight: 2,
+    dashArray: '5, 5',
+    opacity: 0.9
+  }).addTo(map);
+
+  const subEl = document.getElementById('measureSubReadout');
+  if (subEl) {
+    subEl.textContent = `Cursor Leg: +${formatMeasuredDistance(liveLeg)} | Brg: ${Math.round(liveBrg)}°`;
+  }
+}
+
+function updateMeasureRenderAndReadout() {
+  if (!measureLayerGroup) return;
+  measureLayerGroup.clearLayers();
+  if (measureRubberbandLayer && map) {
+    try { map.removeLayer(measureRubberbandLayer); } catch (_) {}
+    measureRubberbandLayer = null;
+  }
+
+  // Draw geometry
+  if (measureVertices.length >= 2) {
+    if (measureMode === 'area' && measureVertices.length >= 3) {
+      L.polygon(measureVertices, {
+        color: '#10B981',
+        weight: 2.5,
+        fillColor: '#10B981',
+        fillOpacity: 0.22
+      }).addTo(measureLayerGroup);
+    } else {
+      L.polyline(measureVertices, {
+        color: '#10B981',
+        weight: 3
+      }).addTo(measureLayerGroup);
+    }
+  }
+
+  measureVertices.forEach((pt, idx) => {
+    L.circleMarker(pt, {
+      radius: 5.5,
+      color: '#FFFFFF',
+      weight: 2,
+      fillColor: idx === 0 ? '#00F0FF' : '#10B981',
+      fillOpacity: 1
+    }).addTo(measureLayerGroup);
+  });
+
+  // Update readout text
+  const mainEl = document.getElementById('measureMainReadout');
+  const subEl = document.getElementById('measureSubReadout');
+  if (!mainEl || !subEl) return;
+
+  if (measureVertices.length === 0) {
+    mainEl.textContent = measureMode === 'area' ? formatMeasuredArea(0) : formatMeasuredDistance(0);
+    subEl.textContent = measureInputMode === 'cursor' ? 'Position crosshair & tap ➕ Add Pt' : 'Tap map points to measure';
+    return;
+  }
+
+  if (measureMode === 'length') {
+    if (measureVertices.length === 1) {
+      mainEl.textContent = formatMeasuredDistance(0);
+      subEl.textContent = '1 pt set — select 2nd point';
+    } else {
+      const d = calcDistanceMeters(measureVertices[0][0], measureVertices[0][1], measureVertices[1][0], measureVertices[1][1]);
+      const brg = calcBearingDegrees(measureVertices[0][0], measureVertices[0][1], measureVertices[1][0], measureVertices[1][1]);
+      mainEl.textContent = formatMeasuredDistance(d);
+      subEl.textContent = `Straight Length | Bearing: ${Math.round(brg)}°`;
+    }
+  } else if (measureMode === 'path') {
+    const total = calcPathLengthMeters(measureVertices);
+    let lastLegStr = '';
+    if (measureVertices.length >= 2) {
+      const a = measureVertices[measureVertices.length - 2];
+      const b = measureVertices[measureVertices.length - 1];
+      lastLegStr = ` | Last leg: ${formatMeasuredDistance(calcDistanceMeters(a[0], a[1], b[0], b[1]))}`;
+    }
+    mainEl.textContent = formatMeasuredDistance(total);
+    subEl.textContent = `Path (${measureVertices.length} pts)${lastLegStr}`;
+  } else if (measureMode === 'area') {
+    if (measureVertices.length < 3) {
+      const seg = calcPathLengthMeters(measureVertices);
+      mainEl.textContent = formatMeasuredArea(0);
+      subEl.textContent = `${measureVertices.length}/3 pts needed (Span: ${formatMeasuredDistance(seg)})`;
+    } else {
+      const areaM2 = calcGeodesicAreaSqMeters(measureVertices);
+      const closedLoop = [...measureVertices, measureVertices[0]];
+      const perim = calcPathLengthMeters(closedLoop);
+      mainEl.textContent = formatMeasuredArea(areaM2);
+      subEl.textContent = `Perimeter: ${formatMeasuredDistance(perim)} (${measureVertices.length} pts)`;
+    }
+  }
+
+  if (measureInputMode === 'cursor') {
+    updateMeasureRubberband();
+  }
 }
 
 function switchSettingsTab(tabId) {
