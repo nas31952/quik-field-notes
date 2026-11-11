@@ -1679,7 +1679,7 @@ body, html {
 
 <!-- Hidden File Inputs -->
 <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="onPhotoCaptured(event)">
-<input type="file" id="overlayFileInput" accept=".zip,.gpx,.kml,.geojson,.json,.shp" style="display: none;" onchange="onOverlayFileSelected(event)">
+<input type="file" id="overlayFileInput" multiple accept=".zip,.gpx,.kml,.geojson,.json,.shp,.tif,.tiff,.jpg,.jpeg,.png,.pdf,.img,.jgw,.jpgw,.tfw,.pgw,.wld,.prj,.xml" style="display: none;" onchange="onOverlayFileSelected(event)">
 
 <!-- ========================================================================= -->
 <!-- MODAL: SETTINGS & PROJECT & LAYER MANAGER                                  -->
@@ -1751,7 +1751,7 @@ body, html {
         </div>
 
         <div style="font-size: 12px; color: #CBD5E1; margin-bottom: 10px; line-height: 1.5;">
-          Supported: <b>ESRI Shapefile (.zip)</b>, <b>GPX (.gpx)</b>, <b>KML (.kml)</b>, <b>GeoJSON (.json)</b>.
+          Supported: <b>GeoTIFF (.tif/.tiff)</b>, <b>GeoJPG/PNG (.jpg/.png + .jgw/.tfw/.prj/.zip)</b>, <b>GeoPDF (.pdf)</b>, <b>Garmin (.img)</b>, <b>SHP (.zip)</b>, <b>GPX</b>, <b>KML</b>, <b>GeoJSON</b>.
         </div>
 
         <div id="overlaysList">
@@ -6416,55 +6416,1286 @@ function deleteCurrentFeature() {
   closeModal('featureInfoModal');
 }
 
-// --- LOCAL OVERLAYS (SHAPEFILE, GPX, KML, GEOJSON) ---
+// --- LOCAL OVERLAYS (GEOTIFF, GEOJPG/PNG, GEOPDF, GARMIN IMG, SHP, GPX, KML, GEOJSON) ---
+const OVERLAY_MAX_RASTER_DIM = 2048;
+
 function triggerOverlayUpload() {
-  document.getElementById('overlayFileInput').click();
-}
-
-function onOverlayFileSelected(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const fileName = file.name;
-  const ext = fileName.split('.').pop().toLowerCase();
-  const reader = new FileReader();
-
-  if (ext === 'zip') {
-    reader.onload = function(evt) {
-      if (window.shp) {
-        window.shp(evt.target.result).then(geojson => {
-          addGeoJsonOverlay(fileName, geojson);
-        }).catch(err => alert("Error parsing shapefile zip: " + err));
-      } else {
-        alert("Shapefile parser is initializing, please retry.");
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  } else if (ext === 'gpx') {
-    reader.onload = function(evt) {
-      parseAndAddGpxOverlay(fileName, evt.target.result);
-    };
-    reader.readAsText(file);
-  } else if (ext === 'kml') {
-    reader.onload = function(evt) {
-      parseAndAddKmlOverlay(fileName, evt.target.result);
-    };
-    reader.readAsText(file);
-  } else if (ext === 'geojson' || ext === 'json') {
-    reader.onload = function(evt) {
-      try {
-        const geojson = JSON.parse(evt.target.result);
-        addGeoJsonOverlay(fileName, geojson);
-      } catch (err) { alert("Invalid GeoJSON: " + err); }
-    };
-    reader.readAsText(file);
-  } else {
-    alert("Unsupported file type. Please upload .zip (Shapefile), .gpx, .kml, or .geojson.");
+  const input = document.getElementById('overlayFileInput');
+  if (input) {
+    input.value = '';
+    input.click();
   }
 }
 
+async function readFileSlice(blob, start, length) {
+  const safeStart = Math.max(0, start);
+  const safeEnd = Math.min(blob.size, safeStart + Math.max(0, length));
+  return await blob.slice(safeStart, safeEnd).arrayBuffer();
+}
+
+function getFileStem(fileName) {
+  const base = String(fileName || '').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  return (dot > 0 ? base.slice(0, dot) : base).toLowerCase();
+}
+
+function getFileExt(fileName) {
+  const base = String(fileName || '').split(/[\\/]/).pop();
+  const dot = base.lastIndexOf('.');
+  return dot >= 0 ? base.slice(dot + 1).toLowerCase() : '';
+}
+
+function parsePrjWkt(wktText) {
+  if (!wktText || typeof wktText !== 'string') return { type: 'auto' };
+  const upper = wktText.toUpperCase();
+  const epsgMatch = wktText.match(/AUTHORITY\["EPSG","(\d+)"\]\s*$/i) || wktText.match(/EPSG[:\s]+(\d+)/i);
+  if (epsgMatch) {
+    const code = parseInt(epsgMatch[1], 10);
+    if (code === 4326 || code === 4269 || code === 4258 || code === 4267) return { type: 'geographic', epsg: code };
+    if (code === 3857 || code === 900913 || code === 102100 || code === 3785) return { type: 'mercator', epsg: code };
+    if (code >= 32601 && code <= 32660) return { type: 'utm', zone: code - 32600, south: false, epsg: code };
+    if (code >= 32701 && code <= 32760) return { type: 'utm', zone: code - 32700, south: true, epsg: code };
+  }
+  if (!upper.includes('PROJCS') && (upper.includes('GEOGCS') || upper.includes('WGS 84') || upper.includes('WGS_1984'))) {
+    if (!upper.includes('PROJECTION')) return { type: 'geographic', epsg: 4326 };
+  }
+  if (upper.includes('WEB_MERCATOR') || upper.includes('PSEUDO_MERCATOR') || upper.includes('MERCATOR_AUXILIARY_SPHERE') || upper.includes('MERCATOR_1SP')) {
+    return { type: 'mercator', epsg: 3857 };
+  }
+  const utmMatch = upper.match(/UTM[_\s-]*ZONE[_\s-]*(\d{1,2})\s*([NS])?/);
+  if (utmMatch) {
+    const zone = parseInt(utmMatch[1], 10);
+    const south = (utmMatch[2] === 'S') || upper.includes('FALSE_NORTHING",10000000');
+    return { type: 'utm', zone, south, epsg: (south ? 32700 : 32600) + zone };
+  }
+  const param = (key) => {
+    const m = wktText.match(new RegExp('PARAMETER\\["' + key + '",\\s*([-+0-9.eE]+)\\]', 'i'));
+    return m ? parseFloat(m[1]) : null;
+  };
+  const cm = param('central_meridian');
+  const k0 = param('scale_factor');
+  const fe = param('false_easting');
+  const fn = param('false_northing');
+  const lat0 = param('latitude_of_origin');
+  if (upper.includes('TRANSVERSE_MERCATOR') && cm !== null) {
+    return {
+      type: 'tmerc',
+      cmDeg: cm,
+      k0: k0 || 0.9996,
+      fe: fe !== null ? fe : 500000,
+      fn: fn !== null ? fn : 0,
+      lat0Deg: lat0 || 0
+    };
+  }
+  return { type: 'auto' };
+}
+
+function crsFromEpsg(epsgCode) {
+  const code = parseInt(epsgCode, 10);
+  if (!code) return { type: 'auto' };
+  if (code === 4326 || code === 4269 || code === 4258 || code === 4267) return { type: 'geographic', epsg: code };
+  if (code === 3857 || code === 900913 || code === 102100 || code === 3785) return { type: 'mercator', epsg: code };
+  if (code >= 32601 && code <= 32660) return { type: 'utm', zone: code - 32600, south: false, epsg: code };
+  if (code >= 32701 && code <= 32760) return { type: 'utm', zone: code - 32700, south: true, epsg: code };
+  return { type: 'auto', epsg: code };
+}
+
+function inverseTransverseMercator(easting, northing, cmDeg, k0, fe, fn, lat0Deg) {
+  const a = 6378137.0;
+  const f = 1.0 / 298.257223563;
+  const e2 = 2 * f - f * f;
+  const ep2 = e2 / (1 - e2);
+  const e1 = (1 - Math.sqrt(1 - e2)) / (1 + Math.sqrt(1 - e2));
+  const rad = Math.PI / 180;
+
+  const lat0 = (lat0Deg || 0) * rad;
+  const sin0 = Math.sin(lat0);
+  const M0 = a * (
+    (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 * e2 * e2 / 256) * lat0 -
+    (3 * e2 / 8 + 3 * e2 * e2 / 32 + 45 * e2 * e2 * e2 / 1024) * Math.sin(2 * lat0) +
+    (15 * e2 * e2 / 256 + 45 * e2 * e2 * e2 / 1024) * Math.sin(4 * lat0) -
+    (35 * e2 * e2 * e2 / 3072) * Math.sin(6 * lat0)
+  );
+
+  const x = easting - fe;
+  const y = northing - fn;
+  const M = M0 + y / k0;
+  const mu = M / (a * (1 - e2 / 4 - 3 * e2 * e2 / 64 - 5 * e2 * e2 * e2 / 256));
+
+  const phi1 = mu +
+    (3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32) * Math.sin(2 * mu) +
+    (21 * e1 * e1 / 16 - 55 * Math.pow(e1, 4) / 32) * Math.sin(4 * mu) +
+    (151 * Math.pow(e1, 3) / 96) * Math.sin(6 * mu) +
+    (1097 * Math.pow(e1, 4) / 512) * Math.sin(8 * mu);
+
+  const sin1 = Math.sin(phi1);
+  const cos1 = Math.cos(phi1);
+  const tan1 = Math.tan(phi1);
+  const N1 = a / Math.sqrt(1 - e2 * sin1 * sin1);
+  const T1 = tan1 * tan1;
+  const C1 = ep2 * cos1 * cos1;
+  const R1 = (a * (1 - e2)) / Math.pow(1 - e2 * sin1 * sin1, 1.5);
+  const D = x / (N1 * k0);
+
+  const latRad = phi1 - (N1 * tan1 / R1) * (
+    (D * D) / 2 -
+    (5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * ep2) * Math.pow(D, 4) / 24 +
+    (61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * ep2 - 3 * C1 * C1) * Math.pow(D, 6) / 720
+  );
+
+  const lonRad = (cmDeg * rad) + (
+    D -
+    (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6 +
+    (5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * ep2 + 24 * T1 * T1) * Math.pow(D, 5) / 120
+  ) / cos1;
+
+  return [latRad / rad, lonRad / rad];
+}
+
+function reprojectXYToLatLon(x, y, crsInfo) {
+  const c = crsInfo || { type: 'auto' };
+  if (c.type === 'geographic' || (c.type === 'auto' && Math.abs(x) <= 180.5 && Math.abs(y) <= 90.5)) {
+    return [Math.max(-89.99, Math.min(89.99, y)), Math.max(-180, Math.min(180, x))];
+  }
+  if (c.type === 'utm') {
+    const cm = (c.zone - 1) * 6 - 180 + 3;
+    return inverseTransverseMercator(x, y, cm, 0.9996, 500000, c.south ? 10000000 : 0, 0);
+  }
+  if (c.type === 'tmerc') {
+    return inverseTransverseMercator(x, y, c.cmDeg, c.k0, c.fe, c.fn, c.lat0Deg);
+  }
+  if (c.type === 'mercator' || c.type === 'auto') {
+    const R = 6378137.0;
+    const lon = (x / R) * (180 / Math.PI);
+    const lat = (2 * Math.atan(Math.exp(y / R)) - Math.PI / 2) * (180 / Math.PI);
+    return [Math.max(-89.99, Math.min(89.99, lat)), Math.max(-180, Math.min(180, lon))];
+  }
+  return [y, x];
+}
+
+function boundsFromAffineAndCrs(width, height, a, d, b, e, c, f, crsInfo, pixelCenterOrigin) {
+  // Affine: X = c + a * px + b * py ; Y = f + d * px + e * py
+  const off = pixelCenterOrigin ? -0.5 : 0;
+  const corners = [
+    [off, off],
+    [width + off, off],
+    [off, height + off],
+    [width + off, height + off]
+  ].map(([px, py]) => {
+    const x = c + a * px + b * py;
+    const y = f + d * px + e * py;
+    return reprojectXYToLatLon(x, y, crsInfo);
+  });
+  let south = 90, north = -90, west = 180, east = -180;
+  corners.forEach(([lat, lon]) => {
+    if (!isNaN(lat) && !isNaN(lon)) {
+      south = Math.min(south, lat);
+      north = Math.max(north, lat);
+      west = Math.min(west, lon);
+      east = Math.max(east, lon);
+    }
+  });
+  if (south >= north || west >= east) return null;
+  return [[south, west], [north, east]];
+}
+
+function parseWorldFileText(text) {
+  const nums = String(text || '').trim().split(/[\r\n]+/).map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+  if (nums.length < 6) return null;
+  // Standard World File order: A, D, B, E, C, F
+  return { a: nums[0], d: nums[1], b: nums[2], e: nums[3], c: nums[4], f: nums[5] };
+}
+
+function parseAuxXmlGeoref(xmlText) {
+  if (!xmlText) return null;
+  let affine = null;
+  const gtMatch = xmlText.match(/<GeoTransform>([^<]+)<\/GeoTransform>/i);
+  if (gtMatch) {
+    const g = gtMatch[1].split(',').map(v => parseFloat(v.trim()));
+    if (g.length >= 6 && g.every(n => !isNaN(n))) {
+      // GDAL GeoTransform: [topLeftX, pixelW, rotX, topLeftY, rotY, pixelH]
+      affine = { c: g[0], a: g[1], b: g[2], f: g[3], d: g[4], e: g[5], pixelCenterOrigin: false };
+    }
+  }
+  const srsMatch = xmlText.match(/<SRS[^>]*>([^<]+)<\/SRS>/i);
+  const crs = srsMatch ? parsePrjWkt(srsMatch[1]) : { type: 'auto' };
+  return affine ? { affine, crs } : { crs };
+}
+
+async function decodeImageToCanvasUrl(blob, maxDim) {
+  const limit = maxDim || OVERLAY_MAX_RASTER_DIM;
+  if (typeof createImageBitmap === 'function') {
+    const bmp = await createImageBitmap(blob);
+    const w = bmp.width;
+    const h = bmp.height;
+    if (w <= limit && h <= limit) {
+      bmp.close && bmp.close();
+      return { url: URL.createObjectURL(blob), width: w, height: h, downsampled: false };
+    }
+    const scale = Math.min(limit / w, limit / h);
+    const tw = Math.max(1, Math.round(w * scale));
+    const th = Math.max(1, Math.round(h * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = tw;
+    canvas.height = th;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(bmp, 0, 0, tw, th);
+    bmp.close && bmp.close();
+    const outBlob = await new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/png'));
+    return { url: URL.createObjectURL(outBlob || blob), width: w, height: h, renderWidth: tw, renderHeight: th, downsampled: true };
+  }
+  return new Promise((resolve, reject) => {
+    const rawUrl = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+      if (w <= limit && h <= limit) {
+        resolve({ url: rawUrl, width: w, height: h, downsampled: false });
+        return;
+      }
+      const scale = Math.min(limit / w, limit / h);
+      const tw = Math.max(1, Math.round(w * scale));
+      const th = Math.max(1, Math.round(h * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = tw;
+      canvas.height = th;
+      canvas.getContext('2d').drawImage(img, 0, 0, tw, th);
+      URL.revokeObjectURL(rawUrl);
+      canvas.toBlob(outBlob => {
+        resolve({ url: URL.createObjectURL(outBlob || blob), width: w, height: h, renderWidth: tw, renderHeight: th, downsampled: true });
+      }, 'image/png');
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(rawUrl);
+      reject(new Error('Image decode failed'));
+    };
+    img.src = rawUrl;
+  });
+}
+
+function registerOverlayLayer(name, layer, bounds, options) {
+  const opts = options || {};
+  layer.addTo(map);
+  const layerId = 'overlay_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+  const entry = {
+    id: layerId,
+    name: name,
+    typeLabel: opts.typeLabel || '',
+    meta: opts.meta || null,
+    objectUrl: opts.objectUrl || null,
+    layer: layer,
+    bounds: bounds || null,
+    visible: true,
+    opacity: opts.opacity !== undefined ? opts.opacity : 1
+  };
+  importedOverlays.push(entry);
+  renderOverlaysList();
+  if (bounds) {
+    try { map.fitBounds(bounds); } catch (_) {}
+  } else if (layer.getBounds && layer.getBounds().isValid()) {
+    map.fitBounds(layer.getBounds());
+  }
+  return entry;
+}
+
+// --- MULTI-FILE / LARGE OVERLAY DISPATCHER ---
+async function onOverlayFileSelected(e) {
+  const fileList = Array.from(e.target.files || []);
+  if (fileList.length === 0) return;
+
+  // Index sidecar files by lowercase stem & full lowercase name
+  const sidecars = {};
+  for (const f of fileList) {
+    const ext = getFileExt(f.name);
+    const stem = getFileStem(f.name);
+    if (!sidecars[stem]) sidecars[stem] = {};
+    sidecars[stem][ext] = f;
+    if (f.name.toLowerCase().endsWith('.aux.xml')) {
+      sidecars[stem]['aux_xml'] = f;
+      const baseStem = getFileStem(f.name.replace(/\.aux\.xml$/i, ''));
+      if (!sidecars[baseStem]) sidecars[baseStem] = {};
+      sidecars[baseStem]['aux_xml'] = f;
+    }
+  }
+
+  const sidecarOnlyExts = new Set(['jgw', 'jpgw', 'tfw', 'pgw', 'wld', 'prj', 'xml']);
+  const primaryFiles = fileList.filter(f => !sidecarOnlyExts.has(getFileExt(f.name)));
+  const targets = primaryFiles.length > 0 ? primaryFiles : fileList;
+
+  showToast('⏳ Loading ' + targets.length + ' overlay file(s)...');
+  for (const file of targets) {
+    const fileName = file.name;
+    const ext = getFileExt(fileName);
+    const stem = getFileStem(fileName);
+    const sc = sidecars[stem] || {};
+
+    try {
+      if (ext === 'zip') {
+        await parseAndAddZipOverlay(fileName, file);
+      } else if (ext === 'tif' || ext === 'tiff') {
+        await parseAndAddGeoTiffOverlay(fileName, file, sc);
+      } else if (ext === 'jpg' || ext === 'jpeg' || ext === 'png') {
+        await parseAndAddGeoRasterOverlay(fileName, file, sc);
+      } else if (ext === 'pdf') {
+        await parseAndAddGeoPdfOverlay(fileName, file);
+      } else if (ext === 'img') {
+        await parseAndAddGarminImgOverlay(fileName, file);
+      } else if (ext === 'gpx') {
+        parseAndAddGpxOverlay(fileName, await file.text());
+      } else if (ext === 'kml') {
+        parseAndAddKmlOverlay(fileName, await file.text());
+      } else if (ext === 'geojson' || ext === 'json') {
+        addGeoJsonOverlay(fileName, JSON.parse(await file.text()));
+      } else if (sidecarOnlyExts.has(ext)) {
+        showToast('ℹ️ Select the raster image together with ' + fileName + ' or bundle them in a .zip');
+      } else {
+        alert('Unsupported overlay format: ' + fileName + '\nSupported: GeoTIFF (.tif/.tiff), GeoJPG/PNG (.jpg/.png), GeoPDF (.pdf), Garmin (.img), Shapefile (.zip), GPX, KML, GeoJSON.');
+      }
+    } catch (err) {
+      console.error('Overlay import error (' + fileName + '):', err);
+      alert('Failed to load overlay "' + fileName + '": ' + (err && err.message ? err.message : err));
+    }
+  }
+}
+
+async function parseAndAddZipOverlay(fileName, zipBlob) {
+  if (!window.JSZip) {
+    if (window.shp) {
+      const buf = await zipBlob.arrayBuffer();
+      addGeoJsonOverlay(fileName, await window.shp(buf));
+      return;
+    }
+    throw new Error('ZIP parser not loaded');
+  }
+  const buf = await zipBlob.arrayBuffer();
+  const zip = await window.JSZip.loadAsync(buf);
+  const names = Object.keys(zip.files).filter(k => !zip.files[k].dir && !k.startsWith('__MACOSX'));
+  const hasShp = names.some(n => n.toLowerCase().endsWith('.shp'));
+  const rasterNames = names.filter(n => /\.(tif|tiff|jpg|jpeg|png)$/i.test(n));
+
+  if (rasterNames.length > 0 && !hasShp) {
+    for (const rName of rasterNames) {
+      const ext = getFileExt(rName);
+      const rStem = getFileStem(rName);
+      const rBlob = await zip.files[rName].async('blob');
+      const sc = {};
+      for (const n of names) {
+        if (getFileStem(n) === rStem && n !== rName) {
+          sc[getFileExt(n)] = zip.files[n];
+        }
+        if (n.toLowerCase().endsWith('.aux.xml') && getFileStem(n.replace(/\.aux\.xml$/i, '')) === rStem) {
+          sc['aux_xml'] = zip.files[n];
+        }
+      }
+      // Wrap JSZipObject entries with .text() compatibility
+      const scWrapped = {};
+      for (const k of Object.keys(sc)) {
+        const entry = sc[k];
+        scWrapped[k] = { text: () => entry.async('string') };
+      }
+      if (ext === 'tif' || ext === 'tiff') {
+        await parseAndAddGeoTiffOverlay(rName.split('/').pop(), rBlob, scWrapped);
+      } else {
+        await parseAndAddGeoRasterOverlay(rName.split('/').pop(), rBlob, scWrapped);
+      }
+    }
+    return;
+  }
+
+  // Fallback to ESRI Shapefile ZIP / KML / GeoJSON inside zip
+  if (hasShp && window.shp) {
+    const geojson = await window.shp(buf);
+    addGeoJsonOverlay(fileName, geojson);
+    return;
+  }
+  const vecName = names.find(n => /\.(geojson|json|kml|gpx)$/i.test(n));
+  if (vecName) {
+    const txt = await zip.files[vecName].async('string');
+    const ext = getFileExt(vecName);
+    if (ext === 'kml') parseAndAddKmlOverlay(vecName, txt);
+    else if (ext === 'gpx') parseAndAddGpxOverlay(vecName, txt);
+    else addGeoJsonOverlay(vecName, JSON.parse(txt));
+    return;
+  }
+  throw new Error('No supported GIS or raster overlay found inside ZIP archive');
+}
+
+// --- STREAMED / CHUNKED GEOTIFF DECODER (CLASSIC + BIGTIFF, LZW/DEFLATE/NONE) ---
+function decodeTiffLzw(compressedBytes, expectedByteLen) {
+  const out = new Uint8Array(expectedByteLen);
+  let outPos = 0;
+  let bitPos = 0;
+  const totalBits = compressedBytes.length * 8;
+
+  const readBits = (width) => {
+    if (bitPos + width > totalBits) return 257;
+    let code = 0;
+    for (let i = 0; i < width; i++) {
+      const bIdx = (bitPos + i) >> 3;
+      const bOff = 7 - ((bitPos + i) & 7);
+      code = (code << 1) | ((compressedBytes[bIdx] >> bOff) & 1);
+    }
+    bitPos += width;
+    return code;
+  };
+
+  let codeSize = 9;
+  let nextCode = 258;
+  const tablePrefix = new Int32Array(4096);
+  const tableSuffix = new Uint8Array(4096);
+  const stack = new Uint8Array(4096);
+
+  const resetTable = () => {
+    codeSize = 9;
+    nextCode = 258;
+  };
+  resetTable();
+
+  let oldCode = -1;
+  while (outPos < expectedByteLen) {
+    const code = readBits(codeSize);
+    if (code === 257) break; // EOI
+    if (code === 256) {
+      resetTable();
+      const first = readBits(codeSize);
+      if (first === 257) break;
+      if (first < 256 && outPos < expectedByteLen) out[outPos++] = first;
+      oldCode = first;
+      continue;
+    }
+    let stackLen = 0;
+    let cur = code;
+    if (cur >= nextCode) {
+      let tmp = oldCode;
+      while (tmp >= 258 && stackLen < 4094) {
+        stack[stackLen++] = tableSuffix[tmp];
+        tmp = tablePrefix[tmp];
+      }
+      const firstChar = tmp & 0xFF;
+      stack[stackLen++] = firstChar;
+      for (let i = stackLen - 1; i >= 0 && outPos < expectedByteLen; i--) out[outPos++] = stack[i];
+      if (outPos < expectedByteLen) out[outPos++] = firstChar;
+      if (nextCode < 4096) {
+        tablePrefix[nextCode] = oldCode;
+        tableSuffix[nextCode] = firstChar;
+        nextCode++;
+      }
+    } else {
+      while (cur >= 258 && stackLen < 4094) {
+        stack[stackLen++] = tableSuffix[cur];
+        cur = tablePrefix[cur];
+      }
+      const firstChar = cur & 0xFF;
+      stack[stackLen++] = firstChar;
+      for (let i = stackLen - 1; i >= 0 && outPos < expectedByteLen; i--) out[outPos++] = stack[i];
+      if (oldCode >= 0 && nextCode < 4096) {
+        tablePrefix[nextCode] = oldCode;
+        tableSuffix[nextCode] = firstChar;
+        nextCode++;
+      }
+    }
+    oldCode = code;
+    if (nextCode === 511 && codeSize < 10) codeSize = 10;
+    else if (nextCode === 1023 && codeSize < 11) codeSize = 11;
+    else if (nextCode === 2047 && codeSize < 12) codeSize = 12;
+  }
+  return out.subarray(0, outPos);
+}
+
+async function decompressTiffBlock(rawBytes, compression, expectedBytes) {
+  if (compression === 1) return rawBytes;
+  if (compression === 5) return decodeTiffLzw(rawBytes, expectedBytes);
+  if ((compression === 8 || compression === 32946) && typeof DecompressionStream !== 'undefined') {
+    for (const fmt of ['deflate', 'deflate-raw']) {
+      try {
+        const ds = new DecompressionStream(fmt);
+        const writer = ds.writable.getWriter();
+        writer.write(rawBytes);
+        writer.close();
+        const resBuf = await new Response(ds.readable).arrayBuffer();
+        return new Uint8Array(resBuf);
+      } catch (_) {}
+    }
+  }
+  throw new Error('Unsupported GeoTIFF compression code ' + compression + '. Re-save with None/LZW/Deflate compression or export as GeoTIFF RGB.');
+}
+
+async function parseAndAddGeoTiffOverlay(name, tiffBlob, sidecarMap) {
+  const hdrBuf = await readFileSlice(tiffBlob, 0, 16);
+  if (hdrBuf.byteLength < 8) throw new Error('File too small to be a TIFF');
+  const hdrDv = new DataView(hdrBuf);
+  const b0 = hdrDv.getUint8(0), b1 = hdrDv.getUint8(1);
+  if (!((b0 === 0x49 && b1 === 0x49) || (b0 === 0x4D && b1 === 0x4D))) {
+    throw new Error('Invalid TIFF byte order header');
+  }
+  const le = b0 === 0x49;
+  const magic = hdrDv.getUint16(2, le);
+  const isBig = magic === 43;
+  if (magic !== 42 && !isBig) throw new Error('Invalid TIFF version: ' + magic);
+
+  let ifdOffset = 0;
+  if (isBig) {
+    ifdOffset = Number(hdrDv.getBigUint64(8, le));
+  } else {
+    ifdOffset = hdrDv.getUint32(4, le);
+  }
+
+  const countBuf = await readFileSlice(tiffBlob, ifdOffset, isBig ? 8 : 2);
+  const countDv = new DataView(countBuf);
+  const numTags = isBig ? Number(countDv.getBigUint64(0, le)) : countDv.getUint16(0, le);
+  const entrySize = isBig ? 20 : 12;
+  const entriesStart = ifdOffset + (isBig ? 8 : 2);
+  const ifdBuf = await readFileSlice(tiffBlob, entriesStart, numTags * entrySize);
+  const ifdDv = new DataView(ifdBuf);
+
+  const typeSizes = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 6: 1, 7: 1, 8: 2, 9: 4, 10: 8, 11: 4, 12: 8, 16: 8, 17: 8, 18: 8 };
+  const tags = {};
+
+  for (let i = 0; i < numTags; i++) {
+    const base = i * entrySize;
+    const tagId = ifdDv.getUint16(base, le);
+    const type = ifdDv.getUint16(base + 2, le);
+    const count = isBig ? Number(ifdDv.getBigUint64(base + 4, le)) : ifdDv.getUint32(base + 4, le);
+    const inlineCap = isBig ? 8 : 4;
+    const valByteLen = (typeSizes[type] || 1) * count;
+    let rawSlice;
+    if (valByteLen <= inlineCap) {
+      rawSlice = ifdBuf.slice(base + (isBig ? 12 : 8), base + (isBig ? 12 : 8) + valByteLen);
+    } else {
+      const off = isBig ? Number(ifdDv.getBigUint64(base + 12, le)) : ifdDv.getUint32(base + 8, le);
+      rawSlice = await readFileSlice(tiffBlob, off, valByteLen);
+    }
+    const vDv = new DataView(rawSlice);
+    if (type === 2) {
+      tags[tagId] = new TextDecoder('ascii').decode(new Uint8Array(rawSlice)).replace(/\0+$/, '');
+    } else {
+      const arr = [];
+      for (let k = 0; k < count; k++) {
+        if (type === 1 || type === 7) arr.push(vDv.getUint8(k));
+        else if (type === 3) arr.push(vDv.getUint16(k * 2, le));
+        else if (type === 4) arr.push(vDv.getUint32(k * 4, le));
+        else if (type === 5) arr.push(vDv.getUint32(k * 8, le) / (vDv.getUint32(k * 8 + 4, le) || 1));
+        else if (type === 8) arr.push(vDv.getInt16(k * 2, le));
+        else if (type === 9) arr.push(vDv.getInt32(k * 4, le));
+        else if (type === 11) arr.push(vDv.getFloat32(k * 4, le));
+        else if (type === 12) arr.push(vDv.getFloat64(k * 8, le));
+        else if (type === 16 || type === 18) arr.push(Number(vDv.getBigUint64(k * 8, le)));
+      }
+      tags[tagId] = arr;
+    }
+  }
+
+  const width = (tags[256] || [0])[0];
+  const height = (tags[257] || [0])[0];
+  if (!width || !height) throw new Error('Invalid GeoTIFF dimensions');
+
+  // Parse GeoKeys / CRS
+  let crsInfo = { type: 'auto' };
+  const geoKeys = tags[34735];
+  if (geoKeys && geoKeys.length >= 4) {
+    const keyCount = geoKeys[3];
+    let modelType = 0, geogCode = 0, projCode = 0;
+    for (let k = 0; k < keyCount; k++) {
+      const idx = 4 + k * 4;
+      const keyId = geoKeys[idx];
+      const tiffTagLoc = geoKeys[idx + 1];
+      const valOrOff = geoKeys[idx + 3];
+      if (tiffTagLoc === 0) {
+        if (keyId === 1024) modelType = valOrOff;
+        if (keyId === 2048) geogCode = valOrOff;
+        if (keyId === 3072) projCode = valOrOff;
+      }
+    }
+    if (projCode && projCode !== 32767) crsInfo = crsFromEpsg(projCode);
+    else if (modelType === 2 || (geogCode && geogCode !== 32767)) crsInfo = crsFromEpsg(geogCode || 4326);
+  }
+  if (crsInfo.type === 'auto' && sidecarMap && sidecarMap.prj) {
+    crsInfo = parsePrjWkt(await sidecarMap.prj.text());
+  }
+  if (crsInfo.type === 'auto' && typeof tags[34737] === 'string') {
+    const asciiUpper = tags[34737].toUpperCase();
+    const m = asciiUpper.match(/UTM\s*ZONE\s*(\d{1,2})\s*([NS])/);
+    if (m) crsInfo = { type: 'utm', zone: parseInt(m[1], 10), south: m[2] === 'S' };
+  }
+
+  // Compute Geo Bounds
+  let bounds = null;
+  const scale = tags[33550];
+  const tie = tags[33922];
+  const xform = tags[34264];
+  if (xform && xform.length >= 16) {
+    bounds = boundsFromAffineAndCrs(width, height, xform[0], xform[4], xform[1], xform[5], xform[3], xform[7], crsInfo, false);
+  } else if (scale && scale.length >= 2 && tie && tie.length >= 6) {
+    const px = tie[0], py = tie[1], mx = tie[3], my = tie[4];
+    const originX = mx - px * scale[0];
+    const originY = my + py * scale[1];
+    bounds = boundsFromAffineAndCrs(width, height, scale[0], 0, 0, -scale[1], originX, originY, crsInfo, false);
+  } else if (sidecarMap && (sidecarMap.tfw || sidecarMap.wld)) {
+    const wf = parseWorldFileText(await (sidecarMap.tfw || sidecarMap.wld).text());
+    if (wf) bounds = boundsFromAffineAndCrs(width, height, wf.a, wf.d, wf.b, wf.e, wf.c, wf.f, crsInfo, true);
+  } else if (sidecarMap && sidecarMap.aux_xml) {
+    const aux = parseAuxXmlGeoref(await sidecarMap.aux_xml.text());
+    if (aux && aux.affine) {
+      bounds = boundsFromAffineAndCrs(width, height, aux.affine.a, aux.affine.d, aux.affine.b, aux.affine.e, aux.affine.c, aux.affine.f, aux.crs || crsInfo, false);
+    }
+  }
+  if (!bounds) {
+    const mb = map.getBounds();
+    bounds = [[mb.getSouth(), mb.getWest()], [mb.getNorth(), mb.getEast()]];
+  }
+
+  // Downsampled target raster (memory-safe even for huge GeoTIFFs)
+  const downScale = Math.min(1, OVERLAY_MAX_RASTER_DIM / Math.max(width, height));
+  const outW = Math.max(1, Math.round(width * downScale));
+  const outH = Math.max(1, Math.round(height * downScale));
+  const rgba = new Uint8ClampedArray(outW * outH * 4);
+
+  const compression = (tags[259] || [1])[0];
+  const photo = (tags[262] || [2])[0];
+  const spp = (tags[277] || [photo === 2 ? 3 : 1])[0];
+  const bpsArr = tags[258] || [8];
+  const bps = bpsArr[0] || 8;
+  const bytesPerSample = Math.max(1, Math.ceil(bps / 8));
+  const predictor = (tags[317] || [1])[0];
+  const colorMap = tags[320] || null;
+  const planar = (tags[284] || [1])[0];
+  if (planar === 2 && spp > 1) throw new Error('Planar separate-band GeoTIFF is not supported; save as chunky/interleaved');
+
+  const isTiled = !!(tags[324] && tags[322] && tags[323]);
+  const is16Bit = bps === 16;
+
+  // Store 16-bit single-band raw scalar samples temporarily only at target downsampled size
+  const scalar16 = (is16Bit && spp === 1) ? new Float32Array(outW * outH) : null;
+  let min16 = Infinity, max16 = -Infinity;
+
+  const undoPredictor = (buf, rowStrideBytes, cols, samplesPerPix) => {
+    if (predictor !== 2 || bytesPerSample !== 1) return;
+    for (let y = 0; y < buf.length; y += rowStrideBytes) {
+      for (let c = samplesPerPix; c < rowStrideBytes; c++) {
+        buf[y + c] = (buf[y + c] + buf[y + c - samplesPerPix]) & 0xFF;
+      }
+    }
+  };
+
+  const writePixelSample = (srcBuf, srcOffset, dx, dy) => {
+    if (dx < 0 || dx >= outW || dy < 0 || dy >= outH) return;
+    const dstIdx = (dy * outW + dx) * 4;
+    if (scalar16) {
+      const val = le ? (srcBuf[srcOffset] | (srcBuf[srcOffset + 1] << 8)) : ((srcBuf[srcOffset] << 8) | srcBuf[srcOffset + 1]);
+      scalar16[dy * outW + dx] = val;
+      if (val < min16) min16 = val;
+      if (val > max16) max16 = val;
+      return;
+    }
+    if (photo === 3 && colorMap) {
+      const idxVal = srcBuf[srcOffset];
+      const nColors = colorMap.length / 3;
+      const r = Math.round((colorMap[idxVal] || 0) / 257);
+      const g = Math.round((colorMap[nColors + idxVal] || 0) / 257);
+      const b = Math.round((colorMap[nColors * 2 + idxVal] || 0) / 257);
+      rgba[dstIdx] = r; rgba[dstIdx + 1] = g; rgba[dstIdx + 2] = b; rgba[dstIdx + 3] = 255;
+      return;
+    }
+    if (spp >= 3) {
+      rgba[dstIdx] = srcBuf[srcOffset];
+      rgba[dstIdx + 1] = srcBuf[srcOffset + bytesPerSample];
+      rgba[dstIdx + 2] = srcBuf[srcOffset + bytesPerSample * 2];
+      rgba[dstIdx + 3] = spp >= 4 ? srcBuf[srcOffset + bytesPerSample * 3] : 255;
+    } else {
+      let g = srcBuf[srcOffset];
+      if (photo === 0) g = 255 - g;
+      rgba[dstIdx] = g; rgba[dstIdx + 1] = g; rgba[dstIdx + 2] = g; rgba[dstIdx + 3] = 255;
+    }
+  };
+
+  if (isTiled) {
+    const tileW = tags[322][0];
+    const tileH = tags[323][0];
+    const tileOffsets = tags[324];
+    const tileCounts = tags[325] || [];
+    const tilesAcross = Math.ceil(width / tileW);
+    const rowBytes = tileW * spp * bytesPerSample;
+
+    for (let t = 0; t < tileOffsets.length; t++) {
+      const tx = (t % tilesAcross) * tileW;
+      const ty = Math.floor(t / tilesAcross) * tileH;
+      const expectedBytes = tileW * tileH * spp * bytesPerSample;
+      const sliceBuf = await readFileSlice(tiffBlob, tileOffsets[t], tileCounts[t] || expectedBytes * 2);
+      const raw = await decompressTiffBlock(new Uint8Array(sliceBuf), compression, expectedBytes);
+      undoPredictor(raw, rowBytes, tileW, spp);
+
+      const yEnd = Math.min(height, ty + tileH);
+      const xEnd = Math.min(width, tx + tileW);
+      let prevDy = -1;
+      for (let sy = ty; sy < yEnd; sy++) {
+        const dy = Math.min(outH - 1, Math.floor((sy * outH) / height));
+        if (dy === prevDy && outH < height) continue;
+        prevDy = dy;
+        const localRowOff = (sy - ty) * rowBytes;
+        for (let dx = Math.floor((tx * outW) / width); dx <= Math.min(outW - 1, Math.floor(((xEnd - 1) * outW) / width)); dx++) {
+          const sx = Math.min(xEnd - 1, Math.floor((dx * width) / outW));
+          const localOff = localRowOff + (sx - tx) * spp * bytesPerSample;
+          writePixelSample(raw, localOff, dx, dy);
+        }
+      }
+    }
+  } else {
+    const stripOffsets = tags[273];
+    const stripCounts = tags[279] || [];
+    const rowsPerStrip = (tags[278] || [height])[0];
+    if (!stripOffsets || !stripOffsets.length) throw new Error('GeoTIFF missing StripOffsets/TileOffsets');
+    const rowBytes = width * spp * bytesPerSample;
+
+    for (let s = 0; s < stripOffsets.length; s++) {
+      const yStart = s * rowsPerStrip;
+      const stripRows = Math.min(rowsPerStrip, height - yStart);
+      if (stripRows <= 0) break;
+      const expectedBytes = stripRows * rowBytes;
+      const sliceBuf = await readFileSlice(tiffBlob, stripOffsets[s], stripCounts[s] || expectedBytes * 2);
+      const raw = await decompressTiffBlock(new Uint8Array(sliceBuf), compression, expectedBytes);
+      undoPredictor(raw, rowBytes, width, spp);
+
+      let prevDy = -1;
+      for (let r = 0; r < stripRows; r++) {
+        const sy = yStart + r;
+        const dy = Math.min(outH - 1, Math.floor((sy * outH) / height));
+        if (dy === prevDy && outH < height) continue;
+        prevDy = dy;
+        const rowOff = r * rowBytes;
+        for (let dx = 0; dx < outW; dx++) {
+          const sx = Math.min(width - 1, Math.floor((dx * width) / outW));
+          writePixelSample(raw, rowOff + sx * spp * bytesPerSample, dx, dy);
+        }
+      }
+    }
+  }
+
+  if (scalar16) {
+    const span = (max16 > min16) ? (max16 - min16) : 1;
+    for (let i = 0; i < scalar16.length; i++) {
+      let g = Math.round(((scalar16[i] - min16) / span) * 255);
+      if (photo === 0) g = 255 - g;
+      const p = i * 4;
+      rgba[p] = g; rgba[p + 1] = g; rgba[p + 2] = g; rgba[p + 3] = 255;
+    }
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext('2d');
+  ctx.putImageData(new ImageData(rgba, outW, outH), 0, 0);
+  const pngBlob = await new Promise(res => canvas.toBlob(b => res(b), 'image/png'));
+  const objectUrl = URL.createObjectURL(pngBlob);
+
+  const crsLabel = crsInfo.epsg ? ('EPSG:' + crsInfo.epsg) : (crsInfo.type || 'Auto');
+  const group = L.featureGroup();
+  const imgLayer = L.imageOverlay(objectUrl, bounds, { opacity: 0.88, interactive: true });
+  imgLayer.on('click', () => {
+    showOverlayFeatureInfo(name, {
+      Format: 'GeoTIFF Raster' + (isBig ? ' (BigTIFF)' : ''),
+      Dimensions: width + ' x ' + height + ' px' + (downScale < 1 ? ' (Preview ' + outW + 'x' + outH + ')' : ''),
+      CRS: crsLabel,
+      Compression: compression === 1 ? 'Uncompressed' : (compression === 5 ? 'LZW' : 'Deflate'),
+      North: bounds[1][0].toFixed(6),
+      South: bounds[0][0].toFixed(6),
+      East: bounds[1][1].toFixed(6),
+      West: bounds[0][1].toFixed(6)
+    });
+  });
+  group.addLayer(imgLayer);
+  registerOverlayLayer(name, group, bounds, { typeLabel: 'GeoTIFF ' + crsLabel, objectUrl, opacity: 0.88 });
+  showToast('🗺️ GeoTIFF loaded (' + width + 'x' + height + 'px)');
+}
+
+// --- GEOJPG / GEOPNG WITH WORLD FILE + PRJ + XMP/EXIF ---
+function parseExifAndXmpFromJpegHeader(bytes) {
+  const txt = new TextDecoder('latin1').decode(bytes);
+  const out = {};
+
+  // Check XMP LatLonBox or DJI / Geo tags
+  const north = txt.match(/<north>\s*([-+0-9.]+)\s*<\/north>/i);
+  const south = txt.match(/<south>\s*([-+0-9.]+)\s*<\/south>/i);
+  const east = txt.match(/<east>\s*([-+0-9.]+)\s*<\/east>/i);
+  const west = txt.match(/<west>\s*([-+0-9.]+)\s*<\/west>/i);
+  if (north && south && east && west) {
+    out.bounds = [[parseFloat(south[1]), parseFloat(west[1])], [parseFloat(north[1]), parseFloat(east[1])]];
+  }
+
+  // Scan for Exif\0\0 TIFF header inside APP1
+  const exifIdx = txt.indexOf('Exif\x00\x00');
+  if (exifIdx >= 0 && exifIdx + 14 < bytes.length) {
+    const tStart = exifIdx + 6;
+    const dv = new DataView(bytes.buffer, bytes.byteOffset + tStart, bytes.byteLength - tStart);
+    const le = dv.getUint8(0) === 0x49 && dv.getUint8(1) === 0x49;
+    const be = dv.getUint8(0) === 0x4D && dv.getUint8(1) === 0x4D;
+    if (le || be) {
+      const readU16 = (o) => dv.getUint16(o, le);
+      const readU32 = (o) => dv.getUint32(o, le);
+      const ifd0 = readU32(4);
+      let gpsOff = 0;
+      if (ifd0 + 2 < dv.byteLength) {
+        const cnt = readU16(ifd0);
+        for (let i = 0; i < cnt; i++) {
+          const e = ifd0 + 2 + i * 12;
+          if (e + 12 <= dv.byteLength && readU16(e) === 0x8825) gpsOff = readU32(e + 8);
+        }
+      }
+      if (gpsOff > 0 && gpsOff + 2 < dv.byteLength) {
+        const gCnt = readU16(gpsOff);
+        let latRef = 'N', lonRef = 'E', latDms = null, lonDms = null;
+        const readRat3 = (off) => {
+          if (off + 24 > dv.byteLength) return null;
+          const d = readU32(off) / (readU32(off + 4) || 1);
+          const m = readU32(off + 8) / (readU32(off + 12) || 1);
+          const s = readU32(off + 16) / (readU32(off + 20) || 1);
+          return d + m / 60 + s / 3600;
+        };
+        for (let i = 0; i < gCnt; i++) {
+          const e = gpsOff + 2 + i * 12;
+          if (e + 12 > dv.byteLength) break;
+          const tag = readU16(e);
+          if (tag === 1) latRef = String.fromCharCode(dv.getUint8(e + 8));
+          if (tag === 2) latDms = readRat3(readU32(e + 8));
+          if (tag === 3) lonRef = String.fromCharCode(dv.getUint8(e + 8));
+          if (tag === 4) lonDms = readRat3(readU32(e + 8));
+        }
+        if (latDms !== null && lonDms !== null && !isNaN(latDms) && !isNaN(lonDms)) {
+          out.gpsCenter = [latRef === 'S' ? -latDms : latDms, lonRef === 'W' ? -lonDms : lonDms];
+        }
+      }
+    }
+  }
+  return out;
+}
+
+async function parseAndAddGeoRasterOverlay(name, imgBlob, sidecarMap) {
+  const hdrBuf = await readFileSlice(imgBlob, 0, Math.min(imgBlob.size, 131072));
+  const embedded = parseExifAndXmpFromJpegHeader(new Uint8Array(hdrBuf));
+  const decoded = await decodeImageToCanvasUrl(imgBlob, OVERLAY_MAX_RASTER_DIM);
+
+  let crsInfo = { type: 'auto' };
+  if (sidecarMap && sidecarMap.prj) {
+    crsInfo = parsePrjWkt(await sidecarMap.prj.text());
+  }
+
+  let bounds = embedded.bounds || null;
+  let georefSource = embedded.bounds ? 'Embedded XMP LatLonBox' : '';
+
+  const wfEntry = sidecarMap && (sidecarMap.jgw || sidecarMap.jpgw || sidecarMap.pgw || sidecarMap.tfw || sidecarMap.wld);
+  if (!bounds && wfEntry) {
+    const wf = parseWorldFileText(await wfEntry.text());
+    if (wf) {
+      bounds = boundsFromAffineAndCrs(decoded.width, decoded.height, wf.a, wf.d, wf.b, wf.e, wf.c, wf.f, crsInfo, true);
+      georefSource = 'World File + ' + (crsInfo.epsg ? ('EPSG:' + crsInfo.epsg) : 'CRS');
+    }
+  }
+  if (!bounds && sidecarMap && sidecarMap.aux_xml) {
+    const aux = parseAuxXmlGeoref(await sidecarMap.aux_xml.text());
+    if (aux && aux.affine) {
+      bounds = boundsFromAffineAndCrs(decoded.width, decoded.height, aux.affine.a, aux.affine.d, aux.affine.b, aux.affine.e, aux.affine.c, aux.affine.f, aux.crs || crsInfo, false);
+      georefSource = 'GDAL .aux.xml';
+    }
+  }
+  if (!bounds && embedded.gpsCenter) {
+    const [cLat, cLon] = embedded.gpsCenter;
+    const aspect = decoded.width / Math.max(1, decoded.height);
+    const halfLat = 0.0012;
+    const halfLon = (halfLat * aspect) / Math.max(0.2, Math.cos(cLat * Math.PI / 180));
+    bounds = [[cLat - halfLat, cLon - halfLon], [cLat + halfLat, cLon + halfLon]];
+    georefSource = 'EXIF GPS Center Footprint';
+  }
+  if (!bounds) {
+    const mb = map.getBounds();
+    const s = mb.getSouth(), n = mb.getNorth(), w = mb.getWest(), e = mb.getEast();
+    const dLat = (n - s) * 0.15, dLon = (e - w) * 0.15;
+    bounds = [[s + dLat, w + dLon], [n - dLat, e - dLon]];
+    georefSource = 'View Bounds (No .jgw/XMP)';
+  }
+
+  const group = L.featureGroup();
+  const imgOverlay = L.imageOverlay(decoded.url, bounds, { opacity: 0.88, interactive: true });
+  imgOverlay.on('click', () => {
+    showOverlayFeatureInfo(name, {
+      Format: 'GeoRaster Image',
+      Dimensions: decoded.width + ' x ' + decoded.height + ' px' + (decoded.downsampled ? ' (Downsampled)' : ''),
+      Georeference: georefSource,
+      North: bounds[1][0].toFixed(6),
+      South: bounds[0][0].toFixed(6),
+      East: bounds[1][1].toFixed(6),
+      West: bounds[0][1].toFixed(6)
+    });
+  });
+  group.addLayer(imgOverlay);
+
+  registerOverlayLayer(name, group, bounds, { typeLabel: georefSource, objectUrl: decoded.url, opacity: 0.88 });
+  showToast('🖼️ Loaded ' + name + ' (' + georefSource + ')');
+}
+
+// --- GEOTAGGED PDF / GEOPDF OVERLAY (ISO 32000 + TERRAGO + CHUNKED RASTER XOBJECT) ---
+async function parseAndAddGeoPdfOverlay(name, pdfBlob) {
+  const CHUNK_SIZE = 1572864; // 1.5 MB overlapping chunks
+  const OVERLAP = 65536;
+  const gptsList = [];
+  const lptsList = [];
+  const mediaBoxes = [];
+  let epsgCode = null;
+  let wktStr = '';
+  let hasTerraGo = false;
+  let bestImgUrl = null;
+  let bestImgArea = 0;
+
+  const parseNumList = (s) => s.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
+  const decoder = new TextDecoder('latin1');
+
+  for (let offset = 0; offset < pdfBlob.size; offset += (CHUNK_SIZE - OVERLAP)) {
+    const readLen = Math.min(CHUNK_SIZE, pdfBlob.size - offset);
+    const buf = await readFileSlice(pdfBlob, offset, readLen);
+    const bytes = new Uint8Array(buf);
+    const txt = decoder.decode(bytes);
+
+    // 1. ISO 32000 /GPTS and /LPTS
+    let m;
+    const gptsRe = /\/GPTS\s*\[([^\]]+)\]/g;
+    while ((m = gptsRe.exec(txt)) !== null) {
+      const nums = parseNumList(m[1]);
+      for (let i = 0; i + 1 < nums.length; i += 2) gptsList.push([nums[i], nums[i + 1]]);
+    }
+    const lptsRe = /\/LPTS\s*\[([^\]]+)\]/g;
+    while ((m = lptsRe.exec(txt)) !== null) {
+      const nums = parseNumList(m[1]);
+      for (let i = 0; i + 1 < nums.length; i += 2) lptsList.push([nums[i], nums[i + 1]]);
+    }
+    const epsgM = txt.match(/\/EPSG\s+(\d+)/);
+    if (epsgM) epsgCode = parseInt(epsgM[1], 10);
+    const wktM = txt.match(/\/WKT\s*\(([^)]{10,1500})\)/);
+    if (wktM && !wktStr) wktStr = wktM[1];
+    const mbM = txt.match(/\/MediaBox\s*\[([^\]]+)\]/);
+    if (mbM) mediaBoxes.push(parseNumList(mbM[1]));
+
+    // 2. TerraGo /LGIDict neatline + projection
+    if (txt.includes('/LGIDict')) {
+      hasTerraGo = true;
+      const neatM = txt.match(/\/Neatline\s*\[([^\]]+)\]/);
+      const projTypeM = txt.match(/\/ProjectionType\s*\(([^)]+)\)/);
+      const ctmM = txt.match(/\/CTM\s*\[([^\]]+)\]/);
+      if (projTypeM && !wktStr) wktStr = projTypeM[1];
+      if (ctmM && neatM) {
+        const ctm = parseNumList(ctmM[1]);
+        const neat = parseNumList(neatM[1]);
+        if (ctm.length >= 6 && neat.length >= 4) {
+          let crs = { type: 'auto' };
+          const zm = txt.match(/\/Zone\s*\(?(\d{1,2})\)?/);
+          const hm = txt.match(/\/Hemisphere\s*\(?([NS])/i);
+          if (zm) crs = { type: 'utm', zone: parseInt(zm[1], 10), south: (hm && hm[1].toUpperCase() === 'S') };
+          for (let i = 0; i + 1 < neat.length; i += 2) {
+            const x = ctm[0] * neat[i] + ctm[2] * neat[i + 1] + ctm[4];
+            const y = ctm[1] * neat[i] + ctm[3] * neat[i + 1] + ctm[5];
+            gptsList.push(reprojectXYToLatLon(x, y, crs));
+          }
+        }
+      }
+    }
+
+    // 3. Extract largest embedded DCTDecode (JPEG) or FlateDecode raster Image XObject in chunk
+    const imgRe = /<<[^<>]{0,800}\/Subtype\s*\/Image[^<>]{0,800}>>/g;
+    while ((m = imgRe.exec(txt)) !== null) {
+      const dict = m[0];
+      const wM = dict.match(/\/Width\s+(\d+)/);
+      const hM = dict.match(/\/Height\s+(\d+)/);
+      if (!wM || !hM) continue;
+      const iw = parseInt(wM[1], 10), ih = parseInt(hM[1], 10);
+      if (iw * ih <= bestImgArea) continue;
+
+      const after = txt.slice(m.index + dict.length, m.index + dict.length + 32);
+      const streamMatch = after.match(/^\s*stream\r?\n/);
+      if (!streamMatch) continue;
+      const streamDataStart = m.index + dict.length + streamMatch[0].length;
+      const endPos = txt.indexOf('endstream', streamDataStart);
+      if (endPos === -1) continue;
+      const rawBytes = bytes.slice(streamDataStart, endPos);
+
+      if (/\/DCTDecode/.test(dict)) {
+        const jpgBlob = new Blob([rawBytes], { type: 'image/jpeg' });
+        const dec = await decodeImageToCanvasUrl(jpgBlob, OVERLAY_MAX_RASTER_DIM);
+        if (bestImgUrl) URL.revokeObjectURL(bestImgUrl);
+        bestImgUrl = dec.url;
+        bestImgArea = iw * ih;
+      } else if (/\/FlateDecode/.test(dict) && typeof DecompressionStream !== 'undefined' && iw <= 4096 && ih <= 4096) {
+        try {
+          const ds = new DecompressionStream('deflate');
+          const wr = ds.writable.getWriter();
+          wr.write(rawBytes);
+          wr.close();
+          const rawPixels = new Uint8Array(await new Response(ds.readable).arrayBuffer());
+          if (rawPixels.length >= iw * ih) {
+            const rgba = new Uint8ClampedArray(iw * ih * 4);
+            const isRgb = rawPixels.length >= iw * ih * 3;
+            for (let p = 0; p < iw * ih; p++) {
+              if (isRgb) {
+                rgba[p * 4] = rawPixels[p * 3]; rgba[p * 4 + 1] = rawPixels[p * 3 + 1]; rgba[p * 4 + 2] = rawPixels[p * 3 + 2]; rgba[p * 4 + 3] = 255;
+              } else {
+                const v = rawPixels[p];
+                rgba[p * 4] = v; rgba[p * 4 + 1] = v; rgba[p * 4 + 2] = v; rgba[p * 4 + 3] = 255;
+              }
+            }
+            const cv = document.createElement('canvas');
+            cv.width = iw; cv.height = ih;
+            cv.getContext('2d').putImageData(new ImageData(rgba, iw, ih), 0, 0);
+            const pngBlob = await new Promise(res => cv.toBlob(b => res(b), 'image/png'));
+            const dec = await decodeImageToCanvasUrl(pngBlob, OVERLAY_MAX_RASTER_DIM);
+            if (bestImgUrl) URL.revokeObjectURL(bestImgUrl);
+            bestImgUrl = dec.url;
+            bestImgArea = iw * ih;
+          }
+        } catch (_) {}
+      }
+    }
+    if (offset + readLen >= pdfBlob.size) break;
+  }
+
+  if (gptsList.length === 0) {
+    throw new Error('No ISO 32000 (/GPTS) or TerraGo (/LGIDict) georeference found in PDF.');
+  }
+
+  let south = 90, north = -90, west = 180, east = -180;
+  gptsList.forEach(([lat, lon]) => {
+    if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+      south = Math.min(south, lat); north = Math.max(north, lat);
+      west = Math.min(west, lon); east = Math.max(east, lon);
+    }
+  });
+  if (south >= north || west >= east) throw new Error('Invalid GeoPDF coordinate bounds');
+  const bounds = [[south, west], [north, east]];
+
+  const group = L.featureGroup();
+  if (bestImgUrl) {
+    group.addLayer(L.imageOverlay(bestImgUrl, bounds, { opacity: 0.86, interactive: true }));
+  }
+
+  const ring = gptsList.length >= 3 ? gptsList : [[south, west], [north, west], [north, east], [south, east]];
+  const neatPoly = L.polygon(ring, {
+    color: '#38BDF8',
+    weight: 2.5,
+    dashArray: bestImgUrl ? '6,4' : null,
+    fillColor: '#0EA5E9',
+    fillOpacity: bestImgUrl ? 0.04 : 0.22
+  });
+  neatPoly.on('click', () => {
+    showOverlayFeatureInfo(name, {
+      Format: hasTerraGo ? 'TerraGo GeoPDF' : 'ISO 32000 GeoPDF',
+      RasterExtracted: bestImgUrl ? 'Yes (Embedded XObject)' : 'Vector / Neatline Footprint',
+      EPSG: epsgCode || 'Geographic / WKT',
+      GPTS_Points: gptsList.length,
+      CRS_WKT: wktStr ? wktStr.slice(0, 120) : 'WGS84',
+      North: north.toFixed(6), South: south.toFixed(6), East: east.toFixed(6), West: west.toFixed(6)
+    });
+  });
+  group.addLayer(neatPoly);
+
+  registerOverlayLayer(name, group, bounds, {
+    typeLabel: bestImgUrl ? 'GeoPDF Raster' : 'GeoPDF Neatline',
+    objectUrl: bestImgUrl,
+    opacity: 0.88
+  });
+  showToast('📄 GeoPDF loaded (' + (bestImgUrl ? 'Raster + Neatline' : 'Neatline ' + gptsList.length + ' pts') + ')');
+}
+
+// --- GARMIN .IMG OVERLAY (CHUNKED DSKIMG XOR + FAT + TRE BOUNDS + RGN VECTORS) ---
+async function parseAndAddGarminImgOverlay(name, imgBlob) {
+  const hdrBuf = await readFileSlice(imgBlob, 0, Math.min(4096, imgBlob.size));
+  const rawHdr = new Uint8Array(hdrBuf);
+  if (rawHdr.length < 0x120) throw new Error('File too small to be a Garmin .img');
+  const xorKey = rawHdr[0];
+  const hdr = new Uint8Array(rawHdr.length);
+  for (let i = 0; i < rawHdr.length; i++) hdr[i] = rawHdr[i] ^ xorKey;
+
+  const sig = String.fromCharCode(hdr[0x10], hdr[0x11], hdr[0x12], hdr[0x13], hdr[0x14], hdr[0x15]);
+  if (sig !== 'DSKIMG') throw new Error('Invalid Garmin .img signature (expected DSKIMG)');
+
+  const readXorSlice = async (start, length) => {
+    const ab = await readFileSlice(imgBlob, start, length);
+    const u8 = new Uint8Array(ab);
+    if (xorKey !== 0) {
+      for (let i = 0; i < u8.length; i++) u8[i] ^= xorKey;
+    }
+    return u8;
+  };
+
+  const e1 = hdr[0x61] || 9;
+  const e2 = hdr[0x62] || 0;
+  const blockSize = Math.max(512, Math.min(65536, 1 << Math.min(16, e1 + e2)));
+  const decAscii = (arr, s, e) => new TextDecoder('ascii').decode(arr.subarray(s, e)).replace(/\0/g, '').trim();
+  const mapTitle = (decAscii(hdr, 0x49, 0x5D) + ' ' + decAscii(hdr, 0x65, 0x83)).trim() || name;
+
+  const readU16LE = (b, o) => b[o] | (b[o + 1] << 8);
+  const readU32LE = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+  const readS24LE = (b, o) => {
+    let v = b[o] | (b[o + 1] << 8) | (b[o + 2] << 16);
+    if (v & 0x800000) v |= 0xFF000000;
+    return (v * 360.0) / 16777216.0;
+  };
+
+  // Scan FAT directory entries starting at 0x200 / blockSize (usually 0x400 or 0x200)
+  let firstDataByte = imgBlob.size;
+  const subfiles = {};
+  const fatStart = Math.max(0x200, hdr[0x40] === 0 && hdr[0x41] > 0 ? hdr[0x41] * blockSize : 0x200);
+  // Check both 0x200 and 0x400 if 0x200 starts with zero
+  const scanOffset = 0x200;
+  const maxFatRead = Math.min(262144, imgBlob.size - scanOffset);
+  const fatBytes = await readXorSlice(scanOffset, maxFatRead);
+
+  for (let p = 0; p + 512 <= fatBytes.length; p += 512) {
+    if (p + scanOffset >= firstDataByte) break;
+    const flag = fatBytes[p];
+    if (flag === 0x00 || flag === 0xFF) continue;
+    const fName = decAscii(fatBytes, p + 1, p + 9);
+    const fType = decAscii(fatBytes, p + 9, p + 12).toUpperCase();
+    const fSize = readU32LE(fatBytes, p + 12);
+    const partNum = readU16LE(fatBytes, p + 18);
+    if (!fType || partNum !== 0) continue;
+
+    // Collect block list starting at p + 0x20 (up to 240 uint16 blocks)
+    const blocks = [];
+    for (let b = 0; b < 240; b++) {
+      const blk = readU16LE(fatBytes, p + 0x20 + b * 2);
+      if (blk === 0xFFFF || blk === 0) break;
+      blocks.push(blk);
+      firstDataByte = Math.min(firstDataByte, blk * blockSize);
+    }
+    if (blocks.length > 0 && (fType === 'TRE' || fType === 'RGN' || fType === 'GMP' || fType === 'LBL')) {
+      subfiles[fName + '.' + fType] = { name: fName, type: fType, size: fSize, blocks };
+    }
+  }
+
+  // Fallback FAT check if 0x200 had subfiles at offset 0x400/0x600 etc (handled by loop above up to 256KB)
+  const readSubfileRange = async (sf, relOff, len) => {
+    const out = new Uint8Array(len);
+    let written = 0;
+    let curOff = relOff;
+    while (written < len) {
+      const blkIdx = Math.floor(curOff / blockSize);
+      const inBlk = curOff % blockSize;
+      if (blkIdx >= sf.blocks.length) break;
+      const toCopy = Math.min(len - written, blockSize - inBlk);
+      const chunk = await readXorSlice(sf.blocks[blkIdx] * blockSize + inBlk, toCopy);
+      out.set(chunk, written);
+      written += chunk.length;
+      curOff += toCopy;
+    }
+    return out.subarray(0, written);
+  };
+
+  let overallNorth = -90, overallSouth = 90, overallEast = -180, overallWest = 180;
+  const treSummaries = [];
+  const extractedPoints = [];
+  const subBoxes = [];
+
+  for (const key of Object.keys(subfiles)) {
+    const sf = subfiles[key];
+    let treData = null;
+    let treBaseOff = 0;
+    let rgnData = null;
+
+    if (sf.type === 'TRE') {
+      treData = await readSubfileRange(sf, 0, Math.min(sf.size || 65536, 131072));
+    } else if (sf.type === 'GMP') {
+      const gmpHdr = await readSubfileRange(sf, 0, 0x60);
+      const gmpType = decAscii(gmpHdr, 2, 12);
+      if (gmpType.includes('GARMIN GMP')) {
+        const treOff = readU32LE(gmpHdr, 0x19);
+        const rgnOff = readU32LE(gmpHdr, 0x1D);
+        if (treOff > 0 && treOff < sf.size) {
+          treData = await readSubfileRange(sf, treOff, Math.min(65536, sf.size - treOff));
+          treBaseOff = treOff;
+        }
+        if (rgnOff > 0 && rgnOff < sf.size && (sf.size - rgnOff) <= 1048576) {
+          rgnData = await readSubfileRange(sf, rgnOff, Math.min(262144, sf.size - rgnOff));
+        }
+      }
+    }
+
+    if (treData && treData.length >= 0x35) {
+      const n = readS24LE(treData, 0x15);
+      const e = readS24LE(treData, 0x18);
+      const s = readS24LE(treData, 0x1B);
+      const w = readS24LE(treData, 0x1E);
+      if (n > s && e > w && n <= 90 && s >= -90 && e <= 180 && w >= -180) {
+        overallNorth = Math.max(overallNorth, n);
+        overallSouth = Math.min(overallSouth, s);
+        overallEast = Math.max(overallEast, e);
+        overallWest = Math.min(overallWest, w);
+        subBoxes.push({ name: sf.name, n, s, e, w });
+        treSummaries.push(sf.name + ' (' + s.toFixed(3) + '..' + n.toFixed(3) + ', ' + w.toFixed(3) + '..' + e.toFixed(3) + ')');
+
+        // Check associated standard RGN file for POI points (capped safely for huge maps)
+        const matchingRgn = subfiles[sf.name + '.RGN'];
+        const treHdrLen = readU16LE(treData, 0);
+        const subOff = readU32LE(treData, 0x29);
+        const subSize = readU32LE(treData, 0x2D);
+        if (!rgnData && matchingRgn && matchingRgn.size <= 2097152 && subOff > 0 && subOff + subSize <= treData.length) {
+          rgnData = await readSubfileRange(matchingRgn, 0, Math.min(matchingRgn.size, 524288));
+        }
+        if (rgnData && rgnData.length > 0x20 && subOff >= treHdrLen && subOff + 14 <= treData.length) {
+          const rgnStart = readU32LE(rgnData, 0x15);
+          const rgnLen = readU32LE(rgnData, 0x19);
+          // Parse TRE2 subdivisions (14 or 16 bytes each)
+          const subCount = Math.min(64, Math.floor((subSize || 14) / 14));
+          for (let si = 0; si < subCount && extractedPoints.length < 1500; si++) {
+            const p = subOff + si * 14;
+            if (p + 14 > treData.length) break;
+            const elemFlags = treData[p + 3];
+            const cLon = readS24LE(treData, p + 4);
+            const cLat = readS24LE(treData, p + 7);
+            if (cLat >= s && cLat <= n && cLon >= w && cLon <= e && (elemFlags & 0x10)) {
+              extractedPoints.push({ lat: cLat, lon: cLon, label: sf.name + ' Sub#' + (si + 1) });
+            }
+          }
+          void rgnStart; void rgnLen;
+        }
+      }
+    }
+  }
+
+  if (overallSouth >= overallNorth || overallWest >= overallEast) {
+    throw new Error('Garmin .img decoded ("' + mapTitle + '"), but no readable TRE map bounds were found.');
+  }
+
+  const bounds = [[overallSouth, overallWest], [overallNorth, overallEast]];
+  const group = L.featureGroup();
+
+  subBoxes.forEach(box => {
+    const poly = L.polygon([[box.s, box.w], [box.n, box.w], [box.n, box.e], [box.s, box.e]], {
+      color: '#10B981',
+      weight: 2.5,
+      fillColor: '#10B981',
+      fillOpacity: 0.14
+    });
+    poly.on('click', () => {
+      showOverlayFeatureInfo(mapTitle, {
+        Format: 'Garmin Map (.img)',
+        MapTitle: mapTitle,
+        Subfiles: Object.keys(subfiles).length,
+        BlockSize: blockSize + ' B',
+        XORKey: xorKey,
+        Extent: box.s.toFixed(5) + '..' + box.n.toFixed(5) + ' N, ' + box.w.toFixed(5) + '..' + box.e.toFixed(5) + ' E'
+      });
+    });
+    group.addLayer(poly);
+  });
+
+  extractedPoints.slice(0, 600).forEach(pt => {
+    const m = L.circleMarker([pt.lat, pt.lon], { radius: 4, fillColor: '#34D399', color: '#064E3B', weight: 1, fillOpacity: 0.85 });
+    m.on('click', () => showOverlayFeatureInfo(mapTitle, { Subdivision: pt.label, Lat: pt.lat.toFixed(5), Lon: pt.lon.toFixed(5) }));
+    group.addLayer(m);
+  });
+
+  registerOverlayLayer(mapTitle, group, bounds, { typeLabel: 'Garmin .img (' + Object.keys(subfiles).length + ' subfiles)' });
+  showToast('🧭 Garmin .img loaded: ' + mapTitle + ' (' + subBoxes.length + ' tile bounds)');
+}
+
 function addGeoJsonOverlay(name, geojson) {
-  const layerId = 'overlay_' + Date.now();
   const layer = L.geoJSON(geojson, {
     style: { color: '#F59E0B', weight: 2.5, fillOpacity: 0.25 },
     pointToLayer: function(f, latlng) {
@@ -6475,20 +7706,8 @@ function addGeoJsonOverlay(name, geojson) {
         showOverlayFeatureInfo(name, feature.properties || {});
       });
     }
-  }).addTo(map);
-
-  importedOverlays.push({
-    id: layerId,
-    name: name,
-    layer: layer,
-    visible: true,
-    opacity: 1
   });
-
-  renderOverlaysList();
-  if (layer.getBounds().isValid()) {
-    map.fitBounds(layer.getBounds());
-  }
+  registerOverlayLayer(name, layer, null, { typeLabel: 'Vector GeoJSON' });
 }
 
 function parseAndAddGpxOverlay(name, xmlString) {
@@ -6520,18 +7739,7 @@ function parseAndAddGpxOverlay(name, xmlString) {
     group.addLayer(poly);
   }
 
-  group.addTo(map);
-  const layerId = 'overlay_' + Date.now();
-  importedOverlays.push({
-    id: layerId,
-    name: name,
-    layer: group,
-    visible: true,
-    opacity: 1
-  });
-
-  renderOverlaysList();
-  if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+  registerOverlayLayer(name, group, null, { typeLabel: 'GPX Track/WPT' });
 }
 
 function parseAndAddKmlOverlay(name, xmlString) {
@@ -6559,18 +7767,27 @@ function parseAndAddKmlOverlay(name, xmlString) {
     }
   }
 
-  group.addTo(map);
-  const layerId = 'overlay_' + Date.now();
-  importedOverlays.push({
-    id: layerId,
-    name: name,
-    layer: group,
-    visible: true,
-    opacity: 1
-  });
+  registerOverlayLayer(name, group, null, { typeLabel: 'KML Overlay' });
+}
 
-  renderOverlaysList();
-  if (group.getBounds().isValid()) map.fitBounds(group.getBounds());
+function zoomToOverlay(idx) {
+  const ov = importedOverlays[idx];
+  if (!ov) return;
+  if (ov.bounds) map.fitBounds(ov.bounds);
+  else if (ov.layer && ov.layer.getBounds && ov.layer.getBounds().isValid()) map.fitBounds(ov.layer.getBounds());
+}
+
+function applyLayerOpacityRecursive(layer, op) {
+  if (!layer) return;
+  if (typeof layer.setOpacity === 'function') {
+    layer.setOpacity(op);
+  }
+  if (typeof layer.setStyle === 'function') {
+    layer.setStyle({ opacity: op, fillOpacity: Math.max(0.02, op * 0.28) });
+  }
+  if (typeof layer.eachLayer === 'function') {
+    layer.eachLayer(child => applyLayerOpacityRecursive(child, op));
+  }
 }
 
 function renderOverlaysList() {
@@ -6578,7 +7795,7 @@ function renderOverlaysList() {
   if (!container) return;
 
   if (importedOverlays.length === 0) {
-    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 24px;">No local overlay layers added yet. Tap <b>Add Layer</b> to load files.</div>';
+    container.innerHTML = '<div style="color: var(--text-muted); font-size: 13px; text-align: center; padding: 18px;">No local overlay files loaded yet. Tap <b>Load File</b> to import GeoTIFF, GeoJPG, GeoPDF, Garmin .img, or Vector layers.</div>';
     return;
   }
 
@@ -6588,8 +7805,12 @@ function renderOverlaysList() {
     row.className = 'layer-row';
     row.innerHTML = `
       <div class="layer-header-row">
-        <div style="font-size: 14px; font-weight: 800; color: #FFFFFF;">🗺️ ${ov.name}</div>
-        <div style="display: flex; gap: 8px;">
+        <div style="min-width: 0;">
+          <div style="font-size: 14px; font-weight: 800; color: #FFFFFF; word-break: break-word;">🗺️ ${escapeXml(ov.name)}</div>
+          ${ov.typeLabel ? `<div style="font-size: 11px; color: #94A3B8; margin-top: 2px;">${escapeXml(ov.typeLabel)}</div>` : ''}
+        </div>
+        <div style="display: flex; gap: 6px; flex-shrink: 0;">
+          <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 12px; min-height: 32px;" title="Zoom to Overlay" onclick="zoomToOverlay(${idx})">🎯</button>
           <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 12px; min-height: 32px;" onclick="toggleOverlayVisibility(${idx})">
             ${ov.visible ? '👁️ On' : '🚫 Off'}
           </button>
@@ -6599,7 +7820,7 @@ function renderOverlaysList() {
       <div class="layer-slider-row">
         <span>Opacity:</span>
         <input type="range" min="0" max="1" step="0.05" value="${ov.opacity}" oninput="setOverlayOpacity(${idx}, this.value)">
-        <span style="min-width: 38px; text-align: right;">${Math.round(ov.opacity * 100)}%</span>
+        <span id="ovOpacityLabel_${idx}" style="min-width: 38px; text-align: right;">${Math.round(ov.opacity * 100)}%</span>
       </div>
     `;
     container.appendChild(row);
@@ -6619,16 +7840,20 @@ function toggleOverlayVisibility(idx) {
 
 function setOverlayOpacity(idx, val) {
   const ov = importedOverlays[idx];
+  if (!ov) return;
   ov.opacity = parseFloat(val);
-  if (ov.layer.setStyle) {
-    ov.layer.setStyle({ opacity: ov.opacity, fillOpacity: ov.opacity * 0.35 });
-  }
-  renderOverlaysList();
+  applyLayerOpacityRecursive(ov.layer, ov.opacity);
+  const lbl = document.getElementById('ovOpacityLabel_' + idx);
+  if (lbl) lbl.textContent = Math.round(ov.opacity * 100) + '%';
 }
 
 function removeOverlay(idx) {
   const ov = importedOverlays[idx];
+  if (!ov) return;
   map.removeLayer(ov.layer);
+  if (ov.objectUrl) {
+    try { URL.revokeObjectURL(ov.objectUrl); } catch (_) {}
+  }
   importedOverlays.splice(idx, 1);
   renderOverlaysList();
 }

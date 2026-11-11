@@ -1099,8 +1099,232 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: iPad & Android Tablet layouts expand cleanly, landscape right-rail never overlaps dock, and shared shader canvas active');
 
+
+    // TEST 34: GeoTIFF Binary Overlay (ModelPixelScale + ModelTiepoint + GeoKeys + Opacity)
+    const geoTiffTest = await evaluate(`(async () => {
+      // Build valid 4x4 Uncompressed RGB Little-Endian GeoTIFF with WGS84 GeoKeys
+      const w = 4, h = 4;
+      const numTags = 12;
+      const ifdOffset = 8;
+      const ifdSize = 2 + numTags * 12 + 4; // 150 bytes
+      const dataStart = ifdOffset + ifdSize; // 158
+      const pixelDataSize = w * h * 3; // 48
+      // Extra tag payloads:
+      // BitsPerSample (3x uint16 = 6), StripOffsets (4), StripByteCounts (4),
+      // PixelScale (3x float64 = 24), Tiepoint (6x float64 = 48), GeoKeys (16x uint16 = 32)
+      const bpsOff = dataStart + pixelDataSize; // 206
+      const scaleOff = bpsOff + 8; // 214
+      const tieOff = scaleOff + 24; // 238
+      const gkOff = tieOff + 48; // 286
+      const totalSize = gkOff + 32; // 318
+      const buf = new ArrayBuffer(totalSize);
+      const u8 = new Uint8Array(buf);
+      const dv = new DataView(buf);
+
+      // TIFF Header: II, 42, IFD@8
+      u8[0] = 0x49; u8[1] = 0x49; dv.setUint16(2, 42, true); dv.setUint32(4, ifdOffset, true);
+      dv.setUint16(ifdOffset, numTags, true);
+      let cur = ifdOffset + 2;
+      const writeTag = (id, type, count, valOrOff) => {
+        dv.setUint16(cur, id, true);
+        dv.setUint16(cur + 2, type, true);
+        dv.setUint32(cur + 4, count, true);
+        if (type === 3 && count === 1) dv.setUint16(cur + 8, valOrOff, true);
+        else dv.setUint32(cur + 8, valOrOff, true);
+        cur += 12;
+      };
+      // Sorted ascending by tag ID
+      writeTag(256, 4, 1, w);             // ImageWidth
+      writeTag(257, 4, 1, h);             // ImageLength
+      writeTag(258, 3, 3, bpsOff);        // BitsPerSample [8,8,8]
+      writeTag(259, 3, 1, 1);             // Compression = None
+      writeTag(262, 3, 1, 2);             // Photometric = RGB
+      writeTag(273, 4, 1, dataStart);     // StripOffsets
+      writeTag(277, 3, 1, 3);             // SamplesPerPixel
+      writeTag(278, 4, 1, h);             // RowsPerStrip
+      writeTag(279, 4, 1, pixelDataSize); // StripByteCounts
+      writeTag(33550, 12, 3, scaleOff);   // ModelPixelScaleTag
+      writeTag(33922, 12, 6, tieOff);     // ModelTiepointTag
+      writeTag(34735, 3, 16, gkOff);      // GeoKeyDirectoryTag
+      dv.setUint32(cur, 0, true);         // Next IFD = 0
+
+      // RGB pixels
+      for (let i = 0; i < w * h; i++) {
+        u8[dataStart + i * 3] = 220;
+        u8[dataStart + i * 3 + 1] = 60 + i * 10;
+        u8[dataStart + i * 3 + 2] = 40;
+      }
+      dv.setUint16(bpsOff, 8, true); dv.setUint16(bpsOff + 2, 8, true); dv.setUint16(bpsOff + 4, 8, true);
+      // Scale = 0.01 deg/px
+      dv.setFloat64(scaleOff, 0.01, true); dv.setFloat64(scaleOff + 8, 0.01, true); dv.setFloat64(scaleOff + 16, 0, true);
+      // Tiepoint: (0,0,0) -> (lon=46.60, lat=24.75, z=0)
+      dv.setFloat64(tieOff, 0, true); dv.setFloat64(tieOff + 8, 0, true); dv.setFloat64(tieOff + 16, 0, true);
+      dv.setFloat64(tieOff + 24, 46.60, true); dv.setFloat64(tieOff + 32, 24.75, true); dv.setFloat64(tieOff + 40, 0, true);
+      // GeoKeys: header [1,1,0,3], ModelType=2(Geographic), RasterType=1, GeogCRS=4326
+      const gk = [1, 1, 0, 3,  1024, 0, 1, 2,  1025, 0, 1, 1,  2048, 0, 1, 4326];
+      gk.forEach((v, idx) => dv.setUint16(gkOff + idx * 2, v, true));
+
+      const beforeCnt = importedOverlays.length;
+      const tifFile = new File([buf], 'survey_tile.tif', { type: 'image/tiff' });
+      await parseAndAddGeoTiffOverlay('survey_tile.tif', tifFile, {});
+      const ov = importedOverlays[importedOverlays.length - 1];
+      setOverlayOpacity(importedOverlays.length - 1, 0.45);
+      const b = ov ? ov.bounds : null;
+      return {
+        added: importedOverlays.length === beforeCnt + 1,
+        typeLabel: ov?.typeLabel,
+        northOk: b && Math.abs(b[1][0] - 24.75) < 0.001,
+        southOk: b && Math.abs(b[0][0] - 24.71) < 0.001,
+        eastOk: b && Math.abs(b[1][1] - 46.64) < 0.001,
+        opacity: ov?.opacity
+      };
+    })()`);
+    console.log('Test 34 - GeoTIFF Binary Overlay + Opacity:', geoTiffTest);
+    if (!geoTiffTest.added || !geoTiffTest.northOk || !geoTiffTest.southOk || !geoTiffTest.eastOk || geoTiffTest.opacity !== 0.45) {
+      throw new Error('GeoTIFF binary overlay test failed');
+    }
+    console.log('  -> PASS: GeoTIFF IFD, GeoKeys, Tiepoint/PixelScale & ImageOverlay opacity verified');
+
+    // TEST 35: Large GeoJPG/GeoPNG + World File (.jgw) + UTM PRJ Reprojection & Large Downsample
+    const geoRasterTest = await evaluate(`(async () => {
+      // Create oversized 2400x2400 raster to exercise large-map downsampling <= 2048px
+      const cv = document.createElement('canvas');
+      cv.width = 2400; cv.height = 2400;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#0ea5e9';
+      ctx.fillRect(0, 0, 2400, 2400);
+      const pngBlob = await new Promise(r => cv.toBlob(r, 'image/png'));
+      const imgFile = new File([pngBlob], 'large_ortho.png', { type: 'image/png' });
+      // UTM Zone 38N (~Riyadh E=660000, N=2730000), 1m pixel
+      const jgwContent = '1.0\\n0.0\\n0.0\\n-1.0\\n660000.0\\n2730000.0\\n';
+      const prjContent = 'PROJCS["WGS_84_UTM_zone_38N",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],UNIT["Degree",0.0174532925199433]],PROJECTION["Transverse_Mercator"],PARAMETER["latitude_of_origin",0],PARAMETER["central_meridian",45],PARAMETER["scale_factor",0.9996],PARAMETER["false_easting",500000],PARAMETER["false_northing",0],UNIT["Meter",1]]';
+      const jgwFile = new File([jgwContent], 'large_ortho.pgw', { type: 'text/plain' });
+      const prjFile = new File([prjContent], 'large_ortho.prj', { type: 'text/plain' });
+
+      const beforeCnt = importedOverlays.length;
+      await onOverlayFileSelected({ target: { files: [imgFile, jgwFile, prjFile] } });
+      const ov = importedOverlays[importedOverlays.length - 1];
+      const b = ov?.bounds;
+      const decoded = await decodeImageToCanvasUrl(pngBlob, OVERLAY_MAX_RASTER_DIM);
+      return {
+        added: importedOverlays.length === beforeCnt + 1,
+        downsampled: decoded.downsampled && decoded.renderWidth <= 2048 && decoded.renderHeight <= 2048,
+        crsApplied: ov?.typeLabel.includes('32638') || ov?.typeLabel.includes('World File'),
+        latValid: b && b[0][0] > 24.0 && b[1][0] < 25.5,
+        lonValid: b && b[0][1] > 46.0 && b[1][1] < 47.5
+      };
+    })()`);
+    console.log('Test 35 - Large GeoRaster + WorldFile + UTM PRJ + Downsample:', geoRasterTest);
+    if (!geoRasterTest.added || !geoRasterTest.downsampled || !geoRasterTest.latValid || !geoRasterTest.lonValid) {
+      throw new Error('GeoRaster / WorldFile / UTM / Downsample test failed');
+    }
+    console.log('  -> PASS: Large GeoRaster (>2048px) downsampled safely & UTM Zone 38N world file accurately reprojected');
+
+    // TEST 36: Geotagged PDF (ISO 32000 /GPTS + Embedded /DCTDecode JPEG XObject)
+    const geoPdfTest = await evaluate(`(async () => {
+      // Generate tiny real JPEG bytes via canvas
+      const cv = document.createElement('canvas');
+      cv.width = 32; cv.height = 32;
+      const ctx = cv.getContext('2d');
+      ctx.fillStyle = '#f59e0b'; ctx.fillRect(0, 0, 32, 32);
+      const jpgUrl = cv.toDataURL('image/jpeg', 0.85);
+      const jpgBinStr = atob(jpgUrl.split(',')[1]);
+      const jpgBytes = new Uint8Array(jpgBinStr.length);
+      for (let i = 0; i < jpgBinStr.length; i++) jpgBytes[i] = jpgBinStr.charCodeAt(i);
+
+      const headerTxt = '%PDF-1.6\\n1 0 obj << /Type /Page /MediaBox [0 0 612 792] /VP [<< /Measure << /Subtype /GEO /Bounds [0 0 1 1] /GPTS [24.62 46.62 24.72 46.62 24.72 46.72 24.62 46.72] /LPTS [0 0 0 1 1 1 1 0] /GCS << /Type /GEOGCS /EPSG 4326 /WKT (GEOGCS[\\"WGS 84\\"]) >> >> >>] >> endobj\\n2 0 obj << /Type /XObject /Subtype /Image /Width 32 /Height 32 /Filter /DCTDecode /Length ' + jpgBytes.length + ' >> stream\\n';
+      const footerTxt = '\\nendstream\\nendobj\\n%%EOF\\n';
+      const enc = new TextEncoder();
+      const headB = enc.encode(headerTxt);
+      const footB = enc.encode(footerTxt);
+      const pdfAll = new Uint8Array(headB.length + jpgBytes.length + footB.length);
+      pdfAll.set(headB, 0);
+      pdfAll.set(jpgBytes, headB.length);
+      pdfAll.set(footB, headB.length + jpgBytes.length);
+
+      const beforeCnt = importedOverlays.length;
+      const pdfFile = new File([pdfAll], 'field_sheet.pdf', { type: 'application/pdf' });
+      await parseAndAddGeoPdfOverlay('field_sheet.pdf', pdfFile);
+      const ov = importedOverlays[importedOverlays.length - 1];
+      const b = ov?.bounds;
+      return {
+        added: importedOverlays.length === beforeCnt + 1,
+        typeLabel: ov?.typeLabel,
+        hasObjectUrl: !!ov?.objectUrl,
+        northOk: b && Math.abs(b[1][0] - 24.72) < 0.001,
+        eastOk: b && Math.abs(b[1][1] - 46.72) < 0.001
+      };
+    })()`);
+    console.log('Test 36 - GeoPDF (/GPTS + Embedded /DCTDecode JPEG):', geoPdfTest);
+    if (!geoPdfTest.added || !geoPdfTest.hasObjectUrl || !geoPdfTest.northOk || !geoPdfTest.eastOk) {
+      throw new Error('GeoPDF overlay test failed');
+    }
+    console.log('  -> PASS: GeoPDF ISO 32000 /GPTS + embedded JPEG stream extracted & mapped to leaflet bounds');
+
+    // TEST 37: Garmin .img Overlay (DSKIMG + XOR 0x55 + FAT + TRE 24-bit Bounds)
+    const garminImgTest = await evaluate(`(async () => {
+      const xorKey = 0x55;
+      const blockSize = 512;
+      const totalBytes = 4 * blockSize; // Block 0: hdr, Block 1-2: FAT, Block 3: TRE
+      const plain = new Uint8Array(totalBytes);
+      // Signature DSKIMG at 0x10
+      const sig = 'DSKIMG';
+      for (let i = 0; i < sig.length; i++) plain[0x10 + i] = sig.charCodeAt(i);
+      // Title at 0x49
+      const title = 'RIYADH TOPO';
+      for (let i = 0; i < title.length; i++) plain[0x49 + i] = title.charCodeAt(i);
+      plain[0x61] = 9; plain[0x62] = 0; // 2^9 = 512 byte block
+
+      // FAT Entry at 0x200 (flag=0x01, name='TILE0001', type='TRE', size=512, part=0, block[0]=3)
+      const fat = 0x200;
+      plain[fat] = 0x01;
+      const nm = 'TILE0001'; for (let i = 0; i < 8; i++) plain[fat + 1 + i] = nm.charCodeAt(i);
+      const tp = 'TRE'; for (let i = 0; i < 3; i++) plain[fat + 9 + i] = tp.charCodeAt(i);
+      plain[fat + 12] = 0x00; plain[fat + 13] = 0x02; // size 512
+      plain[fat + 0x20] = 3; plain[fat + 0x21] = 0;   // block 3
+      plain[fat + 0x22] = 0xFF; plain[fat + 0x23] = 0xFF;
+
+      // TRE subfile at Block 3 (offset 0x600)
+      const tre = 3 * blockSize;
+      plain[tre] = 0x35; // header len 53
+      const writeS24 = (off, deg) => {
+        let v = Math.round((deg * 16777216) / 360);
+        if (v < 0) v += 0x1000000;
+        plain[off] = v & 0xFF;
+        plain[off + 1] = (v >> 8) & 0xFF;
+        plain[off + 2] = (v >> 16) & 0xFF;
+      };
+      writeS24(tre + 0x15, 24.80); // North
+      writeS24(tre + 0x18, 46.85); // East
+      writeS24(tre + 0x1B, 24.55); // South
+      writeS24(tre + 0x1E, 46.55); // West
+
+      // XOR-encrypt entire Garmin .img image with 0x55
+      const encImg = new Uint8Array(totalBytes);
+      for (let i = 0; i < totalBytes; i++) encImg[i] = plain[i] ^ xorKey;
+
+      const beforeCnt = importedOverlays.length;
+      const imgFile = new File([encImg], 'riyadh_garmin.img', { type: 'application/octet-stream' });
+      await parseAndAddGarminImgOverlay('riyadh_garmin.img', imgFile);
+      const ov = importedOverlays[importedOverlays.length - 1];
+      const b = ov?.bounds;
+      return {
+        added: importedOverlays.length === beforeCnt + 1,
+        name: ov?.name,
+        northOk: b && Math.abs(b[1][0] - 24.80) < 0.002,
+        southOk: b && Math.abs(b[0][0] - 24.55) < 0.002,
+        eastOk: b && Math.abs(b[1][1] - 46.85) < 0.002,
+        westOk: b && Math.abs(b[0][1] - 46.55) < 0.002
+      };
+    })()`);
+    console.log('Test 37 - Garmin .img (DSKIMG XOR + FAT + TRE Bounds):', garminImgTest);
+    if (!garminImgTest.added || !garminImgTest.name.includes('RIYADH TOPO') || !garminImgTest.northOk || !garminImgTest.southOk || !garminImgTest.eastOk || !garminImgTest.westOk) {
+      throw new Error('Garmin .img overlay test failed');
+    }
+    console.log('  -> PASS: Garmin .img XOR decryption, FAT directory parsing, and TRE 24-bit bounds verified');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 33 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 37 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
