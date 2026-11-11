@@ -1489,6 +1489,7 @@ body, html {
   <span id="drawStatusText" style="font-size: 11.5px; font-weight: 800; color: #00F0FF; white-space: nowrap;">0 pts</span>
   <button class="btn" id="btnDigitizeModeToggle" style="padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(0, 240, 255, 0.2); border: 1.5px solid #00F0FF; color: #00F0FF; font-weight: 700;" onclick="toggleDigitizeInputMode()" title="Toggle: Draw by Screen Click vs Center Crosshair Cursor">👆 Click</button>
   <button class="btn" id="btnAddCursorVertex" style="display: none; padding: 5px 11px; font-size: 11px; min-height: 34px; background: #00F0FF; color: #0B132B; font-weight: 800; border-radius: 8px; border: none; box-shadow: 0 0 10px rgba(0,240,255,0.5);" onclick="addVertexAtCursor()" title="Add vertex at center crosshair position">➕ Add Pt</button>
+  <button class="btn" id="btnTypeCircleRadius" style="display: none; padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(16, 185, 129, 0.25); border: 1.5px solid #10B981; color: #10B981; font-weight: 700;" onclick="openCircleRadiusModal()" title="Type Circle Radius in Settings Units">📏 Radius</button>
   <button class="btn" id="btnSnapToggle" style="padding: 5px 9px; font-size: 11px; min-height: 34px; background: rgba(16, 185, 129, 0.25); border: 1.5px solid #10B981; color: #10B981;" onclick="toggleSnapEngine()">🧲 Snap</button>
   <button class="btn" id="btnTraceSnap" style="padding: 5px 8px; font-size: 10.5px; min-height: 34px; background: rgba(56, 189, 248, 0.15); border: 1.5px solid rgba(56, 189, 248, 0.45); color: #38BDF8;" onclick="onTraceSnapBtnClicked()" title="Long-press any adjacent feature (or tap here) to auto-trace shared boundary vertices">🔗 Trace</button>
   <button class="btn btn-secondary" style="padding: 5px 8px; font-size: 11px; min-height: 34px;" onclick="undoDrawVertex()">↩️</button>
@@ -1621,19 +1622,27 @@ body, html {
           </div>
         </div>
 
-        <div class="form-group" style="background: rgba(30, 41, 59, 0.6); padding: 14px; border-radius: 14px;">
-          <label class="form-label">Create New Project</label>
-          <div style="display: flex; gap: 10px;">
+        <div class="form-group" style="background: rgba(30, 41, 59, 0.6); padding: 12px; border-radius: 14px;">
+          <label class="form-label">Create New Project (Saves Previous Safely)</label>
+          <div style="display: flex; gap: 8px;">
             <input type="text" class="form-input" id="newProjectInput" placeholder="Enter Project Name (e.g. Area North)">
             <button class="btn btn-primary" onclick="createNewProject()">Create</button>
           </div>
         </div>
 
         <div class="form-group">
-          <label class="form-label">Project Stats</label>
-          <div id="projectStatsBox" style="font-size: 13px; color: var(--text-muted); line-height: 1.8; background: rgba(30,41,59,0.5); padding: 12px; border-radius: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <label class="form-label" style="margin-bottom: 0;">Active Project Stats</label>
+            <button type="button" class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px; min-height: 32px; border: 1px solid #00F0FF; color: #00F0FF;" onclick="openTransferProjectModal()">🔄 Transfer Layers / Cache</button>
+          </div>
+          <div id="projectStatsBox" style="font-size: 12.5px; color: var(--text-muted); line-height: 1.7; background: rgba(30,41,59,0.5); padding: 10px 12px; border-radius: 12px;">
             Waypoints: 0 | Photos: 0 | Tracks: 0 | Digitized: 0
           </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 0;">
+          <label class="form-label">All Saved Projects (Activate, Export, Delete)</label>
+          <div id="savedProjectsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
       </div>
 
@@ -1921,6 +1930,75 @@ body, html {
 </div>
 
 <!-- ========================================================================= -->
+<!-- MODAL: CHOOSE DIGITIZE GEOMETRY (POLYGON / LINE / CIRCLE)                  -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="drawModeChoiceModal">
+  <div class="modal-content" style="max-width: 380px;">
+    <div class="modal-header">
+      <div class="modal-title">✏️ Digitize Geometry</div>
+      <button class="modal-close" onclick="closeModal('drawModeChoiceModal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 10px;">
+      <button type="button" class="btn btn-primary" style="justify-content: flex-start; padding: 12px 14px;" onclick="closeModal('drawModeChoiceModal'); startDrawingMode('polygon');">
+        <span style="font-size: 20px;">⬠</span>
+        <div style="text-align: left;">
+          <div style="font-size: 14px; font-weight: 800;">Draw Polygon (Area)</div>
+          <div style="font-size: 11px; color: #0B132B;">Zone, sabkha, camp pad, or obstacle perimeter</div>
+        </div>
+      </button>
+      <button type="button" class="btn btn-secondary" style="justify-content: flex-start; padding: 12px 14px;" onclick="closeModal('drawModeChoiceModal'); startDrawingMode('line');">
+        <span style="font-size: 20px;">〰️</span>
+        <div style="text-align: left;">
+          <div style="font-size: 14px; font-weight: 800;">Draw Line (Trail / Route)</div>
+          <div style="font-size: 11px; color: #CBD5E1;">Access road, source line, wadi, or pipeline path</div>
+        </div>
+      </button>
+      <button type="button" class="btn btn-secondary" style="justify-content: flex-start; padding: 12px 14px; border: 1.5px solid rgba(16,185,129,0.5);" onclick="closeModal('drawModeChoiceModal'); startDrawingMode('circle', 'cursor');">
+        <span style="font-size: 20px;">⭕</span>
+        <div style="text-align: left;">
+          <div style="font-size: 14px; font-weight: 800; color: #10B981;">Draw Circle (Center + Radius)</div>
+          <div style="font-size: 11px; color: #CBD5E1;">Set center via cursor/click, then drag cursor or type exact radius</div>
+        </div>
+      </button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('drawModeChoiceModal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: ENTER CIRCLE RADIUS (IN SETTINGS DISTANCE UNITS)                    -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="circleRadiusModal">
+  <div class="modal-content" style="max-width: 390px;">
+    <div class="modal-header">
+      <div class="modal-title">⭕ Circle Radius Input</div>
+      <button class="modal-close" onclick="closeModal('circleRadiusModal')">&times;</button>
+    </div>
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="background: rgba(30,41,59,0.65); padding: 9px 12px; border-radius: 10px; font-size: 12px; color: #CBD5E1; line-height: 1.5;">
+        <div><b>Center Point:</b> <span id="circleCenterCoordsLabel" style="color: #00F0FF;">--</span></div>
+        <div style="margin-top: 6px;">
+          <button type="button" class="btn btn-secondary" style="padding: 5px 10px; font-size: 11px; min-height: 30px;" onclick="useCrosshairAsCircleCenter()">🎯 Use Current Crosshair as Center</button>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Outer Radius (<span id="circleRadiusUnitLabel">Meters (m)</span>)</label>
+        <input type="number" step="any" min="0.01" class="form-input" id="circleRadiusTypedInput" placeholder="e.g. 150">
+        <div style="font-size: 11px; color: #94A3B8; margin-top: 5px;">
+          Uses Distance Unit from Settings (<b id="circleSettingsUnitName">--</b>). You can change it in Settings → Options.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('circleRadiusModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="applyTypedCircleRadius()">⭕ Apply Radius</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
 <!-- MODAL: FEATURE INFO CARD (CLICK ANY MAP OBJECT)                            -->
 <!-- ========================================================================= -->
 <div class="modal-overlay" id="featureInfoModal">
@@ -2173,9 +2251,13 @@ body, html {
     </div>
 
     <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
-      <p style="font-size: 13px; color: #CBD5E1; margin-bottom: 6px;">
-        Choose export format for current project (<b id="exportProjectName" style="color:#00F0FF;">No Project</b>):
-      </p>
+      <div style="background: rgba(30,41,59,0.65); padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(56,189,248,0.25);">
+        <label class="form-label" style="margin-bottom: 4px;">Project to Export (Isolated Project Data)</label>
+        <select class="form-select" id="exportTargetProjectSelect" onchange="onExportTargetProjectChanged()" style="padding: 8px 10px; font-size: 13px;"></select>
+        <div style="font-size: 11px; color: #CBD5E1; margin-top: 6px;">
+          Exporting only data from: <b id="exportProjectName" style="color:#00F0FF;">No Project</b> (includes layer names &amp; project name).
+        </div>
+      </div>
 
       <!-- 1. Package File (.scoutpkg) -->
       <button class="btn btn-primary" style="padding: 14px; justify-content: flex-start; text-align: left;" onclick="exportScoutPackage()">
@@ -2252,6 +2334,111 @@ body, html {
 
     <div class="modal-footer">
       <button class="btn btn-secondary" onclick="closeModal('exportModal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: TRANSFER LAYERS & CACHED AOIS BETWEEN PROJECTS                     -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="transferProjectModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title">🔄 Transfer Layers &amp; Cache</div>
+      <button class="modal-close" onclick="closeModal('transferProjectModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">From Source Project</label>
+        <select class="form-select" id="transferSourceProjectSelect" onchange="renderTransferItemsList()"></select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">To Destination Project</label>
+        <select class="form-select" id="transferDestProjectSelect"></select>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Transfer Action</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <label class="res-choice-card active" id="transferModeCopyCard" onclick="setTransferOperationMode('copy')" style="padding: 8px 10px;">
+            <input type="radio" name="transferOpMode" id="radioTransferCopy" value="copy" checked style="accent-color: #00F0FF;">
+            <span style="font-size: 12px; font-weight: 700;">📋 Copy (Keep Source)</span>
+          </label>
+          <label class="res-choice-card" id="transferModeMoveCard" onclick="setTransferOperationMode('move')" style="padding: 8px 10px;">
+            <input type="radio" name="transferOpMode" id="radioTransferMove" value="move" style="accent-color: #F59E0B;">
+            <span style="font-size: 12px; font-weight: 700;">✂️ Move (Remove Source)</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-bottom: 0;">
+        <label class="form-label">Select Feature Layers &amp; Cache Data</label>
+        <div id="transferItemsList" style="display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; background: rgba(15,23,42,0.7); padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12);"></div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('transferProjectModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmTransferProjectData()">🔄 Execute Transfer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================================= -->
+<!-- MODAL: SAFE MULTI-STEP PROJECT DELETION & ARCHIVE / MERGE SAFEGUARD       -->
+<!-- ========================================================================= -->
+<div class="modal-overlay" id="deleteProjectModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" style="color: #FCA5A5;">⚠️ Delete Project Safeguard</div>
+      <button class="modal-close" onclick="closeModal('deleteProjectModal')">&times;</button>
+    </div>
+
+    <div class="modal-body" style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="background: rgba(239,68,68,0.14); border: 1px solid rgba(239,68,68,0.45); border-radius: 10px; padding: 10px 12px; font-size: 12.5px; color: #FECACA; line-height: 1.5;">
+        You selected to delete project: <b id="deleteTargetProjectTitle" style="color:#FFFFFF;">--</b><br>
+        <span id="deleteTargetProjectSummary" style="font-size: 11.5px; color: #E2E8F0;">--</span>
+      </div>
+
+      <!-- Step 1: Export Backup to File -->
+      <div style="background: rgba(30,41,59,0.7); padding: 10px 12px; border-radius: 12px;">
+        <div style="font-size: 12px; font-weight: 800; color: #38BDF8; margin-bottom: 6px;">Step 1 (Recommended): Export Project Backup First</div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-primary" style="flex: 1; font-size: 12px; padding: 8px 10px; min-height: 38px;" onclick="exportDeleteTargetBackup()">📦 Export to File (.scoutpkg)</button>
+          <button type="button" class="btn btn-secondary" style="font-size: 12px; padding: 8px 10px; min-height: 38px;" onclick="openDeleteTargetFullExport()">📤 All Formats</button>
+        </div>
+        <div id="deleteExportStatusNote" style="display: none; font-size: 11px; color: #10B981; margin-top: 6px; font-weight: 700;">✅ Backup export triggered!</div>
+      </div>
+
+      <!-- Step 2: Merge / Keep All or Selected Layers into Active Project -->
+      <div style="background: rgba(30,41,59,0.7); padding: 10px 12px; border-radius: 12px;" id="deleteMergeSection">
+        <div style="font-size: 12px; font-weight: 800; color: #10B981; margin-bottom: 6px;">Step 2 (Optional): Add All or Selected Layers to Project</div>
+        <div style="margin-bottom: 8px;">
+          <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 4px;">Target Project to Receive Data:</div>
+          <select class="form-select" id="deleteMergeDestSelect" style="padding: 7px 10px; font-size: 12px;"></select>
+        </div>
+        <div id="deleteSelectableLayersList" style="display: flex; flex-direction: column; gap: 5px; max-height: 130px; overflow-y: auto; margin-bottom: 8px; padding: 6px; background: rgba(15,23,42,0.7); border-radius: 8px;"></div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" style="flex: 1; font-size: 11.5px; padding: 8px; min-height: 36px; border: 1px solid #10B981; color: #10B981;" onclick="mergeDeleteTargetBeforeDelete(false)">➕ Add Selected</button>
+          <button type="button" class="btn btn-secondary" style="flex: 1; font-size: 11.5px; padding: 8px; min-height: 36px; border: 1px solid #00F0FF; color: #00F0FF;" onclick="mergeDeleteTargetBeforeDelete(true)">➕ Add All Data</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Final Explicit Confirmation -->
+      <div style="background: rgba(127,29,29,0.35); border: 1px solid rgba(239,68,68,0.5); padding: 10px 12px; border-radius: 12px;">
+        <div style="font-size: 12px; font-weight: 800; color: #FCA5A5; margin-bottom: 6px;">Step 3: Final Deletion Agreement</div>
+        <label style="display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #FFFFFF; cursor: pointer;">
+          <input type="checkbox" id="chkConfirmPermanentProjectDelete" style="width: 18px; height: 18px; margin-top: 2px; accent-color: #EF4444;">
+          <span id="deleteAgreementLabel">I agree to permanently delete this project and all its remaining data.</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('deleteProjectModal')">Keep Project (Cancel)</button>
+      <button class="btn btn-danger" id="btnFinalDeleteProject" onclick="confirmFinalProjectDeletion()">🗑️ Permanently Delete Project</button>
     </div>
   </div>
 </div>
@@ -2367,7 +2554,11 @@ let photos = [];
 let digitizedFeatures = [];
 let featureLayers = [];
 let builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
+let cachedAoiExtents = [];
 let importedOverlays = [];
+let activeExportProjectId = '__active__';
+let pendingDeleteProjectId = null;
+let transferOpMode = 'copy';
 
 // Measurement Engine & Units State
 let measureDistUnit = localStorage.getItem('qfn_measure_dist_unit') || 'm_km';
@@ -2412,6 +2603,8 @@ let isDrawing = false;
 let drawType = 'polygon'; // 'line' | 'polygon'
 let drawVertices = [];
 let drawPreviewLayer = null;
+let drawCircleRadiusLine = null;
+let drawCircleFixedRadiusMeters = null;
 
 // Speech-to-Text Engine
 let recognition = null;
@@ -2557,8 +2750,113 @@ function isLayerVisibleForFeature(layerId) {
   return layer ? layer.visible !== false : true;
 }
 
+function getProjectStorageKey(projId) {
+  return projId ? `qfn_data_${projId}` : 'qfn_data_no_project';
+}
+
+function getProjectNameById(projId) {
+  if (!projId) return 'No Project';
+  const match = projects.find(p => p.id === projId);
+  return match ? match.name : 'No Project';
+}
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function loadProjectPayloadById(projId) {
+  const normId = projId || null;
+  if (normId === currentProjectId) {
+    ensureDefaultFeatureLayers();
+    return {
+      projectId: currentProjectId,
+      projectName: currentProjectName,
+      waypoints: waypoints,
+      tracks: tracks,
+      photos: photos,
+      digitizedFeatures: digitizedFeatures,
+      featureLayers: featureLayers,
+      builtInLayerVisibility: builtInLayerVisibility,
+      cachedAoiExtents: cachedAoiExtents
+    };
+  }
+  const key = getProjectStorageKey(normId);
+  let data = null;
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw) data = JSON.parse(raw);
+  } catch (_) {}
+  const layers = Array.isArray(data?.featureLayers) && data.featureLayers.length > 0
+    ? data.featureLayers
+    : [{ id: 'layer_default', name: 'General Digitized', color: '#EAB308', visible: true }];
+  return {
+    projectId: normId,
+    projectName: getProjectNameById(normId),
+    lastModified: data?.lastModified || null,
+    waypoints: Array.isArray(data?.waypoints) ? data.waypoints : [],
+    tracks: Array.isArray(data?.tracks) ? data.tracks : [],
+    photos: Array.isArray(data?.photos) ? data.photos : [],
+    digitizedFeatures: Array.isArray(data?.digitizedFeatures) ? data.digitizedFeatures : [],
+    featureLayers: layers,
+    builtInLayerVisibility: data?.builtInLayerVisibility || { waypoints: true, photos: true, tracks: true },
+    cachedAoiExtents: Array.isArray(data?.cachedAoiExtents) ? data.cachedAoiExtents : []
+  };
+}
+
+function saveProjectPayloadById(projId, payload) {
+  const normId = projId || null;
+  if (!Array.isArray(payload.featureLayers) || payload.featureLayers.length === 0) {
+    payload.featureLayers = [{ id: 'layer_default', name: 'General Digitized', color: '#EAB308', visible: true }];
+  }
+  payload.projectId = normId;
+  payload.projectName = getProjectNameById(normId);
+  payload.lastModified = new Date().toISOString();
+
+  if (normId === currentProjectId) {
+    waypoints = payload.waypoints || [];
+    tracks = payload.tracks || [];
+    photos = payload.photos || [];
+    digitizedFeatures = payload.digitizedFeatures || [];
+    featureLayers = payload.featureLayers || [];
+    builtInLayerVisibility = payload.builtInLayerVisibility || { waypoints: true, photos: true, tracks: true };
+    cachedAoiExtents = payload.cachedAoiExtents || [];
+    saveActiveProjectData();
+    renderAllProjectLayers();
+    rebuildOfflineAoiLayerGroup();
+  } else {
+    try {
+      localStorage.setItem(getProjectStorageKey(normId), JSON.stringify(payload));
+    } catch (_) {}
+  }
+  if (typeof renderSavedProjectsList === 'function') renderSavedProjectsList();
+}
+
+function rebuildOfflineAoiLayerGroup() {
+  if (!offlineAoiLayerGroup) return;
+  offlineAoiLayerGroup.clearLayers();
+  if (Array.isArray(cachedAoiExtents)) {
+    cachedAoiExtents.forEach(ext => {
+      if (ext && ext.south !== undefined && ext.north !== undefined) {
+        const b = L.latLngBounds([ext.south, ext.west], [ext.north, ext.east]);
+        const rect = L.rectangle(b, {
+          color: '#10B981',
+          weight: 2,
+          dashArray: '6, 6',
+          fill: false,
+          fillOpacity: 0,
+          interactive: false
+        });
+        offlineAoiLayerGroup.addLayer(rect);
+      }
+    });
+  }
+  if (showOfflineAoiBoundaries && map && !map.hasLayer(offlineAoiLayerGroup)) {
+    offlineAoiLayerGroup.addTo(map);
+  }
+}
+
 function loadActiveProjectData() {
-  const storageKey = currentProjectId ? `qfn_data_${currentProjectId}` : 'qfn_data_no_project';
+  const storageKey = getProjectStorageKey(currentProjectId);
   try {
     const raw = localStorage.getItem(storageKey);
     if (raw) {
@@ -2569,6 +2867,7 @@ function loadActiveProjectData() {
       digitizedFeatures = data.digitizedFeatures || [];
       featureLayers = Array.isArray(data.featureLayers) ? data.featureLayers : [];
       builtInLayerVisibility = data.builtInLayerVisibility || { waypoints: true, photos: true, tracks: true };
+      cachedAoiExtents = Array.isArray(data.cachedAoiExtents) ? data.cachedAoiExtents : [];
     } else {
       waypoints = [];
       tracks = [];
@@ -2576,6 +2875,7 @@ function loadActiveProjectData() {
       digitizedFeatures = [];
       featureLayers = [];
       builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
+      cachedAoiExtents = [];
     }
   } catch (e) {
     waypoints = [];
@@ -2584,13 +2884,15 @@ function loadActiveProjectData() {
     digitizedFeatures = [];
     featureLayers = [];
     builtInLayerVisibility = { waypoints: true, photos: true, tracks: true };
+    cachedAoiExtents = [];
   }
   ensureDefaultFeatureLayers();
+  rebuildOfflineAoiLayerGroup();
 }
 
 function saveActiveProjectData() {
   ensureDefaultFeatureLayers();
-  const storageKey = currentProjectId ? `qfn_data_${currentProjectId}` : 'qfn_data_no_project';
+  const storageKey = getProjectStorageKey(currentProjectId);
   try {
     const payload = {
       projectId: currentProjectId,
@@ -2601,18 +2903,23 @@ function saveActiveProjectData() {
       photos: photos,
       digitizedFeatures: digitizedFeatures,
       featureLayers: featureLayers,
-      builtInLayerVisibility: builtInLayerVisibility
+      builtInLayerVisibility: builtInLayerVisibility,
+      cachedAoiExtents: cachedAoiExtents
     };
     localStorage.setItem(storageKey, JSON.stringify(payload));
   } catch (e) {}
   updateProjectStatsDisplay();
   if (typeof renderFeatureLayersList === 'function') renderFeatureLayersList();
+  if (typeof renderSavedProjectsList === 'function') renderSavedProjectsList();
 }
 
 function createNewProject() {
   const input = document.getElementById('newProjectInput');
   const name = input.value.trim();
   if (!name) return;
+
+  // Explicitly save previous active project before creating & activating the new project
+  saveActiveProjectData();
 
   const id = 'proj_' + Date.now();
   projects.push({ id: id, name: name, createdAt: new Date().toISOString() });
@@ -2621,10 +2928,14 @@ function createNewProject() {
   input.value = '';
   switchActiveProject(id);
   refreshProjectSelectDropdown();
+  showToast(`📁 Created & switched to "${name}" (previous project preserved)`);
 }
 
 function switchActiveProject(id) {
+  // Persist current project data completely before unloading it from memory
+  saveActiveProjectData();
   clearMapGraphics();
+
   currentProjectId = id || null;
   const match = projects.find(p => p.id === id);
   currentProjectName = match ? match.name : "No Project";
@@ -2634,6 +2945,7 @@ function switchActiveProject(id) {
   renderAllProjectLayers();
   updateHudDisplay();
   refreshProjectSelectDropdown();
+  if (typeof renderFeatureLayersList === 'function') renderFeatureLayersList();
 }
 
 function onProjectSelectChanged() {
@@ -2643,6 +2955,7 @@ function onProjectSelectChanged() {
 
 function refreshProjectSelectDropdown() {
   const sel = document.getElementById('projectSelect');
+  if (!sel) return;
   sel.innerHTML = '<option value="">(No Project - General Field Data)</option>';
   projects.forEach(p => {
     const opt = document.createElement('option');
@@ -2651,6 +2964,44 @@ function refreshProjectSelectDropdown() {
     if (p.id === currentProjectId) opt.selected = true;
     sel.appendChild(opt);
   });
+  renderSavedProjectsList();
+}
+
+function renderSavedProjectsList() {
+  const container = document.getElementById('savedProjectsList');
+  if (!container) return;
+
+  const listItems = projects.map(p => ({ id: p.id, name: p.name, createdAt: p.createdAt, isNoProj: false }));
+  // Include General / No Project card so users can switch/export/transfer it too
+  listItems.unshift({ id: '', name: 'No Project (General Data)', createdAt: null, isNoProj: true });
+
+  container.innerHTML = listItems.map(item => {
+    const pid = item.id || null;
+    const isActive = pid === currentProjectId;
+    const snap = loadProjectPayloadById(pid);
+    const totalCount = snap.waypoints.length + snap.digitizedFeatures.length + snap.photos.length + snap.tracks.length;
+    if (item.isNoProj && !isActive && totalCount === 0 && snap.cachedAoiExtents.length === 0) {
+      return '';
+    }
+    return `
+      <div class="layer-row" style="margin-bottom: 0; padding: 10px 12px; border-color: ${isActive ? '#00F0FF' : 'rgba(255,255,255,0.12)'}; background: ${isActive ? 'rgba(0,240,255,0.08)' : 'rgba(30,41,59,0.65)'};">
+        <div class="layer-header-row" style="gap: 6px; margin-bottom: 4px;">
+          <div style="font-size: 13.5px; font-weight: 800; color: #FFFFFF; display: flex; align-items: center; gap: 6px; min-width: 0;">
+            <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">📁 ${escapeXml(item.name)}</span>
+            ${isActive ? '<span style="font-size: 9.5px; background: #00F0FF; color: #0B132B; padding: 2px 6px; border-radius: 6px; font-weight: 800;">ACTIVE</span>' : ''}
+          </div>
+        </div>
+        <div style="font-size: 11px; color: #CBD5E1; margin-bottom: 8px;">
+          Layers: <b>${snap.featureLayers.length}</b> • Pts: <b>${snap.waypoints.length}</b> • Digitized: <b>${snap.digitizedFeatures.length}</b> • Photos: <b>${snap.photos.length}</b> • Tracks: <b>${snap.tracks.length}</b> • Cached AOIs: <b>${snap.cachedAoiExtents.length}</b>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          ${!isActive ? `<button class="btn btn-primary" style="padding: 5px 10px; font-size: 11.5px; min-height: 32px;" onclick="switchActiveProject('${item.id}')">✅ Activate</button>` : ''}
+          <button class="btn btn-secondary" style="padding: 5px 10px; font-size: 11.5px; min-height: 32px;" onclick="openExportModal('${item.id}')">📤 Export</button>
+          ${!item.isNoProj ? `<button class="btn btn-danger" style="padding: 5px 10px; font-size: 11.5px; min-height: 32px;" onclick="openDeleteProjectModal('${item.id}')">🗑️ Delete</button>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function openProjectSettings() {
@@ -2667,7 +3018,7 @@ function updateHudDisplay() {
 function updateProjectStatsDisplay() {
   const box = document.getElementById('projectStatsBox');
   if (box) {
-    box.innerHTML = `Waypoints: <b>${waypoints.length}</b> | Photos: <b>${photos.length}</b> | Tracks: <b>${tracks.length}</b> | Digitized: <b>${digitizedFeatures.length}</b>`;
+    box.innerHTML = `Layers: <b>${featureLayers.length}</b> | Waypoints: <b>${waypoints.length}</b> | Digitized: <b>${digitizedFeatures.length}</b> | Photos: <b>${photos.length}</b> | Tracks: <b>${tracks.length}</b> | Cached AOIs: <b>${cachedAoiExtents.length}</b>`;
   }
 }
 
@@ -3105,6 +3456,9 @@ function initMap() {
   map.on('move', () => {
     if (isMeasuring && measureInputMode === 'cursor') {
       updateMeasureRubberband();
+    }
+    if (isDrawing && drawType === 'circle' && drawVertices.length === 1 && !drawCircleFixedRadiusMeters) {
+      updateCircleLiveCursorPreview();
     }
   });
   measureLayerGroup = L.layerGroup().addTo(map);
@@ -4875,10 +5229,119 @@ function togglePhotoNoteSetting(enabled) {
   autoPromptPhotoNote = enabled;
 }
 
-// --- DIGITIZING (DRAW LINE / POLYGON) ---
+// --- DIGITIZING (DRAW POLYGON / LINE / CIRCLE) ---
 function promptDrawMode() {
-  const choice = confirm("Press OK to draw a Polygon (Area), or Cancel to draw a Line (Trail/Track).");
-  startDrawingMode(choice ? 'polygon' : 'line');
+  openModal('drawModeChoiceModal');
+}
+
+function getActiveTypedDistanceUnit() {
+  switch (measureDistUnit) {
+    case 'km': return { code: 'km', label: 'Kilometers (km)', short: 'km' };
+    case 'ft': return { code: 'ft', label: 'Feet (ft)', short: 'ft' };
+    case 'mi': return { code: 'mi', label: 'Miles (mi)', short: 'mi' };
+    case 'nmi': return { code: 'nmi', label: 'Nautical Miles (nmi)', short: 'nmi' };
+    case 'm':
+    case 'm_km':
+    default:
+      return { code: 'm', label: 'Meters (m)', short: 'm' };
+  }
+}
+
+function convertUserDistanceToMeters(val, unitCode) {
+  const num = parseFloat(val);
+  if (isNaN(num) || num <= 0) return 0;
+  switch (unitCode) {
+    case 'km': return num * 1000;
+    case 'ft': return num / 3.280839895;
+    case 'mi': return num * 1609.344;
+    case 'nmi': return num * 1852;
+    case 'm':
+    default:
+      return num;
+  }
+}
+
+function convertMetersToUserDistance(meters, unitCode) {
+  if (!meters || isNaN(meters)) return 0;
+  switch (unitCode) {
+    case 'km': return meters / 1000;
+    case 'ft': return meters * 3.280839895;
+    case 'mi': return meters / 1609.344;
+    case 'nmi': return meters / 1852;
+    case 'm':
+    default:
+      return meters;
+  }
+}
+
+function generateCircleRingVertices(centerLat, centerLon, radiusMeters, segments = 64) {
+  const R = 6378137;
+  const lat1 = centerLat * Math.PI / 180;
+  const lon1 = centerLon * Math.PI / 180;
+  const dByR = radiusMeters / R;
+  const ring = [];
+  for (let i = 0; i < segments; i++) {
+    const brg = (2 * Math.PI * i) / segments;
+    const lat2 = Math.asin(Math.sin(lat1) * Math.cos(dByR) + Math.cos(lat1) * Math.sin(dByR) * Math.cos(brg));
+    const lon2 = lon1 + Math.atan2(Math.sin(brg) * Math.sin(dByR) * Math.cos(lat1), Math.cos(dByR) - Math.sin(lat1) * Math.sin(lat2));
+    ring.push([lat2 * 180 / Math.PI, lon2 * 180 / Math.PI]);
+  }
+  return ring;
+}
+
+function openCircleRadiusModal() {
+  if (!isDrawing || drawType !== 'circle') return;
+  if (drawVertices.length === 0) {
+    const c = getCrosshairCenterLatLng();
+    drawVertices = [[c.lat, c.lng]];
+    updateDrawPreview();
+  }
+  const cPt = drawVertices[0];
+  const u = getActiveTypedDistanceUnit();
+  document.getElementById('circleCenterCoordsLabel').textContent = `${cPt[0].toFixed(6)}, ${cPt[1].toFixed(6)}`;
+  document.getElementById('circleRadiusUnitLabel').textContent = u.label;
+  document.getElementById('circleSettingsUnitName').textContent = u.label;
+
+  const inputEl = document.getElementById('circleRadiusTypedInput');
+  if (drawCircleFixedRadiusMeters && drawCircleFixedRadiusMeters > 0) {
+    inputEl.value = convertMetersToUserDistance(drawCircleFixedRadiusMeters, u.code).toFixed(2);
+  } else if (drawVertices.length >= 2) {
+    const m = calcDistanceMeters(cPt[0], cPt[1], drawVertices[1][0], drawVertices[1][1]);
+    inputEl.value = convertMetersToUserDistance(m, u.code).toFixed(2);
+  } else {
+    inputEl.value = '';
+  }
+  openModal('circleRadiusModal');
+}
+
+function useCrosshairAsCircleCenter() {
+  const c = getCrosshairCenterLatLng();
+  drawVertices = [[c.lat, c.lng]];
+  drawCircleFixedRadiusMeters = null;
+  document.getElementById('circleCenterCoordsLabel').textContent = `${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}`;
+  updateDrawPreview();
+}
+
+function applyTypedCircleRadius() {
+  const u = getActiveTypedDistanceUnit();
+  const val = document.getElementById('circleRadiusTypedInput')?.value;
+  const meters = convertUserDistanceToMeters(val, u.code);
+  if (!meters || meters <= 0) {
+    alert(`Please enter a valid positive radius in ${u.label}.`);
+    return;
+  }
+  if (drawVertices.length === 0) {
+    const c = getCrosshairCenterLatLng();
+    drawVertices = [[c.lat, c.lng]];
+  }
+  const center = drawVertices[0];
+  // Compute outer eastern edge coordinate corresponding to typed radius
+  const ring = generateCircleRingVertices(center[0], center[1], meters, 4); // index 1 = 90 deg East
+  drawVertices = [[center[0], center[1]], ring[1]];
+  drawCircleFixedRadiusMeters = meters;
+  closeModal('circleRadiusModal');
+  updateDrawPreview();
+  showToast(`⭕ Circle radius set to ${formatMeasuredDistance(meters)}`);
 }
 
 let digitizeInputMode = 'click'; // 'click' | 'cursor'
@@ -4887,15 +5350,31 @@ function toggleDigitizeInputMode() {
   digitizeInputMode = (digitizeInputMode === 'click') ? 'cursor' : 'click';
   updateDigitizeModeUI();
   if (digitizeInputMode === 'cursor') {
-    showToast('🎯 Cursor Mode: Pan crosshair to desired position, then tap [➕ Add Pt]');
+    showToast(drawType === 'circle'
+      ? '🎯 Cursor Circle: Pan crosshair to Center & tap [➕ Set Center], then move cursor out or type Radius'
+      : '🎯 Cursor Mode: Pan crosshair to desired position, then tap [➕ Add Pt]');
   } else {
-    showToast('👆 Click Mode: Tap anywhere on map to add vertices directly');
+    showToast('👆 Click Mode: Tap anywhere on map to add points directly');
   }
 }
 
 function updateDigitizeModeUI() {
   const btnMode = document.getElementById('btnDigitizeModeToggle');
   const btnAdd = document.getElementById('btnAddCursorVertex');
+  const btnRadius = document.getElementById('btnTypeCircleRadius');
+  const btnTrace = document.getElementById('btnTraceSnap');
+
+  if (btnRadius) btnRadius.style.display = (drawType === 'circle') ? 'inline-flex' : 'none';
+  if (btnTrace) btnTrace.style.display = (drawType === 'circle') ? 'none' : 'inline-flex';
+
+  if (btnAdd) {
+    if (drawType === 'circle') {
+      btnAdd.textContent = drawVertices.length === 0 ? '➕ Set Center' : '➕ Set Edge Pt';
+    } else {
+      btnAdd.textContent = '➕ Add Pt';
+    }
+  }
+
   if (!btnMode) return;
   if (digitizeInputMode === 'cursor') {
     btnMode.innerHTML = '🎯 Cursor';
@@ -4922,6 +5401,7 @@ function startDrawingMode(type, preferredMode = 'click') {
   isDrawing = true;
   drawType = type;
   drawVertices = [];
+  drawCircleFixedRadiusMeters = null;
   clearTraceSnapTarget();
   digitizeInputMode = preferredMode;
   const pop = document.getElementById('mapClickPopover');
@@ -4929,6 +5409,9 @@ function startDrawingMode(type, preferredMode = 'click') {
   document.getElementById('drawToolbar').style.display = 'flex';
   updateDigitizeModeUI();
   updateDrawPreview();
+  if (type === 'circle') {
+    showToast('⭕ Circle Mode: Set Center (cursor or click), then move cursor or tap 📏 Radius');
+  }
 }
 
 function commitDigitizedVertex(rawLatLng, fromCursor = false) {
@@ -5003,6 +5486,23 @@ function commitDigitizedVertex(rawLatLng, fromCursor = false) {
     clearTraceSnapTarget();
     updateDrawPreview();
     showToast(`✅ Auto-snapped ${inserted} shared boundary vertices (0 gap)`);
+    return;
+  }
+
+  if (drawType === 'circle') {
+    drawCircleFixedRadiusMeters = null;
+    if (drawVertices.length >= 2) {
+      drawVertices[1] = [pt.lat, pt.lng];
+    } else {
+      drawVertices.push([pt.lat, pt.lng]);
+    }
+    updateDigitizeModeUI();
+    updateDrawPreview();
+    if (fromCursor) {
+      showToast(drawVertices.length === 1
+        ? '⭕ Center set! Move cursor outward & tap [➕ Set Edge Pt] or [📏 Radius]'
+        : '⭕ Outer radius point set! Tap ✅ Finish to save');
+    }
     return;
   }
 
@@ -5303,10 +5803,56 @@ function flashSnapIndicator(latLng) {
   }, 400);
 }
 
-function updateDrawPreview() {
-  document.getElementById('drawStatusText').textContent = `${drawType.toUpperCase()}: ${drawVertices.length} pts`;
+function updateCircleLiveCursorPreview() {
+  if (!map || drawType !== 'circle' || drawVertices.length !== 1) return;
+  const center = drawVertices[0];
+  const cursor = getCrosshairCenterLatLng();
+  const radius = calcDistanceMeters(center[0], center[1], cursor.lat, cursor.lng);
+
+  document.getElementById('drawStatusText').textContent = `⭕ R: ${formatMeasuredDistance(radius)}`;
 
   if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  if (drawCircleRadiusLine) map.removeLayer(drawCircleRadiusLine);
+
+  if (radius > 0.5) {
+    const ring = generateCircleRingVertices(center[0], center[1], radius, 64);
+    drawPreviewLayer = L.polygon(ring, { color: '#00F0FF', weight: 2.5, fillColor: '#00F0FF', fillOpacity: 0.22 }).addTo(map);
+    drawCircleRadiusLine = L.polyline([center, [cursor.lat, cursor.lng]], { color: '#F59E0B', weight: 2, dashArray: '5, 5' }).addTo(map);
+  }
+}
+
+function updateDrawPreview() {
+  if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  if (drawCircleRadiusLine) {
+    try { map.removeLayer(drawCircleRadiusLine); } catch (_) {}
+    drawCircleRadiusLine = null;
+  }
+
+  if (drawType === 'circle') {
+    updateDigitizeModeUI();
+    if (drawVertices.length === 0) {
+      document.getElementById('drawStatusText').textContent = 'CIRCLE: Set Center';
+      return;
+    }
+    const center = drawVertices[0];
+    if (drawVertices.length === 1 && !drawCircleFixedRadiusMeters) {
+      drawPreviewLayer = L.circleMarker(center, { radius: 6, color: '#00F0FF', fillColor: '#00F0FF', fillOpacity: 0.9 }).addTo(map);
+      updateCircleLiveCursorPreview();
+      return;
+    }
+    const radius = drawCircleFixedRadiusMeters || (drawVertices.length >= 2 ? calcDistanceMeters(center[0], center[1], drawVertices[1][0], drawVertices[1][1]) : 0);
+    document.getElementById('drawStatusText').textContent = `⭕ R: ${formatMeasuredDistance(radius)}`;
+    if (radius > 0) {
+      const ring = generateCircleRingVertices(center[0], center[1], radius, 64);
+      drawPreviewLayer = L.polygon(ring, { color: '#00F0FF', weight: 2.5, fillColor: '#00F0FF', fillOpacity: 0.25 }).addTo(map);
+      if (drawVertices.length >= 2) {
+        drawCircleRadiusLine = L.polyline([center, drawVertices[1]], { color: '#10B981', weight: 2, dashArray: '5, 5' }).addTo(map);
+      }
+    }
+    return;
+  }
+
+  document.getElementById('drawStatusText').textContent = `${drawType.toUpperCase()}: ${drawVertices.length} pts`;
 
   if (drawVertices.length >= 1) {
     if (drawType === 'polygon' && drawVertices.length >= 3) {
@@ -5320,6 +5866,7 @@ function updateDrawPreview() {
 function undoDrawVertex() {
   if (drawVertices.length > 0) {
     drawVertices.pop();
+    if (drawType === 'circle') drawCircleFixedRadiusMeters = null;
     updateDrawPreview();
   }
 }
@@ -5327,8 +5874,13 @@ function undoDrawVertex() {
 function cancelDrawing() {
   isDrawing = false;
   drawVertices = [];
+  drawCircleFixedRadiusMeters = null;
   clearTraceSnapTarget();
   if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  if (drawCircleRadiusLine) {
+    try { map.removeLayer(drawCircleRadiusLine); } catch (_) {}
+    drawCircleRadiusLine = null;
+  }
   document.getElementById('drawToolbar').style.display = 'none';
 }
 
@@ -5341,17 +5893,46 @@ function finishDrawing() {
     alert("Lines require at least 2 points.");
     return;
   }
+  if (drawType === 'circle') {
+    if (drawVertices.length === 0) {
+      alert("Please set Circle Center first.");
+      return;
+    }
+    if (drawVertices.length === 1 && !drawCircleFixedRadiusMeters) {
+      // Allow Finish directly using moved crosshair cursor outer position!
+      const c = drawVertices[0];
+      const cursor = getCrosshairCenterLatLng();
+      const d = calcDistanceMeters(c[0], c[1], cursor.lat, cursor.lng);
+      if (d < 0.5) {
+        alert("Move cursor away from center to define circle radius, or tap 📏 Radius to type a value.");
+        return;
+      }
+      drawVertices.push([cursor.lat, cursor.lng]);
+    }
+  }
 
   isDrawing = false;
   clearTraceSnapTarget();
   document.getElementById('drawToolbar').style.display = 'none';
 
-  document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
-  document.getElementById('drawCommentsInput').value = '';
-  const geomMetric = drawType === 'polygon'
-    ? `${drawType.toUpperCase()} (${drawVertices.length} pts) • Area: ${formatMeasuredArea(calcGeodesicAreaSqMeters(drawVertices))}`
-    : `${drawType.toUpperCase()} (${drawVertices.length} pts) • Length: ${formatMeasuredDistance(calcPathLengthMeters(drawVertices))}`;
-  document.getElementById('drawGeomInfo').textContent = geomMetric;
+  if (drawType === 'circle') {
+    const center = drawVertices[0];
+    const rMeters = drawCircleFixedRadiusMeters || calcDistanceMeters(center[0], center[1], drawVertices[1][0], drawVertices[1][1]);
+    window._pendingCircleMeta = { center: [...center], radiusMeters: rMeters };
+    const ring = generateCircleRingVertices(center[0], center[1], rMeters, 64);
+    document.getElementById('drawFeatureName').value = 'Circle ' + (digitizedFeatures.length + 1);
+    document.getElementById('drawCommentsInput').value = '';
+    document.getElementById('drawGeomInfo').textContent = `CIRCLE (R: ${formatMeasuredDistance(rMeters)}) • Area: ${formatMeasuredArea(Math.PI * rMeters * rMeters)}`;
+    drawVertices = ring;
+  } else {
+    window._pendingCircleMeta = null;
+    document.getElementById('drawFeatureName').value = (drawType === 'polygon' ? 'Area ' : 'Trail ') + (digitizedFeatures.length + 1);
+    document.getElementById('drawCommentsInput').value = '';
+    const geomMetric = drawType === 'polygon'
+      ? `${drawType.toUpperCase()} (${drawVertices.length} pts) • Area: ${formatMeasuredArea(calcGeodesicAreaSqMeters(drawVertices))}`
+      : `${drawType.toUpperCase()} (${drawVertices.length} pts) • Length: ${formatMeasuredDistance(calcPathLengthMeters(drawVertices))}`;
+    document.getElementById('drawGeomInfo').textContent = geomMetric;
+  }
 
   populateFeatureLayerSelect('drawTargetLayerSelect', featureLayers[0]?.id || 'layer_default');
   const newGrp = document.getElementById('drawNewLayerGroup');
@@ -5366,9 +5947,15 @@ function confirmSaveDigitizedFeature() {
   const comments = document.getElementById('drawCommentsInput').value.trim();
   const layerId = resolveSelectedOrNewLayer('drawTargetLayerSelect', 'drawNewLayerName', 'drawNewLayerColor', featureLayers[0]?.id || 'layer_default');
 
+  const isCircle = drawType === 'circle' && !!window._pendingCircleMeta;
   const feature = {
     id: 'feat_' + Date.now(),
-    type: drawType,
+    type: isCircle ? 'polygon' : drawType,
+    ...(isCircle ? {
+      isCircle: true,
+      circleCenter: window._pendingCircleMeta.center,
+      circleRadiusMeters: window._pendingCircleMeta.radiusMeters
+    } : {}),
     name: name,
     category: category,
     layerId: layerId,
@@ -5377,10 +5964,16 @@ function confirmSaveDigitizedFeature() {
     timestamp: new Date().toISOString()
   };
 
+  window._pendingCircleMeta = null;
+  drawCircleFixedRadiusMeters = null;
   digitizedFeatures.push(feature);
   saveActiveProjectData();
 
   if (drawPreviewLayer) map.removeLayer(drawPreviewLayer);
+  if (drawCircleRadiusLine) {
+    try { map.removeLayer(drawCircleRadiusLine); } catch (_) {}
+    drawCircleRadiusLine = null;
+  }
   drawPreviewLayer = null;
   drawVertices = [];
 
@@ -6153,35 +6746,116 @@ function cleanDictationText(txt) {
     .replace(/\bpipeline\b/gi, "Pipeline");
 }
 
-// --- MULTI-FORMAT EXPORT ENGINE ---
-function openExportModal() {
-  document.getElementById('exportProjectName').textContent = currentProjectName;
+// --- MULTI-FORMAT EXPORT ENGINE (ISOLATED PER PROJECT + LAYER NAMES) ---
+function populateProjectDropdownOptions(selectId, selectedId, excludeId = undefined) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  let opts = '';
+  if (excludeId !== '') {
+    const noProjLabel = currentProjectId === null ? '(Active: No Project - General Field Data)' : '(No Project - General Field Data)';
+    opts += `<option value="" ${selectedId === '' || selectedId === null ? 'selected' : ''}>${noProjLabel}</option>`;
+  }
+  projects.forEach(p => {
+    if (excludeId !== undefined && p.id === excludeId) return;
+    const label = p.id === currentProjectId ? `📁 ${p.name} (ACTIVE)` : `📁 ${p.name}`;
+    opts += `<option value="${p.id}" ${selectedId === p.id ? 'selected' : ''}>${escapeXml(label)}</option>`;
+  });
+  sel.innerHTML = opts;
+}
+
+function openExportModal(targetProjectId) {
+  if (targetProjectId !== undefined) {
+    activeExportProjectId = targetProjectId || '';
+  } else {
+    activeExportProjectId = currentProjectId || '';
+  }
+  const sel = document.getElementById('exportTargetProjectSelect');
+  if (sel) {
+    populateProjectDropdownOptions('exportTargetProjectSelect', activeExportProjectId);
+  }
+  const resolvedName = getProjectNameById(activeExportProjectId || null);
+  document.getElementById('exportProjectName').textContent = resolvedName;
   openModal('exportModal');
 }
 
+function onExportTargetProjectChanged() {
+  const sel = document.getElementById('exportTargetProjectSelect');
+  if (!sel) return;
+  activeExportProjectId = sel.value || '';
+  document.getElementById('exportProjectName').textContent = getProjectNameById(activeExportProjectId || null);
+}
+
+function resolveExportContext(explicitProjectId) {
+  let pid;
+  if (explicitProjectId !== undefined) {
+    pid = explicitProjectId || null;
+  } else {
+    const sel = document.getElementById('exportTargetProjectSelect');
+    const modalOpen = document.getElementById('exportModal')?.style.display === 'flex';
+    const rawVal = (modalOpen && sel) ? sel.value : (activeExportProjectId === '__active__' ? (currentProjectId || '') : activeExportProjectId);
+    pid = rawVal || null;
+  }
+  const snap = loadProjectPayloadById(pid);
+  const projName = pid ? getProjectNameById(pid) : 'No Project';
+  const activeProjectTag = pid ? projName : '';
+  const resolveLayerName = (layerId, fallbackName) => {
+    if (layerId) {
+      const match = snap.featureLayers.find(l => l.id === layerId);
+      if (match) return match.name;
+    }
+    return fallbackName;
+  };
+  const resolveLayerColor = (layerId, fallbackColor) => {
+    if (layerId) {
+      const match = snap.featureLayers.find(l => l.id === layerId);
+      if (match && match.color) return match.color;
+    }
+    return fallbackColor;
+  };
+  return { pid, snap, projName, activeProjectTag, resolveLayerName, resolveLayerColor };
+}
+
 // 1. Export Package (.scoutpkg)
-function exportScoutPackage() {
+function exportScoutPackage(explicitProjectId) {
+  const ctx = resolveExportContext(explicitProjectId);
+  const { snap, projName, activeProjectTag, resolveLayerName } = ctx;
   const zip = new JSZip();
 
+  const enrichedWpts = snap.waypoints.map(w => ({
+    ...w,
+    layerName: resolveLayerName(w.layerId, 'Waypoints'),
+    projectName: activeProjectTag
+  }));
+  const enrichedDigitized = snap.digitizedFeatures.map(f => ({
+    ...f,
+    layerName: resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized'),
+    projectName: activeProjectTag
+  }));
+
   const manifest = {
-    packageName: currentProjectName,
+    projectId: ctx.pid,
+    projectName: projName,
+    packageName: projName,
     exportDate: new Date().toISOString(),
     generator: "Quik Field Notes",
-    author: "Field Operator",
-    waypoints: waypoints,
-    tracks: tracks,
-    digitizedFeatures: digitizedFeatures
+    author: "Nasrullah Khan",
+    featureLayers: snap.featureLayers,
+    waypoints: enrichedWpts,
+    tracks: snap.tracks,
+    digitizedFeatures: enrichedDigitized,
+    cachedAoiExtents: snap.cachedAoiExtents
   };
 
   zip.file("manifest.json", JSON.stringify(manifest, null, 2));
-  zip.file("waypoints.json", JSON.stringify(waypoints, null, 2));
-  zip.file("tracks.json", JSON.stringify(tracks, null, 2));
-  zip.file("digitized.json", JSON.stringify(digitizedFeatures, null, 2));
+  zip.file("layers.json", JSON.stringify(snap.featureLayers, null, 2));
+  zip.file("waypoints.json", JSON.stringify(enrichedWpts, null, 2));
+  zip.file("tracks.json", JSON.stringify(snap.tracks, null, 2));
+  zip.file("digitized.json", JSON.stringify(enrichedDigitized, null, 2));
 
   const photosFolder = zip.folder("photos");
   const photosMeta = [];
 
-  photos.forEach((p, idx) => {
+  snap.photos.forEach((p, idx) => {
     const filename = `photo_${idx + 1}.jpg`;
     photosMeta.push({
       filename: filename,
@@ -6190,10 +6864,12 @@ function exportScoutPackage() {
       elevation: p.elevation,
       timestamp: p.timestamp,
       comments: p.comments,
-      categoryId: p.categoryId
+      categoryId: p.categoryId,
+      layerName: resolveLayerName(p.layerId, 'Field Photos'),
+      projectName: activeProjectTag
     });
 
-    const base64Data = p.dataUrl.split(',')[1];
+    const base64Data = p.dataUrl ? p.dataUrl.split(',')[1] : null;
     if (base64Data) {
       photosFolder.file(filename, base64Data, { base64: true });
     }
@@ -6201,45 +6877,54 @@ function exportScoutPackage() {
 
   zip.file("photos.json", JSON.stringify(photosMeta, null, 2));
 
-  zip.generateAsync({ type: "blob" }).then(content => {
-    downloadBlob(content, `${sanitizeFileName(currentProjectName)}_Field_Package.scoutpkg`);
+  return zip.generateAsync({ type: "blob" }).then(content => {
+    downloadBlob(content, `${sanitizeFileName(projName)}_Field_Package.scoutpkg`);
+    return content;
   });
 }
 
 // 2. Export Field Notes CSV
-function exportFieldNotesCsv() {
+function exportFieldNotesCsv(explicitProjectId) {
+  const { snap, projName, resolveLayerName } = resolveExportContext(explicitProjectId);
   let csv = '\uFEFF';
-  csv += 'Project,Type,ID,Name,Category,Latitude,Longitude,Elevation_m,Timestamp,Comments_Notes\r\n';
+  csv += 'Project,Layer,Type,ID,Name,Category,Latitude,Longitude,Elevation_m,Timestamp,Comments_Notes\r\n';
 
-  waypoints.forEach(w => {
+  snap.waypoints.forEach(w => {
     const cat = getCategoryById(w.categoryId);
-    csv += `"${escapeCsv(currentProjectName)}","Waypoint","${w.id}","${escapeCsv(w.name)}","${escapeCsv(cat.name)}",${w.lat.toFixed(6)},${w.lon.toFixed(6)},${Math.round(w.elevation || 0)},"${w.timestamp}","${escapeCsv(w.notes)}"\r\n`;
+    const lName = resolveLayerName(w.layerId, 'Waypoints');
+    csv += `"${escapeCsv(projName)}","${escapeCsv(lName)}","Waypoint","${w.id}","${escapeCsv(w.name)}","${escapeCsv(cat.name)}",${w.lat.toFixed(6)},${w.lon.toFixed(6)},${Math.round(w.elevation || 0)},"${w.timestamp}","${escapeCsv(w.notes)}"\r\n`;
   });
 
-  photos.forEach((p, idx) => {
+  snap.photos.forEach((p, idx) => {
     const cat = getCategoryById(p.categoryId);
-    csv += `"${escapeCsv(currentProjectName)}","Photo","${p.id}","Photo ${idx+1}","${escapeCsv(cat.name)}",${p.lat.toFixed(6)},${p.lon.toFixed(6)},${Math.round(p.elevation || 0)},"${p.timestamp}","${escapeCsv(p.comments)}"\r\n`;
+    const lName = resolveLayerName(p.layerId, 'Field Photos');
+    csv += `"${escapeCsv(projName)}","${escapeCsv(lName)}","Photo","${p.id}","Photo ${idx+1}","${escapeCsv(cat.name)}",${p.lat.toFixed(6)},${p.lon.toFixed(6)},${Math.round(p.elevation || 0)},"${p.timestamp}","${escapeCsv(p.comments)}"\r\n`;
   });
 
-  digitizedFeatures.forEach(f => {
+  snap.digitizedFeatures.forEach(f => {
     const center = f.vertices && f.vertices.length > 0 ? f.vertices[0] : [0, 0];
-    csv += `"${escapeCsv(currentProjectName)}","Digitized_${f.type}","${f.id}","${escapeCsv(f.name)}","${escapeCsv(f.category)}",${center[0].toFixed(6)},${center[1].toFixed(6)},0,"${f.timestamp}","${escapeCsv(f.comments)}"\r\n`;
+    const lName = resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized');
+    csv += `"${escapeCsv(projName)}","${escapeCsv(lName)}","Digitized_${f.type}","${f.id}","${escapeCsv(f.name)}","${escapeCsv(f.category)}",${center[0].toFixed(6)},${center[1].toFixed(6)},0,"${f.timestamp}","${escapeCsv(f.comments)}"\r\n`;
   });
 
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Field_Notes.csv`);
+  downloadBlob(blob, `${sanitizeFileName(projName)}_Field_Notes.csv`);
+  return blob;
 }
 
 // 3. Export GPX Format
-function exportGpxData() {
+function exportGpxData(explicitProjectId) {
+  const { snap, projName, activeProjectTag, resolveLayerName } = resolveExportContext(explicitProjectId);
   let gpx = '<?xml version="1.0" encoding="UTF-8"?>\r\n';
   gpx += '<gpx version="1.1" creator="Quik Field Notes" xmlns="http://www.topografix.com/GPX/1/1">\r\n';
-  gpx += `  <metadata><name>${escapeXml(currentProjectName)}</name><time>${new Date().toISOString()}</time></metadata>\r\n`;
+  gpx += `  <metadata><name>${escapeXml(projName)}</name><time>${new Date().toISOString()}</time></metadata>\r\n`;
 
-  waypoints.forEach(w => {
+  snap.waypoints.forEach(w => {
     const cat = getCategoryById(w.categoryId);
+    const lName = resolveLayerName(w.layerId, 'Waypoints');
     gpx += `  <wpt lat="${w.lat}" lon="${w.lon}">\r\n`;
     gpx += `    <name>${escapeXml(w.name)}</name>\r\n`;
+    gpx += `    <cmt>Layer: ${escapeXml(lName)}${activeProjectTag ? ' | Project: ' + escapeXml(activeProjectTag) : ''}</cmt>\r\n`;
     gpx += `    <desc>${escapeXml(w.notes || '')}</desc>\r\n`;
     gpx += `    <type>${escapeXml(cat.name)}</type>\r\n`;
     if (w.elevation) gpx += `    <ele>${w.elevation}</ele>\r\n`;
@@ -6247,8 +6932,19 @@ function exportGpxData() {
     gpx += `  </wpt>\r\n`;
   });
 
-  tracks.forEach(t => {
-    gpx += `  <trk>\r\n    <name>${escapeXml(t.name)}</name>\r\n    <trkseg>\r\n`;
+  snap.digitizedFeatures.forEach(f => {
+    const lName = resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized');
+    gpx += `  <trk>\r\n    <name>${escapeXml(f.name)}</name>\r\n    <cmt>Layer: ${escapeXml(lName)}${activeProjectTag ? ' | Project: ' + escapeXml(activeProjectTag) : ''}</cmt>\r\n    <type>${escapeXml(f.category || f.type)}</type>\r\n    <trkseg>\r\n`;
+    const pts = [...(f.vertices || [])];
+    if (f.type === 'polygon' && pts.length >= 3) pts.push(pts[0]);
+    pts.forEach(pt => {
+      gpx += `      <trkpt lat="${pt[0]}" lon="${pt[1]}"></trkpt>\r\n`;
+    });
+    gpx += `    </trkseg>\r\n  </trk>\r\n`;
+  });
+
+  snap.tracks.forEach(t => {
+    gpx += `  <trk>\r\n    <name>${escapeXml(t.name)}</name>\r\n    <cmt>Layer: GPS Tracks${activeProjectTag ? ' | Project: ' + escapeXml(activeProjectTag) : ''}</cmt>\r\n    <trkseg>\r\n`;
     t.points.forEach(pt => {
       gpx += `      <trkpt lat="${pt[0]}" lon="${pt[1]}"></trkpt>\r\n`;
     });
@@ -6258,26 +6954,41 @@ function exportGpxData() {
   gpx += '</gpx>';
 
   const blob = new Blob([gpx], { type: 'application/gpx+xml;charset=utf-8;' });
-  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Field_Data.gpx`);
+  downloadBlob(blob, `${sanitizeFileName(projName)}_Field_Data.gpx`);
+  return blob;
 }
 
 // 4. Export GeoJSON Data
-function exportGeoJsonData() {
+function exportGeoJsonData(explicitProjectId) {
+  const { snap, projName, activeProjectTag, resolveLayerName, resolveLayerColor } = resolveExportContext(explicitProjectId);
   const fc = {
     type: "FeatureCollection",
+    name: projName,
+    ...(activeProjectTag ? { project: activeProjectTag } : {}),
     features: []
   };
 
-  waypoints.forEach(w => {
+  snap.waypoints.forEach(w => {
+    const lName = resolveLayerName(w.layerId, 'Waypoints');
     fc.features.push({
       type: "Feature",
       geometry: { type: "Point", coordinates: [w.lon, w.lat] },
-      properties: { name: w.name, category: getCategoryById(w.categoryId).name, notes: w.notes, timestamp: w.timestamp }
+      properties: {
+        name: w.name,
+        layer: lName,
+        layerId: w.layerId || 'waypoints',
+        ...(activeProjectTag ? { project: activeProjectTag } : {}),
+        category: getCategoryById(w.categoryId).name,
+        notes: w.notes,
+        timestamp: w.timestamp
+      }
     });
   });
 
-  digitizedFeatures.forEach(f => {
-    const coords = f.vertices.map(v => [v[1], v[0]]);
+  snap.digitizedFeatures.forEach(f => {
+    const coords = (f.vertices || []).map(v => [v[1], v[0]]);
+    const lName = resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized');
+    const lColor = resolveLayerColor(f.layerId, '#EAB308');
     if (f.type === 'polygon') {
       if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
         coords.push([...coords[0]]);
@@ -6285,19 +6996,67 @@ function exportGeoJsonData() {
       fc.features.push({
         type: "Feature",
         geometry: { type: "Polygon", coordinates: [coords] },
-        properties: { name: f.name, category: f.category, comments: f.comments, timestamp: f.timestamp }
+        properties: {
+          name: f.name,
+          layer: lName,
+          layerId: f.layerId || 'layer_default',
+          layerColor: lColor,
+          ...(activeProjectTag ? { project: activeProjectTag } : {}),
+          category: f.category,
+          comments: f.comments,
+          timestamp: f.timestamp
+        }
       });
     } else {
       fc.features.push({
         type: "Feature",
         geometry: { type: "LineString", coordinates: coords },
-        properties: { name: f.name, category: f.category, comments: f.comments, timestamp: f.timestamp }
+        properties: {
+          name: f.name,
+          layer: lName,
+          layerId: f.layerId || 'layer_default',
+          layerColor: lColor,
+          ...(activeProjectTag ? { project: activeProjectTag } : {}),
+          category: f.category,
+          comments: f.comments,
+          timestamp: f.timestamp
+        }
       });
     }
   });
 
+  snap.tracks.forEach(t => {
+    fc.features.push({
+      type: "Feature",
+      geometry: { type: "LineString", coordinates: (t.points || []).map(p => [p[1], p[0]]) },
+      properties: {
+        name: t.name,
+        layer: 'GPS Tracks',
+        ...(activeProjectTag ? { project: activeProjectTag } : {}),
+        notes: t.notes || '',
+        timestamp: t.timestamp
+      }
+    });
+  });
+
+  snap.photos.forEach((p, idx) => {
+    fc.features.push({
+      type: "Feature",
+      geometry: { type: "Point", coordinates: [p.lon, p.lat] },
+      properties: {
+        name: `Photo ${idx + 1}`,
+        layer: resolveLayerName(p.layerId, 'Field Photos'),
+        ...(activeProjectTag ? { project: activeProjectTag } : {}),
+        category: getCategoryById(p.categoryId).name,
+        comments: p.comments || '',
+        timestamp: p.timestamp
+      }
+    });
+  });
+
   const blob = new Blob([JSON.stringify(fc, null, 2)], { type: 'application/geo+json;charset=utf-8;' });
-  downloadBlob(blob, `${sanitizeFileName(currentProjectName)}_Digitized_Layers.geojson`);
+  downloadBlob(blob, `${sanitizeFileName(projName)}_Digitized_Layers.geojson`);
+  return blob;
 }
 
 // 5. Export Photos Zip
@@ -6535,20 +7294,22 @@ function toggleOfflineAoiBoundaries(show) {
   }
 }
 
-function addOfflineAoiExtent(bounds) {
+function addOfflineAoiExtent(bounds, meta = {}) {
   if (!bounds) return;
-  const rect = L.rectangle(bounds, {
-    color: '#10B981',
-    weight: 2,
-    dashArray: '6, 6',
-    fill: false,        // OUTLINE ONLY! NOT FILLED!
-    fillOpacity: 0,
-    interactive: false
-  });
-  offlineAoiLayerGroup.addLayer(rect);
-  if (showOfflineAoiBoundaries && map && !map.hasLayer(offlineAoiLayerGroup)) {
-    offlineAoiLayerGroup.addTo(map);
-  }
+  const extObj = {
+    id: 'aoi_' + Date.now(),
+    basemapId: meta.basemapId || activeBasemapId || 'esri-sat',
+    minZ: meta.minZ || 12,
+    maxZ: meta.maxZ || 15,
+    north: bounds.getNorth(),
+    south: bounds.getSouth(),
+    east: bounds.getEast(),
+    west: bounds.getWest(),
+    timestamp: new Date().toISOString()
+  };
+  cachedAoiExtents.push(extObj);
+  saveActiveProjectData();
+  rebuildOfflineAoiLayerGroup();
 }
 
 function handleAoiMapClick(e) {
@@ -6891,8 +7652,8 @@ async function startAoiDownload() {
   if (btn) btn.textContent = '🚀 Cache AOI Now';
   if (progLabel) progLabel.textContent = 'Cache download complete! Ready for 100% offline field navigation.';
   
-  // Register downloaded boundary to offline extent layer
-  addOfflineAoiExtent(bounds);
+  // Register downloaded boundary to offline extent layer for active project
+  addOfflineAoiExtent(bounds, { basemapId: cachePrefix, minZ, maxZ });
 
   // Clear sticky temporary selection preview
   if (aoiBoxPreview && map) {
@@ -7252,14 +8013,15 @@ async function exportAoiBasemapPackage(options = {}) {
   }
 }
 
-// Export ESRI Shapefiles (.zip) for GIS
-async function exportShapefilesZip() {
+// Export ESRI Shapefiles (.zip) for GIS (Isolated per project, includes LAYER & PROJECT in DBF)
+async function exportShapefilesZip(explicitProjectId) {
+  const { snap, projName, activeProjectTag, resolveLayerName } = resolveExportContext(explicitProjectId);
   const zip = new JSZip();
   const prj = 'GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",SPHEROID["WGS_1984",6378137.0,298.257223563]],PRIMEM["Greenwich",0.0],UNIT["Degree",0.0174532925199433]]';
 
   // 1. Waypoints Point Shapefile
-  if (waypoints.length > 0) {
-    const wpShp = buildPointShapefile(waypoints);
+  if (snap.waypoints.length > 0) {
+    const wpShp = buildPointShapefile(snap.waypoints, activeProjectTag, (w) => resolveLayerName(w.layerId, 'Waypoints'));
     zip.file('scout_waypoints.shp', wpShp.shp);
     zip.file('scout_waypoints.shx', wpShp.shx);
     zip.file('scout_waypoints.dbf', wpShp.dbf);
@@ -7267,11 +8029,11 @@ async function exportShapefilesZip() {
   }
 
   // 2. Digitized Features Shapefiles
-  const lines = digitizedFeatures.filter(f => f.type === 'line');
-  const polys = digitizedFeatures.filter(f => f.type === 'polygon');
+  const lines = snap.digitizedFeatures.filter(f => f.type === 'line');
+  const polys = snap.digitizedFeatures.filter(f => f.type === 'polygon');
 
   if (lines.length > 0) {
-    const lineShp = buildPolyShapefile(lines, 3);
+    const lineShp = buildPolyShapefile(lines, 3, activeProjectTag, (f) => resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized'));
     zip.file('scout_digitized_lines.shp', lineShp.shp);
     zip.file('scout_digitized_lines.shx', lineShp.shx);
     zip.file('scout_digitized_lines.dbf', lineShp.dbf);
@@ -7279,19 +8041,30 @@ async function exportShapefilesZip() {
   }
 
   if (polys.length > 0) {
-    const polyShp = buildPolyShapefile(polys, 5);
+    const polyShp = buildPolyShapefile(polys, 5, activeProjectTag, (f) => resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized'));
     zip.file('scout_digitized_polygons.shp', polyShp.shp);
     zip.file('scout_digitized_polygons.shx', polyShp.shx);
     zip.file('scout_digitized_polygons.dbf', polyShp.dbf);
     zip.file('scout_digitized_polygons.prj', prj);
   }
 
+  // 3. GPS Tracks Polyline Shapefile
+  if (snap.tracks.length > 0) {
+    const trackFeatures = snap.tracks.map(t => ({ ...t, vertices: t.points || [], category: 'GPS Track', comments: t.notes || '' }));
+    const trkShp = buildPolyShapefile(trackFeatures, 3, activeProjectTag, () => 'GPS Tracks');
+    zip.file('scout_tracks.shp', trkShp.shp);
+    zip.file('scout_tracks.shx', trkShp.shx);
+    zip.file('scout_tracks.dbf', trkShp.dbf);
+    zip.file('scout_tracks.prj', prj);
+  }
+
   const blob = await zip.generateAsync({ type: 'blob' });
-  triggerFileDownload(blob, `Scout_Shapefiles_${Date.now()}.zip`);
+  triggerFileDownload(blob, `${sanitizeFileName(projName)}_Shapefiles_${Date.now()}.zip`);
+  return blob;
 }
 
 // Pure JS Binary Shapefile Builders
-function buildPointShapefile(points) {
+function buildPointShapefile(points, projectTag = '', getLayerFn = null) {
   const count = points.length;
   const fileLenWords = 50 + (count * 14); // 100 byte header (50 words) + 28 bytes per point record (14 words)
   const shp = new ArrayBuffer(fileLenWords * 2);
@@ -7342,18 +8115,20 @@ function buildPointShapefile(points) {
     shpOffset += 28;
   });
 
-  // Simple DBF
+  // Simple DBF with LAYER & PROJECT
   const dbf = buildSimpleDbf(points.map(p => ({
-    NAME: (p.name || 'WP').substring(0, 20),
+    NAME: (p.name || 'WP').substring(0, 24),
+    LAYER: (getLayerFn ? getLayerFn(p) : 'Waypoints').substring(0, 24),
+    PROJECT: (projectTag || '').substring(0, 24),
     CAT: (p.categoryId || 'gen').substring(0, 15),
-    NOTES: (p.notes || '').substring(0, 50),
+    NOTES: (p.notes || '').substring(0, 32),
     ELEV: Math.round(p.elevation || 0).toString()
   })));
 
   return { shp: shp, shx: shx, dbf: dbf };
 }
 
-function buildPolyShapefile(features, shapeType) {
+function buildPolyShapefile(features, shapeType, projectTag = '', getLayerFn = null) {
   // shapeType: 3 = Polyline, 5 = Polygon
   let totalWords = 50;
   const count = features.length;
@@ -7419,9 +8194,11 @@ function buildPolyShapefile(features, shapeType) {
   });
 
   const dbf = buildSimpleDbf(features.map(f => ({
-    NAME: (f.name || 'Feature').substring(0, 20),
-    CAT: (f.category || 'general').substring(0, 15),
-    COMMENTS: (f.comments || '').substring(0, 50)
+    NAME: (f.name || 'Feature').substring(0, 24),
+    LAYER: (getLayerFn ? getLayerFn(f) : 'Digitized').substring(0, 24),
+    PROJECT: (projectTag || '').substring(0, 24),
+    CAT: (f.category || 'general').substring(0, 18),
+    COMMENTS: (f.comments || '').substring(0, 32)
   })));
 
   return { shp: shp, shx: shx, dbf: dbf };
@@ -7480,58 +8257,102 @@ function buildSimpleDbf(rows) {
   return buf;
 }
 
-// Export Google Earth KML (.kml)
-function exportKmlData() {
+// Export Google Earth KML (.kml) — Grouped into Layer <Folder> tags with Layer & Project ExtendedData
+function exportKmlData(explicitProjectId) {
+  const { snap, projName, activeProjectTag, resolveLayerName } = resolveExportContext(explicitProjectId);
   const kml = [];
   kml.push('<?xml version="1.0" encoding="UTF-8"?>');
   kml.push('<kml xmlns="http://www.opengis.net/kml/2.2">');
   kml.push('<Document>');
-  kml.push('  <name>Quik Field Notes Survey</name>');
+  kml.push(`  <name>${escapeXml(projName)}</name>`);
 
   // Style Definitions
   kml.push('  <Style id="wptStyle"><IconStyle><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/paddle/red-circle.png</href></Icon></IconStyle></Style>');
   kml.push('  <Style id="lineStyle"><LineStyle><color>ff00f0ff</color><width>3.5</width></LineStyle></Style>');
   kml.push('  <Style id="polyStyle"><LineStyle><color>ff00f0ff</color><width>2</width></LineStyle><PolyStyle><color>4000f0ff</color></PolyStyle></Style>');
 
-  // Waypoints
-  waypoints.forEach(w => {
-    kml.push('  <Placemark>');
-    kml.push(`    <name>${escapeXml(w.name)}</name>`);
-    kml.push(`    <description>Category: ${escapeXml(w.categoryId)}\nNotes: ${escapeXml(w.notes || '')}\nElevation: ${Math.round(w.elevation || 0)}m</description>`);
-    kml.push('    <styleUrl>#wptStyle</styleUrl>');
-    kml.push(`    <Point><coordinates>${w.lon},${w.lat},${w.elevation || 0}</coordinates></Point>`);
-    kml.push('  </Placemark>');
+  // Organize Placemarks cleanly by Layer Folder
+  const layerFolders = {};
+  const ensureFolder = (layerName) => {
+    if (!layerFolders[layerName]) layerFolders[layerName] = [];
+    return layerFolders[layerName];
+  };
+
+  const buildExtData = (layerName) => {
+    let ext = '    <ExtendedData>';
+    ext += `<Data name="layer"><value>${escapeXml(layerName)}</value></Data>`;
+    if (activeProjectTag) ext += `<Data name="project"><value>${escapeXml(activeProjectTag)}</value></Data>`;
+    ext += '</ExtendedData>';
+    return ext;
+  };
+
+  snap.waypoints.forEach(w => {
+    const lName = resolveLayerName(w.layerId, 'Waypoints');
+    const pm = [];
+    pm.push('    <Placemark>');
+    pm.push(`      <name>${escapeXml(w.name)}</name>`);
+    pm.push(`      <description>Layer: ${escapeXml(lName)}${activeProjectTag ? '\nProject: ' + escapeXml(activeProjectTag) : ''}\nCategory: ${escapeXml(w.categoryId)}\nNotes: ${escapeXml(w.notes || '')}\nElevation: ${Math.round(w.elevation || 0)}m</description>`);
+    pm.push('  ' + buildExtData(lName));
+    pm.push('      <styleUrl>#wptStyle</styleUrl>');
+    pm.push(`      <Point><coordinates>${w.lon},${w.lat},${w.elevation || 0}</coordinates></Point>`);
+    pm.push('    </Placemark>');
+    ensureFolder(lName).push(pm.join('\n'));
   });
 
-  // Digitized Lines and Polygons
-  digitizedFeatures.forEach(f => {
-    kml.push('  <Placemark>');
-    kml.push(`    <name>${escapeXml(f.name)}</name>`);
-    kml.push(`    <description>Type: ${f.type}\nCategory: ${escapeXml(f.category)}\nComments: ${escapeXml(f.comments || '')}</description>`);
+  snap.digitizedFeatures.forEach(f => {
+    const lName = resolveLayerName(f.layerId, snap.featureLayers[0]?.name || 'General Digitized');
+    const pm = [];
+    pm.push('    <Placemark>');
+    pm.push(`      <name>${escapeXml(f.name)}</name>`);
+    pm.push(`      <description>Layer: ${escapeXml(lName)}${activeProjectTag ? '\nProject: ' + escapeXml(activeProjectTag) : ''}\nType: ${f.type}\nCategory: ${escapeXml(f.category)}\nComments: ${escapeXml(f.comments || '')}</description>`);
+    pm.push('  ' + buildExtData(lName));
 
     if (f.type === 'polygon') {
-      kml.push('    <styleUrl>#polyStyle</styleUrl>');
-      kml.push('    <Polygon><outerBoundaryIs><LinearRing><coordinates>');
+      pm.push('      <styleUrl>#polyStyle</styleUrl>');
+      pm.push('      <Polygon><outerBoundaryIs><LinearRing><coordinates>');
       const coords = [...(f.vertices || [])];
       if (coords.length > 0 && (coords[0][0] !== coords[coords.length-1][0] || coords[0][1] !== coords[coords.length-1][1])) {
         coords.push(coords[0]);
       }
-      coords.forEach(c => { kml.push(`      ${c[1]},${c[0]},0`); });
-      kml.push('    </coordinates></LinearRing></outerBoundaryIs></Polygon>');
+      coords.forEach(c => { pm.push(`        ${c[1]},${c[0]},0`); });
+      pm.push('      </coordinates></LinearRing></outerBoundaryIs></Polygon>');
     } else {
-      kml.push('    <styleUrl>#lineStyle</styleUrl>');
-      kml.push('    <LineString><coordinates>');
-      (f.vertices || []).forEach(c => { kml.push(`      ${c[1]},${c[0]},0`); });
-      kml.push('    </coordinates></LineString>');
+      pm.push('      <styleUrl>#lineStyle</styleUrl>');
+      pm.push('      <LineString><coordinates>');
+      (f.vertices || []).forEach(c => { pm.push(`        ${c[1]},${c[0]},0`); });
+      pm.push('      </coordinates></LineString>');
     }
-    kml.push('  </Placemark>');
+    pm.push('    </Placemark>');
+    ensureFolder(lName).push(pm.join('\n'));
+  });
+
+  snap.tracks.forEach(t => {
+    const lName = 'GPS Tracks';
+    const pm = [];
+    pm.push('    <Placemark>');
+    pm.push(`      <name>${escapeXml(t.name)}</name>`);
+    pm.push('  ' + buildExtData(lName));
+    pm.push('      <styleUrl>#lineStyle</styleUrl>');
+    pm.push('      <LineString><coordinates>');
+    (t.points || []).forEach(c => { pm.push(`        ${c[1]},${c[0]},0`); });
+    pm.push('      </coordinates></LineString>');
+    pm.push('    </Placemark>');
+    ensureFolder(lName).push(pm.join('\n'));
+  });
+
+  Object.keys(layerFolders).forEach(folderName => {
+    kml.push('  <Folder>');
+    kml.push(`    <name>${escapeXml(folderName)}</name>`);
+    layerFolders[folderName].forEach(p => kml.push(p));
+    kml.push('  </Folder>');
   });
 
   kml.push('</Document>');
   kml.push('</kml>');
 
   const blob = new Blob([kml.join('\n')], { type: 'application/vnd.google-earth.kml+xml' });
-  triggerFileDownload(blob, `Quik_Field_Notes_${Date.now()}.kml`);
+  triggerFileDownload(blob, `${sanitizeFileName(projName)}_${Date.now()}.kml`);
+  return blob;
 }
 
 function escapeXml(unsafe) {
@@ -7547,22 +8368,370 @@ function escapeXml(unsafe) {
   });
 }
 
-function exportPhotosZip() {
-  if (photos.length === 0) {
+function exportPhotosZip(explicitProjectId) {
+  const { snap, projName } = resolveExportContext(explicitProjectId);
+  if (snap.photos.length === 0) {
     alert("No photos captured in this project.");
     return;
   }
   const zip = new JSZip();
-  photos.forEach((p, idx) => {
+  snap.photos.forEach((p, idx) => {
     const filename = `photo_${idx + 1}.jpg`;
-    const base64Data = p.dataUrl.split(',')[1];
+    const base64Data = p.dataUrl ? p.dataUrl.split(',')[1] : null;
     if (base64Data) {
       zip.file(filename, base64Data, { base64: true });
     }
   });
   zip.generateAsync({ type: "blob" }).then(content => {
-    downloadBlob(content, `${sanitizeFileName(currentProjectName)}_Photos.zip`);
+    downloadBlob(content, `${sanitizeFileName(projName)}_Photos.zip`);
   });
+}
+
+// =========================================================================
+// TRANSFER LAYERS & CACHED DATA BETWEEN PROJECTS ENGINE
+// =========================================================================
+function setTransferOperationMode(mode) {
+  transferOpMode = mode === 'move' ? 'move' : 'copy';
+  document.getElementById('transferModeCopyCard')?.classList.toggle('active', transferOpMode === 'copy');
+  document.getElementById('transferModeMoveCard')?.classList.toggle('active', transferOpMode === 'move');
+  const rc = document.getElementById('radioTransferCopy');
+  const rm = document.getElementById('radioTransferMove');
+  if (rc) rc.checked = transferOpMode === 'copy';
+  if (rm) rm.checked = transferOpMode === 'move';
+}
+
+function openTransferProjectModal(defaultSourceId) {
+  saveActiveProjectData();
+  const srcId = defaultSourceId !== undefined ? defaultSourceId : (projects.find(p => p.id !== currentProjectId)?.id || '');
+  const dstId = currentProjectId || (projects[0]?.id || '');
+
+  populateProjectDropdownOptions('transferSourceProjectSelect', srcId);
+  populateProjectDropdownOptions('transferDestProjectSelect', dstId);
+  setTransferOperationMode('copy');
+  renderTransferItemsList();
+  openModal('transferProjectModal');
+}
+
+function renderTransferItemsList() {
+  const srcSel = document.getElementById('transferSourceProjectSelect');
+  const box = document.getElementById('transferItemsList');
+  if (!srcSel || !box) return;
+  const srcId = srcSel.value || null;
+  const snap = loadProjectPayloadById(srcId);
+
+  let html = '';
+  snap.featureLayers.forEach(l => {
+    const fCnt = snap.digitizedFeatures.filter(f => f.layerId === l.id).length;
+    const wCnt = snap.waypoints.filter(w => w.layerId === l.id).length;
+    html += `
+      <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#FFFFFF; cursor:pointer;">
+        <input type="checkbox" class="chk-transfer-layer" value="${l.id}" checked style="width:16px; height:16px; accent-color:#00F0FF;">
+        <span style="width:10px; height:10px; border-radius:3px; background:${l.color}; display:inline-block;"></span>
+        <span>Layer: <b>${escapeXml(l.name)}</b> (${fCnt} poly/lines, ${wCnt} pts)</span>
+      </label>
+    `;
+  });
+
+  const looseWpts = snap.waypoints.filter(w => !w.layerId).length;
+  html += `
+    <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#CBD5E1; cursor:pointer; border-top:1px solid rgba(255,255,255,0.08); padding-top:6px;">
+      <input type="checkbox" id="chkTransferWaypoints" ${looseWpts > 0 ? 'checked' : ''} style="width:16px; height:16px; accent-color:#38BDF8;">
+      <span>📍 General Waypoints (${looseWpts})</span>
+    </label>
+    <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#CBD5E1; cursor:pointer;">
+      <input type="checkbox" id="chkTransferPhotos" ${snap.photos.length > 0 ? 'checked' : ''} style="width:16px; height:16px; accent-color:#00F0FF;">
+      <span>📷 Field Photos (${snap.photos.length})</span>
+    </label>
+    <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#CBD5E1; cursor:pointer;">
+      <input type="checkbox" id="chkTransferTracks" ${snap.tracks.length > 0 ? 'checked' : ''} style="width:16px; height:16px; accent-color:#10B981;">
+      <span>⏺️ GPS Tracks (${snap.tracks.length})</span>
+    </label>
+    <label style="display:flex; align-items:center; gap:8px; font-size:12px; color:#A7F3D0; cursor:pointer;">
+      <input type="checkbox" id="chkTransferCache" ${snap.cachedAoiExtents.length > 0 ? 'checked' : ''} style="width:16px; height:16px; accent-color:#10B981;">
+      <span>🗺️ Cached Map AOIs &amp; Offline Extent Data (${snap.cachedAoiExtents.length})</span>
+    </label>
+  `;
+  box.innerHTML = html;
+}
+
+function transferProjectData(srcProjId, dstProjId, opts = {}) {
+  const sId = srcProjId || null;
+  const dId = dstProjId || null;
+  if (sId === dId) {
+    throw new Error('Source and Destination projects must be different.');
+  }
+  const srcSnap = deepClone(loadProjectPayloadById(sId));
+  const dstSnap = deepClone(loadProjectPayloadById(dId));
+
+  const selectedLayerIds = Array.isArray(opts.layerIds) ? opts.layerIds : [];
+  const layerIdRemap = {};
+  let transferredCount = 0;
+
+  // 1. Transfer selected Feature Layers & all features inside them
+  selectedLayerIds.forEach(oldLid => {
+    const srcLayer = srcSnap.featureLayers.find(l => l.id === oldLid);
+    if (!srcLayer) return;
+
+    let dstLayer = dstSnap.featureLayers.find(l => l.name.toLowerCase() === srcLayer.name.toLowerCase());
+    if (!dstLayer) {
+      const newLid = 'layer_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      dstLayer = { id: newLid, name: srcLayer.name, color: srcLayer.color, visible: true };
+      dstSnap.featureLayers.push(dstLayer);
+    }
+    layerIdRemap[oldLid] = dstLayer.id;
+
+    // Transfer digitized features belonging to this layer
+    srcSnap.digitizedFeatures.filter(f => f.layerId === oldLid).forEach(f => {
+      const copyF = deepClone(f);
+      copyF.layerId = dstLayer.id;
+      if (dstSnap.digitizedFeatures.some(df => df.id === copyF.id)) {
+        copyF.id = 'feat_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      }
+      dstSnap.digitizedFeatures.push(copyF);
+      transferredCount++;
+    });
+
+    // Transfer waypoints attached to this layer
+    srcSnap.waypoints.filter(w => w.layerId === oldLid).forEach(w => {
+      const copyW = deepClone(w);
+      copyW.layerId = dstLayer.id;
+      if (dstSnap.waypoints.some(dw => dw.id === copyW.id)) {
+        copyW.id = 'wpt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      }
+      dstSnap.waypoints.push(copyW);
+      transferredCount++;
+    });
+
+    if (opts.move) {
+      srcSnap.digitizedFeatures = srcSnap.digitizedFeatures.filter(f => f.layerId !== oldLid);
+      srcSnap.waypoints = srcSnap.waypoints.filter(w => w.layerId !== oldLid);
+      if (srcSnap.featureLayers.length > 1) {
+        srcSnap.featureLayers = srcSnap.featureLayers.filter(l => l.id !== oldLid);
+      }
+    }
+  });
+
+  // 2. General / All Waypoints
+  if (opts.includeWaypoints) {
+    const targetWpts = opts.allWaypoints
+      ? srcSnap.waypoints.filter(w => !selectedLayerIds.includes(w.layerId))
+      : srcSnap.waypoints.filter(w => !w.layerId);
+    targetWpts.forEach(w => {
+      const copyW = deepClone(w);
+      if (copyW.layerId && layerIdRemap[copyW.layerId]) copyW.layerId = layerIdRemap[copyW.layerId];
+      if (dstSnap.waypoints.some(dw => dw.id === copyW.id)) {
+        copyW.id = 'wpt_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      }
+      dstSnap.waypoints.push(copyW);
+      transferredCount++;
+    });
+    if (opts.move) {
+      srcSnap.waypoints = opts.allWaypoints ? [] : srcSnap.waypoints.filter(w => !!w.layerId);
+    }
+  }
+
+  // 3. Field Photos
+  if (opts.includePhotos) {
+    srcSnap.photos.forEach(p => {
+      const copyP = deepClone(p);
+      if (copyP.layerId && layerIdRemap[copyP.layerId]) copyP.layerId = layerIdRemap[copyP.layerId];
+      if (dstSnap.photos.some(dp => dp.id === copyP.id)) {
+        copyP.id = 'photo_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      }
+      dstSnap.photos.push(copyP);
+      transferredCount++;
+    });
+    if (opts.move) srcSnap.photos = [];
+  }
+
+  // 4. GPS Tracks
+  if (opts.includeTracks) {
+    srcSnap.tracks.forEach(t => {
+      const copyT = deepClone(t);
+      if (dstSnap.tracks.some(dt => dt.id === copyT.id)) {
+        copyT.id = 'trk_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+      }
+      dstSnap.tracks.push(copyT);
+      transferredCount++;
+    });
+    if (opts.move) srcSnap.tracks = [];
+  }
+
+  // 5. Cached Map AOIs & Offline Extent Metadata
+  if (opts.includeCache) {
+    srcSnap.cachedAoiExtents.forEach(ext => {
+      const copyE = deepClone(ext);
+      if (!dstSnap.cachedAoiExtents.some(de => de.id === copyE.id)) {
+        dstSnap.cachedAoiExtents.push(copyE);
+        transferredCount++;
+      }
+    });
+    if (opts.move) srcSnap.cachedAoiExtents = [];
+  }
+
+  saveProjectPayloadById(dId, dstSnap);
+  if (opts.move) {
+    saveProjectPayloadById(sId, srcSnap);
+  }
+  return transferredCount;
+}
+
+function confirmTransferProjectData() {
+  const srcId = document.getElementById('transferSourceProjectSelect')?.value || '';
+  const dstId = document.getElementById('transferDestProjectSelect')?.value || '';
+  if (srcId === dstId) {
+    alert('Source and Destination projects must be different.');
+    return;
+  }
+  const layerIds = Array.from(document.querySelectorAll('.chk-transfer-layer:checked')).map(el => el.value);
+  const includeWaypoints = !!document.getElementById('chkTransferWaypoints')?.checked;
+  const includePhotos = !!document.getElementById('chkTransferPhotos')?.checked;
+  const includeTracks = !!document.getElementById('chkTransferTracks')?.checked;
+  const includeCache = !!document.getElementById('chkTransferCache')?.checked;
+
+  const count = transferProjectData(srcId, dstId, {
+    layerIds,
+    includeWaypoints,
+    includePhotos,
+    includeTracks,
+    includeCache,
+    move: transferOpMode === 'move'
+  });
+
+  closeModal('transferProjectModal');
+  showToast(`✅ Transferred ${count} item(s) to "${getProjectNameById(dstId || null)}"`);
+}
+
+// =========================================================================
+// SAFE MULTI-STEP PROJECT DELETION & EXPORT/MERGE SAFEGUARD
+// =========================================================================
+function openDeleteProjectModal(projectId) {
+  if (!projectId) {
+    alert('General (No Project) container cannot be deleted.');
+    return;
+  }
+  const proj = projects.find(p => p.id === projectId);
+  if (!proj) return;
+  saveActiveProjectData();
+  pendingDeleteProjectId = projectId;
+
+  const snap = loadProjectPayloadById(projectId);
+  document.getElementById('deleteTargetProjectTitle').textContent = proj.name;
+  document.getElementById('deleteTargetProjectSummary').textContent =
+    `${snap.featureLayers.length} Layers | ${snap.waypoints.length} Waypoints | ${snap.digitizedFeatures.length} Digitized | ${snap.photos.length} Photos | ${snap.tracks.length} Tracks | ${snap.cachedAoiExtents.length} Cached AOIs`;
+  document.getElementById('deleteAgreementLabel').textContent =
+    `I agree to permanently delete project "${proj.name}" and all its remaining data.`;
+  document.getElementById('chkConfirmPermanentProjectDelete').checked = false;
+  document.getElementById('deleteExportStatusNote').style.display = 'none';
+
+  // Populate Destination selector (prefer active project if different, else General Data or another project)
+  const defaultDest = (currentProjectId && currentProjectId !== projectId) ? currentProjectId : (projects.find(p => p.id !== projectId)?.id || '');
+  populateProjectDropdownOptions('deleteMergeDestSelect', defaultDest, projectId);
+
+  // Render selectable layers/groups from the project being deleted
+  const listBox = document.getElementById('deleteSelectableLayersList');
+  let lHtml = snap.featureLayers.map(l => {
+    const cnt = snap.digitizedFeatures.filter(f => f.layerId === l.id).length + snap.waypoints.filter(w => w.layerId === l.id).length;
+    return `
+      <label style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:#FFFFFF; cursor:pointer;">
+        <input type="checkbox" class="chk-delete-merge-layer" value="${l.id}" checked style="width:15px; height:15px; accent-color:#10B981;">
+        <span style="width:10px; height:10px; border-radius:3px; background:${l.color}; display:inline-block;"></span>
+        <span>Layer: <b>${escapeXml(l.name)}</b> (${cnt} items)</span>
+      </label>
+    `;
+  }).join('');
+  lHtml += `
+    <label style="display:flex; align-items:center; gap:8px; font-size:11.5px; color:#CBD5E1; cursor:pointer;">
+      <input type="checkbox" id="chkDelMergeExtras" checked style="width:15px; height:15px; accent-color:#38BDF8;">
+      <span>Waypoints, Photos, Tracks &amp; Cached AOIs</span>
+    </label>
+  `;
+  listBox.innerHTML = lHtml;
+  openModal('deleteProjectModal');
+}
+
+function exportDeleteTargetBackup() {
+  if (!pendingDeleteProjectId) return;
+  exportScoutPackage(pendingDeleteProjectId);
+  const note = document.getElementById('deleteExportStatusNote');
+  if (note) note.style.display = 'block';
+  showToast('📦 Backup .scoutpkg exported!');
+}
+
+function openDeleteTargetFullExport() {
+  if (!pendingDeleteProjectId) return;
+  const pid = pendingDeleteProjectId;
+  closeModal('deleteProjectModal');
+  openExportModal(pid);
+}
+
+function mergeDeleteTargetBeforeDelete(allData) {
+  if (!pendingDeleteProjectId) return;
+  const dstId = document.getElementById('deleteMergeDestSelect')?.value || '';
+  if (dstId === pendingDeleteProjectId) return;
+
+  const snap = loadProjectPayloadById(pendingDeleteProjectId);
+  const layerIds = allData
+    ? snap.featureLayers.map(l => l.id)
+    : Array.from(document.querySelectorAll('.chk-delete-merge-layer:checked')).map(el => el.value);
+  const includeExtras = allData || !!document.getElementById('chkDelMergeExtras')?.checked;
+
+  const movedCount = transferProjectData(pendingDeleteProjectId, dstId, {
+    layerIds,
+    includeWaypoints: includeExtras,
+    allWaypoints: includeExtras,
+    includePhotos: includeExtras,
+    includeTracks: includeExtras,
+    includeCache: includeExtras,
+    move: false
+  });
+  showToast(`➕ Merged ${movedCount} item(s) into "${getProjectNameById(dstId || null)}"!`);
+}
+
+function confirmFinalProjectDeletion() {
+  if (!pendingDeleteProjectId) return;
+  const proj = projects.find(p => p.id === pendingDeleteProjectId);
+  if (!proj) return;
+
+  const agreed = !!document.getElementById('chkConfirmPermanentProjectDelete')?.checked;
+  if (!agreed) {
+    alert('Please tick the agreement checkbox first if you want to permanently delete this project.');
+    return;
+  }
+
+  const finalOk = confirm(`FINAL CONFIRMATION:\n\nPermanently delete full project "${proj.name}" and ALL its remaining data?\n\nPress OK only if you agree to delete it permanently.`);
+  if (!finalOk) {
+    showToast('Project kept safely.');
+    return;
+  }
+
+  executeProjectDeletion(pendingDeleteProjectId);
+}
+
+function executeProjectDeletion(projectId) {
+  const proj = projects.find(p => p.id === projectId);
+  const projName = proj ? proj.name : 'Project';
+  const wasActive = (currentProjectId === projectId);
+
+  try { localStorage.removeItem(getProjectStorageKey(projectId)); } catch (_) {}
+  projects = projects.filter(p => p.id !== projectId);
+  saveProjectsToStorage();
+
+  if (wasActive) {
+    const nextProj = projects[0] ? projects[0].id : null;
+    currentProjectId = nextProj;
+    currentProjectName = nextProj ? getProjectNameById(nextProj) : 'No Project';
+    saveProjectsToStorage();
+    clearMapGraphics();
+    loadActiveProjectData();
+    renderAllProjectLayers();
+    updateHudDisplay();
+  }
+
+  pendingDeleteProjectId = null;
+  refreshProjectSelectDropdown();
+  closeModal('deleteProjectModal');
+  showToast(`🗑️ Project "${projName}" permanently deleted.`);
 }
 
 function downloadBlob(blob, filename) {

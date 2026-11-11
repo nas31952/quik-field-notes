@@ -871,8 +871,184 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: Crosshair locked (<1px offset) and Long-Tap Trace-Snap inserted all shared vertices with zero gap');
 
+    // TEST 29: Vector Export Layer Name & Project Name + Project Isolation + Export/Activate Previous Project
+    const projectExportTest = await evaluate(`(async () => {
+      // Reset projects cleanly
+      projects = []; currentProjectId = null; currentProjectName = 'No Project';
+      waypoints = []; tracks = []; photos = []; digitizedFeatures = []; featureLayers = []; cachedAoiExtents = [];
+      localStorage.clear();
+
+      // Create Project Alpha and add polygon in "Hazard Layer"
+      document.getElementById('newProjectInput').value = 'Project Alpha';
+      createNewProject();
+      const alphaId = currentProjectId;
+      featureLayers.push({ id: 'layer_haz', name: 'Hazard Layer', color: '#EF4444', visible: true });
+      digitizedFeatures.push({
+        id: 'feat_alpha_1', type: 'polygon', name: 'Alpha Sabkha', category: 'Sabkha',
+        layerId: 'layer_haz', comments: 'Wet zone',
+        vertices: [[25.28, 51.52], [25.29, 51.52], [25.29, 51.53]], timestamp: new Date().toISOString()
+      });
+      waypoints.push({ id: 'wp_alpha_1', name: 'A-1', categoryId: 'hazard', layerId: 'layer_haz', notes: 'Alpha WP', lat: 25.285, lon: 51.525, elevation: 10, timestamp: new Date().toISOString() });
+      addOfflineAoiExtent(L.latLngBounds([25.28, 51.52], [25.29, 51.53]), { basemapId: 'esri-sat', minZ: 12, maxZ: 15 });
+
+      // Create Project Beta (must preserve Alpha & switch cleanly)
+      document.getElementById('newProjectInput').value = 'Project Beta';
+      createNewProject();
+      const betaId = currentProjectId;
+      featureLayers.push({ id: 'layer_rte', name: 'Survey Routes', color: '#10B981', visible: true });
+      digitizedFeatures.push({
+        id: 'feat_beta_1', type: 'line', name: 'Beta Line 1', category: 'Survey Line',
+        layerId: 'layer_rte', comments: 'Clear trail',
+        vertices: [[25.30, 51.54], [25.31, 51.55]], timestamp: new Date().toISOString()
+      });
+      saveActiveProjectData();
+
+      // Export Beta GeoJSON, KML, CSV (capture blobs)
+      const captured = [];
+      const origDL = downloadBlob;
+      window.downloadBlob = (blob, filename) => { captured.push({ blob, filename }); };
+      downloadBlob = window.downloadBlob;
+
+      const betaGeoBlob = exportGeoJsonData();
+      const betaGeo = JSON.parse(await betaGeoBlob.text());
+      const betaKmlBlob = exportKmlData();
+      const betaKml = await betaKmlBlob.text();
+      const betaCsvBlob = exportFieldNotesCsv();
+      const betaCsv = await betaCsvBlob.text();
+
+      // Export previous project Alpha directly without switching active project!
+      const alphaGeoBlob = exportGeoJsonData(alphaId);
+      const alphaGeo = JSON.parse(await alphaGeoBlob.text());
+
+      // Reactivate Project Alpha and confirm all its features + cached AOI preserved
+      switchActiveProject(alphaId);
+      const alphaRestored = (currentProjectId === alphaId && digitizedFeatures.length === 1 && digitizedFeatures[0].name === 'Alpha Sabkha' && cachedAoiExtents.length === 1);
+      switchActiveProject(betaId);
+
+      return {
+        alphaId, betaId,
+        betaProjectProp: betaGeo.features[0]?.properties?.project,
+        betaLayerProp: betaGeo.features[0]?.properties?.layer,
+        betaFeatureCount: betaGeo.features.length,
+        betaContainsAlpha: JSON.stringify(betaGeo).includes('Alpha Sabkha'),
+        betaKmlHasFolder: betaKml.includes('<name>Survey Routes</name>') && betaKml.includes('Project Beta'),
+        betaCsvHasLayer: betaCsv.includes('Project,Layer,') && betaCsv.includes('Survey Routes') && !betaCsv.includes('Alpha Sabkha'),
+        alphaGeoHasHazard: alphaGeo.features.some(f => f.properties.layer === 'Hazard Layer' && f.properties.project === 'Project Alpha'),
+        alphaRestored
+      };
+    })()`);
+    console.log('Test 29 - Project Isolation, Layer Names & Previous Project Export/Reactivate:', projectExportTest);
+    if (projectExportTest.betaProjectProp !== 'Project Beta' || projectExportTest.betaLayerProp !== 'Survey Routes' ||
+        projectExportTest.betaFeatureCount !== 1 || projectExportTest.betaContainsAlpha ||
+        !projectExportTest.betaKmlHasFolder || !projectExportTest.betaCsvHasLayer ||
+        !projectExportTest.alphaGeoHasHazard || !projectExportTest.alphaRestored) {
+      throw new Error('Project isolation / vector export layer metadata check failed');
+    }
+    console.log('  -> PASS: Vector exports include Layer Name & Project Name, strictly isolated per project, with previous project activate & export');
+
+    // TEST 30: Transfer Layers & Cached AOI Data Between Projects
+    const transferTest = await evaluate(`(() => {
+      const alphaId = projects.find(p => p.name === 'Project Alpha').id;
+      const betaId = projects.find(p => p.name === 'Project Beta').id;
+      const movedCount = transferProjectData(alphaId, betaId, {
+        layerIds: ['layer_haz'],
+        includeCache: true,
+        move: false
+      });
+      return {
+        movedCount,
+        betaHasHazardLayer: featureLayers.some(l => l.name === 'Hazard Layer'),
+        betaHasAlphaSabkha: digitizedFeatures.some(f => f.name === 'Alpha Sabkha'),
+        betaHasCacheAoi: cachedAoiExtents.length === 1,
+        alphaStillPreserved: loadProjectPayloadById(alphaId).digitizedFeatures.length === 1
+      };
+    })()`);
+    console.log('Test 30 - Transfer Layers & Cached AOIs Between Projects:', transferTest);
+    if (!transferTest.betaHasHazardLayer || !transferTest.betaHasAlphaSabkha || !transferTest.betaHasCacheAoi || !transferTest.alphaStillPreserved) {
+      throw new Error('Project layer & cache transfer test failed');
+    }
+    console.log('  -> PASS: Feature layers & cached map AOIs transferred cleanly while preserving source project');
+
+    // TEST 31: Safe Multi-Step Project Deletion Safeguard
+    const deleteSafeguardTest = await evaluate(`(() => {
+      const alphaId = projects.find(p => p.name === 'Project Alpha').id;
+      window.alert = () => {};
+      window.confirm = () => false; // User declines final confirmation first
+
+      openDeleteProjectModal(alphaId);
+      // 1. Try delete without ticking agreement checkbox -> MUST keep project
+      confirmFinalProjectDeletion();
+      const keptWithoutCheckbox = projects.some(p => p.id === alphaId);
+
+      // 2. Tick agreement, but decline final confirm dialog -> MUST keep project
+      document.getElementById('chkConfirmPermanentProjectDelete').checked = true;
+      confirmFinalProjectDeletion();
+      const keptWhenDeclined = projects.some(p => p.id === alphaId);
+
+      // 3. Agree to final confirmation -> deletes Project Alpha cleanly
+      window.confirm = () => true;
+      confirmFinalProjectDeletion();
+      const deletedAfterAgree = !projects.some(p => p.id === alphaId);
+
+      return { keptWithoutCheckbox, keptWhenDeclined, deletedAfterAgree };
+    })()`);
+    console.log('Test 31 - Safe Project Deletion Safeguard:', deleteSafeguardTest);
+    if (!deleteSafeguardTest.keptWithoutCheckbox || !deleteSafeguardTest.keptWhenDeclined || !deleteSafeguardTest.deletedAfterAgree) {
+      throw new Error('Project deletion safeguard check failed');
+    }
+    console.log('  -> PASS: Project deletion requires agreement checkbox + final confirmation, keeping project safe unless explicitly agreed');
+
+    // TEST 32: Circle Digitizing (Cursor Center + Moved Outer Cursor + Typed Radius in Settings Units)
+    const circleDrawTest = await evaluate(`(() => {
+      // Set Distance Unit in Settings to Feet ('ft')
+      document.getElementById('measureDistUnitSelect').value = 'ft';
+      onMeasurementUnitsChanged();
+
+      // Mode A: Cursor center + Typed Radius in Feet (328.084 ft == 100.0 m)
+      startDrawingMode('circle', 'cursor');
+      addVertexAtCursor(); // Sets center on crosshair
+      openCircleRadiusModal();
+      const unitLbl = document.getElementById('circleRadiusUnitLabel').textContent;
+      document.getElementById('circleRadiusTypedInput').value = '328.084';
+      applyTypedCircleRadius();
+      finishDrawing();
+      document.getElementById('drawFeatureName').value = 'Safety Radius 100m';
+      confirmSaveDigitizedFeature();
+
+      const savedTypedCircle = digitizedFeatures.find(f => f.name === 'Safety Radius 100m');
+      const typedRadiusOk = savedTypedCircle && savedTypedCircle.isCircle && Math.abs(savedTypedCircle.circleRadiusMeters - 100) < 0.25 && savedTypedCircle.vertices.length === 64;
+
+      // Mode B: Cursor center + Moved Cursor Outer Position
+      startDrawingMode('circle', 'cursor');
+      addVertexAtCursor(); // Center at current crosshair
+      const cLatLng = getCrosshairCenterLatLng();
+      map.panBy([80, 0], { animate: false }); // Move crosshair horizontally
+      finishDrawing(); // Uses moved cursor outer position!
+      document.getElementById('drawFeatureName').value = 'Cursor Drag Circle';
+      confirmSaveDigitizedFeature();
+      const savedMovedCircle = digitizedFeatures.find(f => f.name === 'Cursor Drag Circle');
+      const movedRadiusOk = savedMovedCircle && savedMovedCircle.isCircle && savedMovedCircle.circleRadiusMeters > 10 && savedMovedCircle.vertices.length === 64;
+
+      // Restore default units
+      document.getElementById('measureDistUnitSelect').value = 'm_km';
+      onMeasurementUnitsChanged();
+
+      return {
+        unitLbl,
+        typedRadiusOk,
+        typedRadiusMeters: savedTypedCircle?.circleRadiusMeters,
+        movedRadiusOk,
+        movedRadiusMeters: savedMovedCircle?.circleRadiusMeters
+      };
+    })()`);
+    console.log('Test 32 - Circle Digitizing (Cursor + Moved Edge + Typed Radius in Settings Units):', circleDrawTest);
+    if (!circleDrawTest.unitLbl.includes('Feet') || !circleDrawTest.typedRadiusOk || !circleDrawTest.movedRadiusOk) {
+      throw new Error('Circle digitizing test failed');
+    }
+    console.log('  -> PASS: Circle tool sets center on cursor, supports moved cursor radius AND typed Settings-unit radius, saving smooth 64-pt rings');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 28 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 32 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
