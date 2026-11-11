@@ -1352,6 +1352,95 @@ body, html {
   padding-top: 3px;
   font-weight: 600;
 }
+
+/* =========================================================================
+   IPAD & ANDROID TABLET RESPONSIVE LAYOUT + GPU SMOOTHNESS
+   ========================================================================= */
+#crosshair, .leaflet-tile-pane {
+  will-change: transform;
+}
+
+@media (min-width: 768px) {
+  .hud-pill {
+    max-width: 320px;
+    font-size: 14px;
+    padding: 8px 18px;
+  }
+  .btn-icon-hud {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
+  .bottom-dock {
+    max-width: 680px;
+    height: 70px;
+    padding: 8px 10px;
+    gap: 6px;
+  }
+  .dock-btn {
+    font-size: 12px;
+    gap: 3px;
+  }
+  .dock-btn .btn-icon {
+    font-size: 22px;
+  }
+  .dock-btn-primary {
+    height: 58px;
+    font-size: 12.5px;
+  }
+  .modal-content {
+    max-width: 600px;
+  }
+  .analytic-legend {
+    max-width: 270px;
+    padding: 10px 12px;
+  }
+  #drawToolbar, #measureToolbar {
+    bottom: calc(var(--safe-bottom) + 94px);
+    padding: 9px 14px;
+  }
+}
+
+/* Landscape / Split-Screen Height Guard (Zero Right-Rail Overlap on Phones & Tablets) */
+@media (max-height: 560px) {
+  .compass-widget {
+    top: calc(var(--safe-top) + 48px);
+    width: 44px;
+    height: 44px;
+  }
+  .zoom-controls {
+    top: calc(var(--safe-top) + 100px);
+    width: 44px;
+  }
+  .zoom-btn {
+    height: 32px;
+  }
+  .measure-control-rail {
+    top: calc(var(--safe-top) + 48px);
+    right: 68px;
+    width: 44px;
+  }
+  .layers-control-rail {
+    top: calc(var(--safe-top) + 100px);
+    right: 68px;
+    width: 44px;
+  }
+  .navmode-control-rail {
+    top: calc(var(--safe-top) + 152px);
+    right: 68px;
+    width: 44px;
+  }
+  .measure-toggle-btn {
+    height: 40px;
+  }
+  .bottom-dock {
+    height: 54px;
+    bottom: 6px;
+  }
+  #drawToolbar, #measureToolbar {
+    bottom: 68px;
+  }
+}
 </style>
 </head>
 <body>
@@ -3427,6 +3516,11 @@ function initMap() {
     zoomControl: false,
     attributionControl: false,
     preferCanvas: true,
+    zoomAnimation: true,
+    fadeAnimation: true,
+    markerZoomAnimation: true,
+    inertiaDeceleration: 2400,
+    wheelPxPerZoomLevel: 90,
     rotate: true,
     touchRotate: true,
     bearing: 0
@@ -3749,18 +3843,33 @@ function applyAnalyticPixelShader(imgData, layerId) {
     }
   }
 }
+const sharedAnalyticCanvas = document.createElement('canvas');
+sharedAnalyticCanvas.width = 256;
+sharedAnalyticCanvas.height = 256;
+const sharedAnalyticCtx = sharedAnalyticCanvas.getContext('2d', { willReadFrequently: true });
+
+function renderAnalyticDataUrl(imgElement, providerId) {
+  sharedAnalyticCtx.clearRect(0, 0, 256, 256);
+  sharedAnalyticCtx.drawImage(imgElement, 0, 0, 256, 256);
+  const imgData = sharedAnalyticCtx.getImageData(0, 0, 256, 256);
+  applyAnalyticPixelShader(imgData, providerId);
+  sharedAnalyticCtx.putImageData(imgData, 0, 0);
+  return sharedAnalyticCanvas.toDataURL('image/png');
+}
+
 function createOptimizedTileLayer(provider, idx) {
   const isAnalytic = provider.category === 'spectral' || provider.id === 'slope-aspect' || provider.id === 'color-elevation';
   const layer = L.tileLayer(provider.url, {
     ...provider.options,
     minZoom: 2,
     maxZoom: 22,
+    detectRetina: false,
     maxNativeZoom: provider.options?.maxNativeZoom || (provider.options?.maxZoom ? Math.min(provider.options.maxZoom, 19) : 18),
     crossOrigin: 'anonymous',
-    keepBuffer: 8,
+    keepBuffer: 6,
     updateWhenIdle: false,
     updateWhenZooming: true,
-    updateInterval: 30
+    updateInterval: 50
   });
 
   const originalCreateTile = layer.createTile;
@@ -3777,14 +3886,7 @@ function createOptimizedTileLayer(provider, idx) {
       rawImg.crossOrigin = 'anonymous';
       rawImg.onload = () => {
         try {
-          const c = document.createElement('canvas');
-          c.width = 256; c.height = 256;
-          const ctx = c.getContext('2d');
-          ctx.drawImage(rawImg, 0, 0);
-          const imgData = ctx.getImageData(0, 0, 256, 256);
-          applyAnalyticPixelShader(imgData, provider.id);
-          ctx.putImageData(imgData, 0, 0);
-          const dataUrl = c.toDataURL('image/png');
+          const dataUrl = renderAnalyticDataUrl(rawImg, provider.id);
           setMemoryTile(tileKey, dataUrl);
           tile.src = dataUrl;
         } catch (_) {
@@ -3836,19 +3938,12 @@ function createOptimizedTileLayer(provider, idx) {
       return tile;
     }
 
-    // 4. NETWORK TILE WITH ANALYTIC SHADER
+    // 4. NETWORK TILE WITH ANALYTIC SHADER (Reuses shared canvas cleanly)
     if (isAnalytic) {
       const origOnload = tile.onload;
       tile.onload = function(e) {
         try {
-          const c = document.createElement('canvas');
-          c.width = 256; c.height = 256;
-          const ctx = c.getContext('2d');
-          ctx.drawImage(tile, 0, 0);
-          const imgData = ctx.getImageData(0, 0, 256, 256);
-          applyAnalyticPixelShader(imgData, provider.id);
-          ctx.putImageData(imgData, 0, 0);
-          const dataUrl = c.toDataURL('image/png');
+          const dataUrl = renderAnalyticDataUrl(tile, provider.id);
           setMemoryTile(tileKey, dataUrl);
           tile.onload = origOnload;
           tile.src = dataUrl;
@@ -7230,6 +7325,9 @@ let keepScreenAlwaysActive = true;
 
 async function requestAppWakeLock() {
   if (!keepScreenAlwaysActive) return;
+  if (window.NativeWakeLockBridge) {
+    try { window.NativeWakeLockBridge.postMessage('on'); } catch (_) {}
+  }
   try {
     if ('wakeLock' in navigator && !appWakeLock) {
       appWakeLock = await navigator.wakeLock.request('screen');
@@ -7244,6 +7342,9 @@ async function requestAppWakeLock() {
 }
 
 function releaseAppWakeLock() {
+  if (window.NativeWakeLockBridge) {
+    try { window.NativeWakeLockBridge.postMessage('off'); } catch (_) {}
+  }
   if (appWakeLock) {
     try { appWakeLock.release(); } catch (_) {}
     appWakeLock = null;
@@ -8735,6 +8836,27 @@ function executeProjectDeletion(projectId) {
 }
 
 function downloadBlob(blob, filename) {
+  // 1. Android / iOS Native Flutter APK File Save Bridge (Writes directly to Downloads/QuikFieldNotes/)
+  if (window.NativeFileExportBridge && typeof FileReader !== 'undefined') {
+    try {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        try {
+          const resultStr = reader.result || '';
+          const base64 = resultStr.indexOf(',') !== -1 ? resultStr.split(',')[1] : resultStr;
+          window.NativeFileExportBridge.postMessage(JSON.stringify({
+            filename: filename,
+            mimeType: blob.type || 'application/octet-stream',
+            base64: base64
+          }));
+        } catch (_) {}
+      };
+      reader.readAsDataURL(blob);
+      return;
+    } catch (_) {}
+  }
+
+  // 2. Standard Web Browser / iPhone / iPad PWA Download
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
