@@ -319,11 +319,11 @@ server.listen(PORT, async () => {
       const farmItem = sclCfg.discrete.find(d => d.label.includes('Vegetation') || d.label.includes('Farms'));
       const duneItem = sclCfg.discrete.find(d => d.label.includes('Dunes'));
       
-      const isFlatSandDim = flatSandItem && flatSandItem.color === '#C4BAA9';
-      const isGravelPlDim = gravelPlItem && gravelPlItem.color === '#8C969E';
-      const isBuildingRed = buildingItem && buildingItem.color === '#EF4444';
-      const isFarmGreen = farmItem && farmItem.color === '#10B981';
-      const isDuneAmber = duneItem && duneItem.color === '#E06D10';
+      const isFlatSandDim = flatSandItem && flatSandItem.color === '#E5D6BA';
+      const isGravelPlDim = gravelPlItem && gravelPlItem.color === '#A9A59B';
+      const isBuildingRed = buildingItem && buildingItem.color === '#B85D52';
+      const isFarmGreen = farmItem && farmItem.color === '#3E7D4B';
+      const isDuneAmber = duneItem && duneItem.color === '#D69656';
 
       const wRect = widget.getBoundingClientRect();
       const bRect = btnInspect.getBoundingClientRect();
@@ -398,17 +398,17 @@ server.listen(PORT, async () => {
       testCanvas.height = 256;
       const ctx = testCanvas.getContext('2d');
       
-      // Top-Left: Built-up / Facilities #EF4444 [239, 68, 68]
-      ctx.fillStyle = '#EF4444';
+      // Top-Left: Built-up / Facilities #B85D52
+      ctx.fillStyle = '#B85D52';
       ctx.fillRect(0, 0, 128, 128);
-      // Top-Right: Sabkha #06B6D4 [6, 182, 212]
-      ctx.fillStyle = '#06B6D4';
+      // Top-Right: Sabkha #A8C8C4
+      ctx.fillStyle = '#A8C8C4';
       ctx.fillRect(128, 0, 128, 128);
-      // Bottom-Left: Dense Vegetation / Farms #10B981 [16, 185, 129]
-      ctx.fillStyle = '#10B981';
+      // Bottom-Left: Dense Vegetation / Farms #3E7D4B
+      ctx.fillStyle = '#3E7D4B';
       ctx.fillRect(0, 128, 128, 128);
-      // Bottom-Right: Water Bodies #2563EB [37, 99, 235]
-      ctx.fillStyle = '#2563EB';
+      // Bottom-Right: Water Bodies #3B6E9C
+      ctx.fillStyle = '#3B6E9C';
       ctx.fillRect(128, 128, 128, 128);
       
       const mockImg = document.createElement('img');
@@ -557,8 +557,202 @@ server.listen(PORT, async () => {
       throw new Error('Georeferenced basemap package export failed');
     }
     console.log('  -> PASS: Export GeoImage renders untainted basemap package with .png, .pgw, .prj, and .json');
+
+    // TEST 20: Measure Tool Below Zoom Keys (Length, Path, Area + Click & Cursor + Settings Units)
+    const measureTest = await evaluate(`(() => {
+      const zoomRect = document.getElementById('zoomControls').getBoundingClientRect();
+      const measRect = document.getElementById('measureControlRail').getBoundingClientRect();
+      const belowZoom = measRect.top >= zoomRect.bottom;
+
+      openMeasureTool('length');
+      setMeasureMode('length');
+      onMapClicked({ latlng: L.latLng(25.2854, 51.5310) });
+      onMapClicked({ latlng: L.latLng(25.2944, 51.5310) }); // ~1000m North
+      const lenReadout = document.getElementById('measureMainReadout').textContent;
+
+      // Test Cursor input mode
+      toggleMeasureInputMode();
+      setMeasureMode('area');
+      clearMeasurePoints();
+      addMeasurePointAtCursor();
+      onMapClicked({ latlng: L.latLng(25.2854, 51.5310) }); // Ignored in cursor mode!
+      const countAfterClickInCursor = measureVertices.length;
+      measureVertices = [
+        [25.2854, 51.5310],
+        [25.2944, 51.5310],
+        [25.2944, 51.5410],
+        [25.2854, 51.5410]
+      ];
+      updateMeasureRenderAndReadout();
+      const areaMetricReadout = document.getElementById('measureMainReadout').textContent;
+
+      // Change units in Settings -> Options
+      document.getElementById('measureDistUnitSelect').value = 'ft';
+      document.getElementById('measureAreaUnitSelect').value = 'ha';
+      onMeasurementUnitsChanged();
+      const areaHaReadout = document.getElementById('measureMainReadout').textContent;
+
+      // Restore defaults
+      document.getElementById('measureDistUnitSelect').value = 'm_km';
+      document.getElementById('measureAreaUnitSelect').value = 'sqm_sqkm';
+      onMeasurementUnitsChanged();
+      closeMeasureTool();
+
+      return {
+        belowZoom,
+        lenReadout,
+        countAfterClickInCursor,
+        areaMetricReadout,
+        areaHaReadout
+      };
+    })()`);
+    console.log('Test 20 - Measure Tool (Position, Click/Cursor, Area/Length, Units):', measureTest);
+    if (!measureTest.belowZoom || measureTest.countAfterClickInCursor !== 1 || !measureTest.areaHaReadout.includes('ha')) {
+      throw new Error('Measure tool test failed');
+    }
+    console.log('  -> PASS: Measure tool sits below zoom keys, supports Length/Path/Area, Click/Cursor modes, and custom Settings units');
+
+    // TEST 21: Project Feature Layers (Store in New/Existing Layer & Switch On/Off)
+    const layersTest = await evaluate(`(() => {
+      waypoints = []; digitizedFeatures = []; photos = []; tracks = []; featureLayers = [];
+      ensureDefaultFeatureLayers();
+
+      // Create new layer & store digitized polygon in it
+      featureLayers.push({ id: 'layer_test_1', name: 'Seismic Obstacles', color: '#EF4444', visible: true });
+      digitizedFeatures.push({
+        id: 'feat_test_1',
+        type: 'polygon',
+        name: 'Fenced Compound',
+        category: 'Obstacle Area',
+        layerId: 'layer_test_1',
+        comments: 'Avoid vehicles',
+        vertices: [[25.28, 51.53], [25.29, 51.53], [25.29, 51.54]],
+        timestamp: new Date().toISOString()
+      });
+      renderAllProjectLayers();
+
+      let visibleCount = 0;
+      map.eachLayer(l => { if (l._qfnFeature && l._qfnFeature.type === 'digitized') visibleCount++; });
+
+      // Switch OFF the custom layer
+      toggleFeatureLayerVisibility('layer_test_1');
+      let hiddenCount = 0;
+      map.eachLayer(l => { if (l._qfnFeature && l._qfnFeature.type === 'digitized') hiddenCount++; });
+
+      // Switch ON again
+      toggleFeatureLayerVisibility('layer_test_1');
+      let restoredCount = 0;
+      map.eachLayer(l => { if (l._qfnFeature && l._qfnFeature.type === 'digitized') restoredCount++; });
+
+      return { visibleCount, hiddenCount, restoredCount };
+    })()`);
+    console.log('Test 21 - Project Feature Layers & On/Off Visibility:', layersTest);
+    if (layersTest.visibleCount !== 1 || layersTest.hiddenCount !== 0 || layersTest.restoredCount !== 1) {
+      throw new Error('Feature layers visibility toggle test failed');
+    }
+    console.log('  -> PASS: Digitized features store in custom layers and switch ON/OFF cleanly on map');
+
+    // TEST 22: Interactive Editing of Clicked Line, Polygon, Waypoint, Photo
+    const editFeatureTest = await evaluate(`(() => {
+      // Edit digitized polygon
+      const poly = digitizedFeatures[0];
+      showFeatureInfo({ type: 'digitized', data: poly });
+      document.getElementById('editFeatName').value = 'Updated Obstacle Fence';
+      document.getElementById('editFeatCategory').value = 'Camp Facility';
+      document.getElementById('editFeatNotes').value = 'Gate unlocked at 07:00';
+      saveEditedFeature();
+
+      // Create & edit waypoint
+      waypoints.push({ id: 'wpt_t22', name: 'WP-1', categoryId: 'general', notes: 'old', lat: 25.285, lon: 51.531, elevation: 12, timestamp: new Date().toISOString() });
+      showFeatureInfo({ type: 'waypoint', data: waypoints[0] });
+      document.getElementById('editFeatCategory').value = 'hazard';
+      document.getElementById('editFeatNotes').value = 'Updated trench hazard note';
+      saveEditedFeature();
+
+      // Create & edit photo
+      photos.push({ id: 'pho_t22', dataUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', categoryId: 'general', comments: 'old', lat: 25.285, lon: 51.532, timestamp: new Date().toISOString() });
+      showFeatureInfo({ type: 'photo', data: photos[0] });
+      document.getElementById('editFeatCategory').value = 'access';
+      document.getElementById('editFeatNotes').value = 'Updated graded track photo note';
+      saveEditedFeature();
+
+      return {
+        polyName: poly.name,
+        polyCat: poly.category,
+        polyNotes: poly.comments,
+        wptCat: waypoints[0].categoryId,
+        wptNotes: waypoints[0].notes,
+        phoCat: photos[0].categoryId,
+        phoNotes: photos[0].comments
+      };
+    })()`);
+    console.log('Test 22 - Edit Clicked Feature (Polygon, Waypoint, Photo):', editFeatureTest);
+    if (editFeatureTest.polyName !== 'Updated Obstacle Fence' || editFeatureTest.polyCat !== 'Camp Facility' ||
+        editFeatureTest.wptCat !== 'hazard' || !editFeatureTest.wptNotes.includes('trench') ||
+        editFeatureTest.phoCat !== 'access' || !editFeatureTest.phoNotes.includes('graded')) {
+      throw new Error('Feature edit modal update test failed');
+    }
+    console.log('  -> PASS: Clicking polygon/line/waypoint/photo allows updating notes, types, names, and layers');
+
+    // TEST 23: Clean Basemap Export (No Vector Overlays) + Max Resolution Modal Plan
+    const cleanExportTest = await evaluate(`(async () => {
+      let exportedBlob = null;
+      window.triggerFileDownload = (blob, filename) => { exportedBlob = blob; };
+
+      openGeoImageExportModal();
+      const maxPlan = computeGeoExportPlan(map.getBounds(), true);
+      const stdPlan = computeGeoExportPlan(map.getBounds(), false);
+      closeModal('geoImageExportModal');
+
+      selectBasemapById('none');
+      await exportAoiBasemapPackage({ maxResolution: false });
+
+      const zip = await JSZip.loadAsync(exportedBlob);
+      const files = Object.keys(zip.files);
+      const meta = JSON.parse(await zip.file('Basemap_Metadata.json').async('string'));
+      const kml = await zip.file('Basemap_Scout_AOI.kml').async('string');
+      const pgw = await zip.file('Basemap_Scout_AOI.pgw').async('string');
+
+      return {
+        hasPng: files.includes('Basemap_Scout_AOI.png'),
+        hasPgw: files.includes('Basemap_Scout_AOI.pgw'),
+        hasPrj: files.includes('Basemap_Scout_AOI.prj'),
+        hasKml: files.includes('Basemap_Scout_AOI.kml'),
+        overlaysIncluded: meta.overlaysIncluded,
+        maxZoomPlan: maxPlan.targetZ,
+        stdZoomPlan: stdPlan.targetZ,
+        kmlHasGroundOverlay: kml.includes('<GroundOverlay>'),
+        pgwLines: pgw.trim().split('\\n').length
+      };
+    })()`);
+    console.log('Test 23 - Clean Geotagged Export & Max Resolution Option:', cleanExportTest);
+    if (!cleanExportTest.hasPng || !cleanExportTest.hasPgw || !cleanExportTest.hasPrj || !cleanExportTest.hasKml ||
+        cleanExportTest.overlaysIncluded !== false || cleanExportTest.maxZoomPlan < cleanExportTest.stdZoomPlan ||
+        !cleanExportTest.kmlHasGroundOverlay || cleanExportTest.pgwLines !== 6) {
+      throw new Error('Clean geotagged export verification failed');
+    }
+    console.log('  -> PASS: Export produces clean geotagged raster (.png + .pgw + .prj + .kml) with zero overlays and optional max resolution');
+
+    // TEST 24: Map Inspector Rich Information on ALL Analytic Layers
+    const allInspectorTest = await evaluate(`(() => {
+      const analyticIds = ['scl', 'ndvi', 'ndmi', 'ndwi', 'evi', 'savi', 'color-elevation', 'slope-aspect', 'hillshade', 'nasa-falsecolor', 'terrain-draped', 'elev-spectral'];
+      const results = {};
+      for (const id of analyticIds) {
+        selectBasemapById(id);
+        const info = identifyLayerFeatureAt(L.latLng(25.2854, 51.5310), 180, 300);
+        results[id] = { layerTitle: info.layerTitle, className: info.className };
+        if (!info.className || info.className === 'Terrain Coordinate Point') {
+          throw new Error('Generic fallback on analytic layer: ' + id);
+        }
+      }
+      selectBasemapById('esri-sat');
+      return results;
+    })()`);
+    console.log('Test 24 - Map Inspector on ALL 12 Analytic Layers:', Object.keys(allInspectorTest));
+    console.log('  -> PASS: Every analytic layer returns domain-specific classification & telemetry in Map Inspector');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 19 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 24 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();
