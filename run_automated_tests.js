@@ -1047,8 +1047,60 @@ server.listen(PORT, async () => {
     }
     console.log('  -> PASS: Circle tool sets center on cursor, supports moved cursor radius AND typed Settings-unit radius, saving smooth 64-pt rings');
 
+    // TEST 33: iPad & Android Tablet Portrait / Landscape Responsive Layout + Native APK Bridges
+    await sendCommand('Emulation.setDeviceMetricsOverride', {
+      width: 768,
+      height: 1024,
+      deviceScaleFactor: 2,
+      mobile: true
+    });
+    const tabletPortrait = await evaluate(`(() => {
+      if (map) map.invalidateSize({ animate: false });
+      const dockRect = document.querySelector('.bottom-dock').getBoundingClientRect();
+      const mapRect = document.getElementById('map').getBoundingClientRect();
+      const dotRect = document.querySelector('.crosshair-center-dot').getBoundingClientRect();
+      const dx = Math.abs((dotRect.left + dotRect.width / 2) - (mapRect.left + mapRect.width / 2));
+      const dy = Math.abs((dotRect.top + dotRect.height / 2) - (mapRect.top + mapRect.height / 2));
+      return {
+        dockWidth: dockRect.width,
+        crosshairDx: dx,
+        crosshairDy: dy,
+        hasSharedCanvas: typeof sharedAnalyticCanvas !== 'undefined' && typeof renderAnalyticDataUrl === 'function'
+      };
+    })()`);
+
+    await sendCommand('Emulation.setDeviceMetricsOverride', {
+      width: 1024,
+      height: 500,
+      deviceScaleFactor: 2,
+      mobile: true
+    });
+    const landscapeCheck = await evaluate(`(() => {
+      if (map) map.invalidateSize({ animate: false });
+      const dockRect = document.querySelector('.bottom-dock').getBoundingClientRect();
+      const navRect = document.getElementById('navModeControlRail').getBoundingClientRect();
+      const zoomRect = document.getElementById('zoomControls').getBoundingClientRect();
+      const noDockOverlap = navRect.bottom <= dockRect.top + 2;
+      const cascadedLeftOfZoom = navRect.right <= zoomRect.left + 2;
+      return { navBottom: navRect.bottom, dockTop: dockRect.top, noDockOverlap, cascadedLeftOfZoom };
+    })()`);
+
+    await sendCommand('Emulation.setDeviceMetricsOverride', {
+      width: 360,
+      height: 740,
+      deviceScaleFactor: 3,
+      mobile: true
+    });
+
+    console.log('Test 33 - iPad & Android Tablet Responsive Layout & Smooth Shader Engine:', { tabletPortrait, landscapeCheck });
+    if (tabletPortrait.dockWidth < 560 || tabletPortrait.crosshairDx > 1.5 || tabletPortrait.crosshairDy > 1.5 ||
+        !tabletPortrait.hasSharedCanvas || !landscapeCheck.noDockOverlap || !landscapeCheck.cascadedLeftOfZoom) {
+      throw new Error('Tablet portrait / landscape responsive layout check failed');
+    }
+    console.log('  -> PASS: iPad & Android Tablet layouts expand cleanly, landscape right-rail never overlaps dock, and shared shader canvas active');
+
     console.log('\n========================================');
-    console.log('🎉 ALL 32 COMPREHENSIVE TESTS PASSED! (100%)');
+    console.log('🎉 ALL 33 COMPREHENSIVE TESTS PASSED! (100%)');
     console.log('========================================\n');
 
     ws.close();

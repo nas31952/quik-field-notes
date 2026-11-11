@@ -1,12 +1,13 @@
-/// Quik Field Notes — Mobile Field Companion (Android & iOS)
+/// Quik Field Notes — Mobile Field Companion (Android, iOS, Tablets & iPad)
 /// Powered by Nasrullah Khan
 /// Features: Full-Screen GIS Canvas, High-Speed GNSS Tracking,
 /// Free Two-Finger Touch Rotation & True North Reset,
 /// Local Map Overlays (.shp zip, .gpx, .kml, .geojson) with Opacity Sliders,
-/// Digitizing Tool (Polygons/Lines with Field Notes),
-/// Medium-Sized High-Visibility Buttons for Field Use,
-/// Multi-Accent Speech-to-Text Engine, and Standardized Multi-Format Export.
+/// Digitizing Tool (Polygons/Lines/Circles with Field Notes),
+/// Multi-Project Layer Management, Measure Tool, Clean Geotagged Export,
+/// Native Android Downloads Export & Keep-Screen-On Bridges.
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -28,6 +29,7 @@ class QuikFieldNotesApp extends StatefulWidget {
 }
 
 class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
+  static const MethodChannel _nativeChannel = MethodChannel('com.quikfieldnotes.app/native');
   WebViewController? _controller;
   bool _isLoading = true;
   final stt.SpeechToText _speech = stt.SpeechToText();
@@ -50,9 +52,12 @@ class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
       ].request();
     } catch (_) {}
 
+    // Keep screen active by default while scouting
+    _handleNativeWakeLock(true);
+
     final WebViewController controller = WebViewController();
 
-    // Android WebViewController configuration for high-precision GNSS, microphone and camera
+    // Android WebViewController configuration for high-precision GNSS, microphone, camera & local files
     if (controller.platform is AndroidWebViewController) {
       final androidController = controller.platform as AndroidWebViewController;
       androidController.setGeolocationPermissionsPromptCallbacks(
@@ -76,6 +81,18 @@ class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
           _handleSpeechCommand(message.message);
         },
       )
+      ..addJavaScriptChannel(
+        'NativeFileExportBridge',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleNativeFileExport(message.message);
+        },
+      )
+      ..addJavaScriptChannel(
+        'NativeWakeLockBridge',
+        onMessageReceived: (JavaScriptMessage message) {
+          _handleNativeWakeLock(message.message == 'on');
+        },
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (String url) {
@@ -93,6 +110,31 @@ class _QuikFieldNotesAppState extends State<QuikFieldNotesApp> {
       setState(() {
         _controller = controller;
       });
+    }
+  }
+
+  Future<void> _handleNativeWakeLock(bool enabled) async {
+    try {
+      await _nativeChannel.invokeMethod('setKeepScreenOn', {'enabled': enabled});
+    } catch (_) {}
+  }
+
+  Future<void> _handleNativeFileExport(String jsonPayload) async {
+    try {
+      final Map<String, dynamic> data = jsonDecode(jsonPayload) as Map<String, dynamic>;
+      final String filename = (data['filename'] ?? 'export.dat').toString();
+      final String mimeType = (data['mimeType'] ?? 'application/octet-stream').toString();
+      final String base64Data = (data['base64'] ?? '').toString();
+      final String? savedPath = await _nativeChannel.invokeMethod<String>('saveFileToDownloads', {
+        'filename': filename,
+        'mimeType': mimeType,
+        'base64Data': base64Data,
+      });
+      final safeLabel = (savedPath ?? filename).replaceAll("'", "\\'");
+      _controller?.runJavaScript("if(window.showToast) window.showToast('✅ Saved: $safeLabel');");
+    } catch (e) {
+      final errMsg = e.toString().replaceAll("'", "\\'");
+      _controller?.runJavaScript("if(window.showToast) window.showToast('File save error: $errMsg');");
     }
   }
 

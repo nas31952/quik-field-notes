@@ -1,5 +1,5 @@
-// Quik Field Notes - Offline Service Worker (v2.3.0)
-const CACHE_NAME = 'quik-field-notes-v2.3.0';
+// Quik Field Notes - Offline Service Worker (v2.4.0)
+const CACHE_NAME = 'quik-field-notes-v2.4.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
